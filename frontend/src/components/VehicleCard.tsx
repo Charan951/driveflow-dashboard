@@ -10,6 +10,7 @@ interface VehicleCardProps {
   model: string;
   licensePlate: string;
   variant?: string;
+  fuelType?: string;
   image?: string;
   nextService?: string;
   status?: string;
@@ -24,6 +25,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   model,
   licensePlate,
   variant,
+  fuelType,
   image,
   nextService,
   status = 'Idle',
@@ -57,7 +59,14 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           <h4 className="font-semibold text-foreground truncate">
             {make} {model} {variant && <span className="text-muted-foreground font-normal">• {variant}</span>}
           </h4>
-          <p className="text-sm text-muted-foreground">{licensePlate}</p>
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            {licensePlate}
+            {fuelType && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                {fuelType}
+              </span>
+            )}
+          </p>
         </div>
         <ChevronRight className="w-5 h-5 text-muted-foreground" />
       </motion.div>
@@ -121,6 +130,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         
         <div className="mt-2.5 flex items-center gap-2">
           <span className="text-[11px] font-mono text-muted-foreground/60 uppercase tracking-wider">{licensePlate}</span>
+          {fuelType && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+              {fuelType}
+            </span>
+          )}
         </div>
 
         {nextService && (

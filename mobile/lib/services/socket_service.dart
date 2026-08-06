@@ -18,6 +18,12 @@ class SocketService extends ValueNotifier<String?> {
   User? _currentUser;
   final Map<String, List<Function(dynamic)>> _pendingHandlers = {};
 
+  /// Rooms explicitly joined via [joinRoom] (e.g. `ticket_<id>`,
+  /// `booking_<id>` for chat) — replayed on every reconnect below, since a
+  /// dropped/resumed connection otherwise loses that membership silently
+  /// and the screen stops receiving events for it until it's reopened.
+  final Set<String> _activeRooms = {};
+
   bool get isConnected => _isConnected;
 
   TrackingProvider? get trackingProvider => _trackingProvider;
@@ -27,10 +33,13 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   Future<void> init([User? user]) async {
-    // If user is provided, update our local reference
+    // If user is provided, update our local reference. `disconnect()` resets
+    // `_currentUser` to null, so it must run *before* we assign the new user
+    // — otherwise the trackingProvider.init() call below (and the room-join
+    // fallback in onConnect) would silently see a null user on every login.
     if (user != null) {
-      _currentUser = user;
       disconnect();
+      _currentUser = user;
     } else if (_socket != null) {
       // If socket already exists but got disconnected (e.g. app background/resume),
       // force reconnect so listeners keep receiving live updates.
@@ -87,6 +96,12 @@ class SocketService extends ValueNotifier<String?> {
 
       if (_trackingProvider?.activeBooking != null) {
         joinRoom('booking_${_trackingProvider!.activeBooking!.id}');
+      }
+
+      // Rejoin any screen-specific rooms (ticket chat, booking chat, etc.)
+      // that were active before this (re)connect.
+      for (final room in _activeRooms) {
+        _socket?.emit('join', room);
       }
       notifyListeners();
     });
@@ -247,10 +262,12 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   void joinRoom(String room) {
+    _activeRooms.add(room);
     emit('join', room);
   }
 
   void leaveRoom(String room) {
+    _activeRooms.remove(room);
     emit('leave', room);
   }
 
@@ -260,5 +277,6 @@ class SocketService extends ValueNotifier<String?> {
     _socket = null;
     _isConnected = false;
     _currentUser = null;
+    _activeRooms.clear();
   }
 }

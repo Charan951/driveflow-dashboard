@@ -33,11 +33,11 @@ class NavigationProvider with ChangeNotifier {
 
   // Map route names to tab indices
   static const Map<String, int> routeToTabIndex = {
-    '/services': 0,
-    '/essentials': 1,
+    '/car-wash': 0,
+    '/services': 1,
     '/customer': 2,
-    '/car-wash': 3,
-    '/tires': 4,
+    '/tires': 3,
+    '/battery': 4,
   };
 
   void navigateTo(String routeName, {Object? arguments}) {

@@ -159,6 +159,35 @@ export const updateTicket = async (req, res) => {
   }
 };
 
+// @desc    Mark a ticket as read by admin/staff (clears the unread badge)
+// @route   PUT /api/tickets/:id/read
+// @access  Private/Admin
+export const markTicketRead = async (req, res) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket not found' });
+    }
+
+    ticket.readByAdmin = new Date();
+    await ticket.save();
+
+    const populatedTicket = await Ticket.findById(ticket._id).populate('messages.sender', 'name role');
+
+    emitEntitySync('ticket', 'updated', populatedTicket);
+    try {
+      const io = getIO();
+      io.to('admin').emit('ticketUpdated', populatedTicket);
+    } catch (error) {
+      // Ignore
+    }
+
+    res.json(populatedTicket);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Add message to ticket
 // @route   POST /api/tickets/:id/messages
 // @access  Private
@@ -193,6 +222,8 @@ export const addMessage = async (req, res) => {
       // Auto-update status if admin replies
       if (req.user.role === 'admin' || req.user.role === 'staff') {
           if (ticket.status === 'Open') ticket.status = 'In Progress';
+          // Replying implies they've seen the conversation up to now.
+          ticket.readByAdmin = new Date();
       }
 
       await ticket.save();

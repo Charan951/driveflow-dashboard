@@ -21,6 +21,7 @@ import '../widgets/customer_drawer.dart';
 import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../utils/location_helper.dart';
+import '../services/vehicle_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -31,12 +32,35 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   Color get _accentPurple => const Color(0xFF3B82F6);
-  Color get _accentBlue => const Color(0xFF22D3EE);
+
+  int? _vehicleCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicleCount();
+  }
+
+  Future<void> _loadVehicleCount({bool forceRefresh = false}) async {
+    try {
+      final vehicles = await VehicleService().listMyVehicles(
+        forceRefresh: forceRefresh,
+      );
+      if (mounted) {
+        setState(() => _vehicleCount = vehicles.length);
+      }
+    } catch (_) {
+      // Leave count as-is (loading/unknown) on failure.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.mode == ThemeMode.dark;
+    // Resolve against the *effective* theme, not just the stored preference —
+    // when the preference is ThemeMode.system this reflects the device's
+    // current brightness and updates automatically if it changes.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
     final theme = Theme.of(context);
@@ -46,145 +70,161 @@ class _ProfilePageState extends State<ProfilePage> {
       onSync: () {
         if (!mounted) return;
         context.read<AuthProvider>().refreshUser();
+        _loadVehicleCount(forceRefresh: true);
       },
       child: PopScope(
-      canPop: Navigator.of(context).canPop(),
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/customer', (route) => false);
-      },
-      child: Scaffold(
-        backgroundColor: isDark
-            ? AppColors.backgroundPrimary
-            : AppColors.backgroundPrimaryLight,
-        drawer: const CustomerDrawer(currentRouteName: '/profile'),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          leading: Builder(
-            builder: (context) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.28)
-                        : Colors.black.withValues(alpha: 0.16),
-                    width: 1.0,
+        canPop: Navigator.of(context).canPop(),
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/customer', (route) => false);
+        },
+        child: Scaffold(
+          backgroundColor: isDark
+              ? AppColors.backgroundPrimary
+              : AppColors.backgroundPrimaryLight,
+          drawer: const CustomerDrawer(currentRouteName: '/profile'),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            leading: Builder(
+              builder: (context) => Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
                   ),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.menu,
-                    size: 20,
-                    color: isDark ? Colors.white : Colors.black,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.menu,
+                      size: 20,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    tooltip: 'Menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
             ),
-          ),
-          title: Text(
-            'Profile',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w800,
+            title: Text(
+              'Profile',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ),
-        body: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.edit_note_rounded,
+                      size: 20,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    tooltip: 'Edit Profile',
+                    onPressed: () => _editProfile(context, user),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    RepaintBoundary(
-                      child: _buildProfileHeader(context, user, isDark),
-                    ),
-                    const SizedBox(height: 28),
-                    RepaintBoundary(
-                      child: _buildStatsRow(context, user, isDark),
-                    ),
-                    const SizedBox(height: 32),
-                    _SectionHeader(
-                      title: 'Saved Addresses',
-                      icon: Icons.map_rounded,
-                      onAdd: () => _addAddress(context, user),
-                    ),
-                    const SizedBox(height: 12),
-                    RepaintBoundary(
-                      child: Column(
-                        children: [
-                          if (user?.addresses.isEmpty ?? true)
-                            const _EmptyState(
-                              icon: Icons.location_off_rounded,
-                              message: 'No saved addresses yet',
-                            )
-                          else
-                            ...user!.addresses.map(
-                              (a) => _AddressCard(
-                                address: a,
-                                onDelete: () =>
-                                    _deleteAddress(context, user, a),
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      RepaintBoundary(
+                        child: _buildProfileHeader(context, user, isDark),
+                      ),
+                      const SizedBox(height: 28),
+                      RepaintBoundary(
+                        child: _buildStatsRow(context, user, isDark),
+                      ),
+                      const SizedBox(height: 32),
+                      if (user?.addresses.isNotEmpty ?? false) ...[
+                        _SectionHeader(
+                          title: 'Saved Addresses',
+                          icon: Icons.map_rounded,
+                          onAdd: () => _addAddress(context, user),
+                        ),
+                        const SizedBox(height: 12),
+                        RepaintBoundary(
+                          child: Column(
+                            children: [
+                              ...user!.addresses.map(
+                                (a) => _AddressCard(
+                                  address: a,
+                                  onDelete: () =>
+                                      _deleteAddress(context, user, a),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-                    Text(
-                      'Settings & Preferences',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    RepaintBoundary(
-                      child: _buildSettingsItem(
-                        context: context,
-                        isDark: isDark,
-                        icon: isDark
-                            ? Icons.dark_mode_rounded
-                            : Icons.light_mode_rounded,
-                        title: 'Appearance',
-                        subtitle: isDark ? 'Dark Mode' : 'Light Mode',
-                        trailing: Switch.adaptive(
-                          value: isDark,
-                          activeThumbColor: _accentPurple,
-                          activeTrackColor: _accentPurple.withValues(
-                            alpha: 0.45,
+                            ],
                           ),
-                          onChanged: (_) => themeProvider.toggleTheme(),
+                        ),
+                      ] else
+                        RepaintBoundary(
+                          child: _AddAddressCard(
+                            isDark: isDark,
+                            onTap: () => _addAddress(context, user),
+                          ),
+                        ),
+
+                      const SizedBox(height: 32),
+                      Text(
+                        'Settings & Preferences',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildLogoutButton(context, isDark),
-                    const SizedBox(height: 40),
-                  ],
+                      const SizedBox(height: 12),
+                      RepaintBoundary(
+                        child: _buildAppearanceSettingsItem(
+                          context: context,
+                          isDark: isDark,
+                          themeProvider: themeProvider,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildLogoutButton(context, isDark),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -197,136 +237,79 @@ class _ProfilePageState extends State<ProfilePage> {
             : AppColors.backgroundSecondaryLight,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+          color: isDark
+              ? AppColors.borderColor
+              : Colors.black.withValues(alpha: 0.08),
+          width: isDark ? 1 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  _accentPurple,
-                  _accentBlue,
-                  _accentPurple.withValues(alpha: 0.5),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _accentPurple.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 35,
-              backgroundColor: isDark ? Colors.black : Colors.white,
-              child: user?.avatar != null
-                  ? ClipOval(child: Image.network(user!.avatar!))
-                  : Text(
-                      (user?.name.isNotEmpty ?? false)
-                          ? user!.name[0].toUpperCase()
-                          : 'U',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
+          Text(
+            user?.name ?? 'Guest User',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user?.name ?? 'Guest User',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  user?.email ?? 'Sign in to sync data',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.white60 : Colors.black54,
-                  ),
-                ),
-                if (user?.role != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          _accentPurple.withValues(alpha: 0.15),
-                          _accentBlue.withValues(alpha: 0.05),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _accentPurple.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Text(
-                      user!.role!.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        color: _accentPurple,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          const SizedBox(height: 16),
+          _buildProfileInfoRow(
+            context,
+            icon: Icons.email_outlined,
+            label: user?.email ?? 'Sign in to sync data',
+            isDark: isDark,
           ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _editProfile(context, user),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (isDark ? Colors.white : Colors.black).withValues(
-                    alpha: 0.04,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: (isDark ? Colors.white : Colors.black).withValues(
-                      alpha: 0.08,
-                    ),
-                  ),
-                ),
-                child: Icon(
-                  Icons.edit_note_rounded,
-                  color: isDark ? Colors.white70 : Colors.black87,
-                  size: 26,
-                ),
-              ),
+          if (user?.phone != null && user!.phone!.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildProfileInfoRow(
+              context,
+              icon: Icons.phone_outlined,
+              label: user.phone!,
+              isDark: isDark,
             ),
-          ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildProfileInfoRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool isDark,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: _accentPurple.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 15, color: _accentPurple),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: isDark ? Colors.white70 : Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
@@ -345,7 +328,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _buildStatItem(
           context,
           'Vehicles',
-          '3', // Mocked for now
+          _vehicleCount?.toString() ?? '—',
           Icons.directions_car_rounded,
           isDark,
         ),
@@ -369,11 +352,13 @@ class _ProfilePageState extends State<ProfilePage> {
               : AppColors.backgroundSecondaryLight,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+            color: isDark
+                ? AppColors.borderColor
+                : Colors.black.withValues(alpha: 0.08),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.04),
+              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.07),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -413,14 +398,17 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildSettingsItem({
+  Widget _buildAppearanceSettingsItem({
     required BuildContext context,
     required bool isDark,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Widget trailing,
+    required ThemeProvider themeProvider,
   }) {
+    final subtitle = switch (themeProvider.mode) {
+      ThemeMode.light => 'Light Mode',
+      ThemeMode.dark => 'Dark Mode',
+      ThemeMode.system => 'System Default',
+    };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -429,58 +417,92 @@ class _ProfilePageState extends State<ProfilePage> {
             ? AppColors.backgroundSecondary
             : AppColors.backgroundSecondaryLight,
         border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+          color: isDark
+              ? AppColors.borderColor
+              : Colors.black.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.06),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: (isDark ? Colors.white : Colors.black).withValues(
-                alpha: 0.06,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.06,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: isDark ? Colors.white : Colors.black,
+                  size: 22,
+                ),
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              icon,
-              color: isDark ? Colors.white : Colors.black,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    letterSpacing: -0.2,
-                  ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Appearance',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white38 : Colors.black38,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white38 : Colors.black38,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          trailing,
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _ThemeOptionChip(
+                label: 'Light',
+                icon: Icons.light_mode_rounded,
+                isDark: isDark,
+                selected: themeProvider.mode == ThemeMode.light,
+                onTap: () => themeProvider.setThemeMode(ThemeMode.light),
+              ),
+              const SizedBox(width: 8),
+              _ThemeOptionChip(
+                label: 'Dark',
+                icon: Icons.dark_mode_rounded,
+                isDark: isDark,
+                selected: themeProvider.mode == ThemeMode.dark,
+                onTap: () => themeProvider.setThemeMode(ThemeMode.dark),
+              ),
+              const SizedBox(width: 8),
+              _ThemeOptionChip(
+                label: 'System',
+                icon: Icons.settings_suggest_rounded,
+                isDark: isDark,
+                selected: themeProvider.mode == ThemeMode.system,
+                onTap: () => themeProvider.setThemeMode(ThemeMode.system),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -612,9 +634,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       final msg = e is ApiException
                           ? e.message
                           : e.toString().replaceFirst('Exception: ', '');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(msg)),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(msg)));
                     }
                   }
                 },
@@ -683,7 +705,9 @@ class _ProfilePageState extends State<ProfilePage> {
             if (locating) return;
             setModalState(() => locating = true);
             try {
-              final granted = await LocationHelper.ensureLocationAccess(context);
+              final granted = await LocationHelper.ensureLocationAccess(
+                context,
+              );
               if (!granted) {
                 return;
               }
@@ -850,7 +874,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             if (context.mounted) {
                               final msg = e is ApiException
                                   ? e.message
-                                  : e.toString().replaceFirst('Exception: ', '');
+                                  : e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
                               messenger.showSnackBar(
                                 SnackBar(content: Text(msg)),
                               );
@@ -883,7 +910,9 @@ class _ProfilePageState extends State<ProfilePage> {
         final msg = e is ApiException
             ? e.message
             : e.toString().replaceFirst('Exception: ', '');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }
@@ -1017,11 +1046,13 @@ class _AddressCard extends StatelessWidget {
             : AppColors.backgroundSecondaryLight,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+          color: isDark
+              ? AppColors.borderColor
+              : Colors.black.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -1102,60 +1133,140 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _ThemeOptionChip extends StatelessWidget {
+  final String label;
   final IconData icon;
-  final String message;
+  final bool isDark;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _EmptyState({required this.icon, required this.message});
+  const _ThemeOptionChip({
+    required this.label,
+    required this.icon,
+    required this.isDark,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : AppColors.borderColorLight,
+    const accent = AppColors.primaryBlue;
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent.withValues(alpha: 0.14)
+                  : (isDark ? Colors.white : Colors.black).withValues(
+                      alpha: 0.04,
+                    ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? accent.withValues(alpha: 0.5)
+                    : Colors.transparent,
+                width: 1.2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected
+                      ? accent
+                      : (isDark ? Colors.white54 : Colors.black45),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: selected
+                        ? accent
+                        : (isDark ? Colors.white54 : Colors.black45),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  (isDark ? Colors.white : Colors.black).withValues(
-                    alpha: 0.05,
-                  ),
-                  (isDark ? Colors.white : Colors.black).withValues(
-                    alpha: 0.02,
-                  ),
-                ],
+    );
+  }
+}
+
+class _AddAddressCard extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _AddAddressCard({required this.isDark, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+          decoration: BoxDecoration(
+            color: (isDark ? Colors.white : Colors.black).withValues(
+              alpha: 0.02,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderColor
+                  : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add_location_alt_outlined,
+                  size: 28,
+                  color: AppColors.primaryBlue,
+                ),
               ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 48,
-              color: isDark ? Colors.white12 : Colors.black12,
-            ),
+              const SizedBox(height: 14),
+              Text(
+                'No saved addresses yet',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tap to add your first address',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.primaryBlue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isDark ? Colors.white38 : Colors.black38,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

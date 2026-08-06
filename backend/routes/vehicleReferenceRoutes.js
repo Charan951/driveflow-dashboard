@@ -221,8 +221,10 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
     // Load existing data from S3
     const existingData = await getVehicleDataFromS3();
     
-    // Create a unique key for each vehicle: brand_name | model | brand_model
-    const getUniqueKey = (item) => `${item.brand_name.toLowerCase()}|${item.model.toLowerCase()}|${item.brand_model.toLowerCase()}`;
+    // Create a unique key for each vehicle: brand_name | model | brand_model |
+    // fuel_type — the same variant name can exist once per fuel type (e.g.
+    // a "Luxury Edition" offered in both Petrol and Diesel).
+    const getUniqueKey = (item) => `${item.brand_name.toLowerCase()}|${item.model.toLowerCase()}|${item.brand_model.toLowerCase()}|${(item.fuel_type || '').toLowerCase()}`;
     
     const dataMap = new Map(existingData.map(item => [getUniqueKey(item), item]));
 
@@ -399,8 +401,8 @@ router.get('/', asyncHandler(async (req, res) => {
 // @route   GET /api/vehicle-reference/search
 // @access  Public/Private
 router.get('/search', asyncHandler(async (req, res) => {
-  const { brand_name, model, variant } = req.query;
-  
+  const { brand_name, model, variant, fuel_type } = req.query;
+
   if (!brand_name || !model) {
     return res.status(400).json({ message: 'Brand and Model are required' });
   }
@@ -409,6 +411,7 @@ router.get('/search', asyncHandler(async (req, res) => {
   const fullModel = model.trim().toLowerCase();
   const cleanModel = model.replace(/\[.*\]/g, '').trim().toLowerCase();
   const cleanVariant = variant ? variant.trim().toLowerCase() : '';
+  const cleanFuelType = fuel_type ? fuel_type.trim().toLowerCase() : '';
 
   const allData = await getVehicleDataFromS3();
 
@@ -423,11 +426,26 @@ router.get('/search', asyncHandler(async (req, res) => {
     return value.toLowerCase() === search;
   };
 
+  const fuelTypeMatches = (item) => (item.fuel_type || '').toLowerCase() === cleanFuelType;
+
+  // Same brand/model/variant can now have separate rows per fuel type (e.g.
+  // Petrol vs Diesel pricing). When the caller knows the vehicle's fuel
+  // type, prefer a row that matches it; otherwise fall back to the old
+  // fuel-type-agnostic behavior (first match) so vehicles added before
+  // fuel type existed, or with no fuel-type-specific row, still resolve.
+  const findWithFuelTypePreference = (matchFn) => {
+    if (cleanFuelType) {
+      const fuelMatch = allData.find((item) => matchFn(item) && fuelTypeMatches(item));
+      if (fuelMatch) return fuelMatch;
+    }
+    return allData.find(matchFn);
+  };
+
   // 1. Try exact match for Brand, Model (full), and Variant
   if (cleanVariant) {
-    const exactMatch = allData.find(item => 
-      exactMatches(item.brand_name, cleanBrand) && 
-      (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) && 
+    const exactMatch = findWithFuelTypePreference((item) =>
+      exactMatches(item.brand_name, cleanBrand) &&
+      (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) &&
       exactMatches(item.brand_model, cleanVariant)
     );
     if (exactMatch) {
@@ -439,8 +457,8 @@ router.get('/search', asyncHandler(async (req, res) => {
   }
 
   // 3. If no variant provided or no exact match, try exact model fallback
-  const exactModelFallback = allData.find(item => 
-    exactMatches(item.brand_name, cleanBrand) && 
+  const exactModelFallback = findWithFuelTypePreference((item) =>
+    exactMatches(item.brand_name, cleanBrand) &&
     (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel))
   );
   if (exactModelFallback) {
@@ -448,8 +466,8 @@ router.get('/search', asyncHandler(async (req, res) => {
   }
 
   // 4. Broader search: exact brand and partial model (only if no exact match was found)
-  const fallbackData = allData.find(item => 
-    exactMatches(item.brand_name, cleanBrand) && 
+  const fallbackData = findWithFuelTypePreference((item) =>
+    exactMatches(item.brand_name, cleanBrand) &&
     (matches(item.model, fullModel) || matches(item.model, cleanModel))
   );
 
@@ -480,14 +498,19 @@ router.post('/', protect, admin, asyncHandler(async (req, res) => {
   }
 
   const allData = await getVehicleDataFromS3();
-  const exists = allData.find(item => 
-    item.brand_name.toLowerCase() === brand_name.toLowerCase() && 
-    item.model.toLowerCase() === model.toLowerCase() && 
-    item.brand_model.toLowerCase() === brand_model.toLowerCase()
+  // Same variant name is allowed more than once as long as the fuel type
+  // differs (e.g. a "Luxury Edition" offered in both Petrol and Diesel) —
+  // only an exact brand + model + variant + fuel type match is a duplicate.
+  const normalizedFuelType = (fuel_type || '').toLowerCase();
+  const exists = allData.find(item =>
+    item.brand_name.toLowerCase() === brand_name.toLowerCase() &&
+    item.model.toLowerCase() === model.toLowerCase() &&
+    item.brand_model.toLowerCase() === brand_model.toLowerCase() &&
+    (item.fuel_type || '').toLowerCase() === normalizedFuelType
   );
-  
+
   if (exists) {
-    return res.status(400).json({ message: 'Vehicle reference with this brand, model and variant already exists' });
+    return res.status(400).json({ message: 'Vehicle reference with this brand, model, variant and fuel type already exists' });
   }
 
   const knownKeys = new Set([

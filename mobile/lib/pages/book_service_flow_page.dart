@@ -640,6 +640,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
             ? clean(vehicle.variant)
             : null,
+        fuelType: vehicle.fuelType,
       );
       if (ref != null) {
         tireSize = (ref['front_tyres'] ?? ref['rear_tyres'])?.toString();
@@ -720,6 +721,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
             ? clean(vehicle.variant)
             : null,
+        fuelType: vehicle.fuelType,
       );
 
       double pickupPrice = 0;
@@ -860,11 +862,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     if (!mounted) return;
     final nav = context.read<NavigationProvider>();
     final Map<String, int> tabMapping = {
-      'Periodic': 0,
-      'Essentials': 1,
-      'Wash': 3,
-      'Tyres': 4,
-      'Battery': 5,
+      'Wash': 0,
+      'Periodic': 1,
+      'Tyres': 3,
+      'Battery': 4,
     };
     if (tabMapping[widget.initialCategory] == nav.selectedIndex) {
       _checkArguments();
@@ -1351,11 +1352,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
     // Check if this page's tab is active and if we should refresh
     final Map<String, int> tabMapping = {
-      'Periodic': 0,
-      'Essentials': 1,
-      'Wash': 3,
-      'Tyres': 4,
-      'Battery': 5,
+      'Wash': 0,
+      'Periodic': 1,
+      'Tyres': 3,
+      'Battery': 4,
     };
 
     if (tabMapping[widget.initialCategory] == currentIdx) {
@@ -1404,7 +1404,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 if (cat == 'Battery') {
                   return 'Book a Battery Service';
                 }
-                if (cat == 'Tyres' || cat == 'Tyre & Battery') {
+                if (cat == 'Tyres') {
+                  return 'Book a Tyre';
+                }
+                if (cat == 'Tyre & Battery') {
                   return 'Book a Tires & Battery Service';
                 }
                 if (cat == 'Periodic') {

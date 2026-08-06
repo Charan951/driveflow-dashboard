@@ -390,6 +390,7 @@ const AddVehiclePage: React.FC = () => {
                 model={vehicle.model}
                 licensePlate={vehicle.licensePlate}
                 variant={vehicle.variant}
+                fuelType={vehicle.fuelType}
                 image={vehicle.image}
                 nextService={vehicle.nextService}
                 status={vehicle.status}

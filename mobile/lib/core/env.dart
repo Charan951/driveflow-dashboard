@@ -6,7 +6,7 @@ class Env {
   static const bool useProduction = true;
   // MUST stay false for testing with rzp_test keys
 
-  static bool isPhysicalDevice = false;
+  static bool isPhysicalDevice = true;
 
   static String get localBaseUrl {
     const fromEnv = String.fromEnvironment('LOCAL_BASE_URL');
@@ -69,6 +69,7 @@ class ApiEndpoints {
   static const String approvalsMyApprovals = '/approvals/my-approvals';
   static String approvalById(String id) => '/approvals/$id';
   static const String tickets = '/tickets';
+  static const String hero = '/hero';
   static String ticketById(String id) => '/tickets/$id';
   static String ticketMessages(String id) => '/tickets/$id/messages';
 }

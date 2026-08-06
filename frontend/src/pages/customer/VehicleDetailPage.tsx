@@ -39,7 +39,11 @@ const CustomerVehicleDetailPage: React.FC = () => {
     try {
       await vehicleService.deleteVehicle(id);
       toast.success('Vehicle deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['vehicle'] });
+      // Drop (not just invalidate) the now-gone vehicle's own queries so
+      // nothing refetches a resource that no longer exists — the vehicle
+      // list itself still gets invalidated so it refreshes normally.
+      queryClient.removeQueries({ queryKey: ['vehicle', id] });
+      queryClient.removeQueries({ queryKey: ['vehicleBookings', id] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       navigate('/add-vehicle');
     } catch (error) {

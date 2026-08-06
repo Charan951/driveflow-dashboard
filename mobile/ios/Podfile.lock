@@ -8,6 +8,8 @@ PODS:
   - CashfreePGUISDK (2.3.7):
     - CashfreePGCoreSDK (= 2.3.7)
   - CFNetworkSDK (2.3.3)
+  - connectivity_plus (0.0.1):
+    - Flutter
   - device_info_plus (0.0.1):
     - Flutter
   - Firebase/CoreOnly (11.15.0):
@@ -105,6 +107,7 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
@@ -139,6 +142,8 @@ SPEC REPOS:
     - PromisesObjC
 
 EXTERNAL SOURCES:
+  connectivity_plus:
+    :path: ".symlinks/plugins/connectivity_plus/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
   firebase_core:
@@ -176,6 +181,7 @@ SPEC CHECKSUMS:
   CashfreePGCoreSDK: 0895818f75ea22e347e715a285cf241fe01f4349
   CashfreePGUISDK: 2e4a3be02dbaf0af48520c573eb08585491b5545
   CFNetworkSDK: 6a6261de10185efd4d2957583f0cbad395999cac
+  connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   device_info_plus: 71ffc6ab7634ade6267c7a93088ed7e4f74e5896
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818

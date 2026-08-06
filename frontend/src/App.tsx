@@ -39,6 +39,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollToTop from "./components/ScrollToTop";
 import AuthBootstrap from "./components/AuthBootstrap";
+import NoInternetScreen from "./components/NoInternetScreen";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const SocketNotificationListener = lazyRetry(() => import("./components/SocketNotificationListener"));
 const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
@@ -141,13 +143,17 @@ const MerchantProfilePage = lazyRetry(() => import("./pages/merchant/MerchantPro
 const DashboardDispatcher = lazyRetry(() => import("./pages/common/DashboardDispatcher"));
 const NotFound = lazyRetry(() => import("./pages/public/NotFound"));
 
-const App = () => (
+const App = () => {
+  const isOnline = useOnlineStatus();
+
+  return (
   <TooltipProvider>
     <Suspense fallback={null}>
       <Toaster />
       <Sonner />
       <HotToaster />
     </Suspense>
+    {!isOnline && <NoInternetScreen onRetry={() => window.location.reload()} />}
     <BrowserRouter
       future={{
         v7_startTransition: true,
@@ -284,6 +290,7 @@ const App = () => (
       </AuthBootstrap>
       </BrowserRouter>
     </TooltipProvider>
-);
+  );
+};
 
 export default App;

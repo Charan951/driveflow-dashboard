@@ -156,6 +156,7 @@ class VehicleService {
     required String make,
     required String model,
     String? variant,
+    String? fuelType,
   }) async {
     try {
       final m = make.trim();
@@ -164,6 +165,8 @@ class VehicleService {
       final queryParams = <String, String>{'brand_name': m, 'model': md};
       final v = (variant ?? '').trim();
       if (v.isNotEmpty) queryParams['variant'] = v;
+      final f = (fuelType ?? '').trim();
+      if (f.isNotEmpty) queryParams['fuel_type'] = f;
 
       final queryString = queryParams.entries
           .map(

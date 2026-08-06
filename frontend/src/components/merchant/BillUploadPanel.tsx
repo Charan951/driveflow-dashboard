@@ -124,7 +124,8 @@ const BillUploadPanel: React.FC<BillUploadPanelProps> = ({ booking, onUploadComp
         const details = await searchVehicleReference(
           vehicle.make,
           vehicle.model,
-          vehicle.variant
+          vehicle.variant,
+          vehicle.fuelType
         );
         const fromReference = details?.pickup_drop_price != null
           ? Number(details.pickup_drop_price)

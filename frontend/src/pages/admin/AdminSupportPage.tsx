@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, MessageSquare, AlertCircle, CheckCircle, Clock, User, Mail } from 'lucide-react';
 import { ticketService } from '../../services/ticketService';
@@ -32,7 +32,19 @@ interface Ticket {
   guestEmail?: string;
   messages: TicketMessage[];
   createdAt: string;
+  readByAdmin?: string | null;
 }
+
+/** Customer messages newer than `readByAdmin` (or all of them, if never read). */
+const countUnread = (ticket: Ticket): number => {
+  const readAt = ticket.readByAdmin ? new Date(ticket.readByAdmin).getTime() : 0;
+  return ticket.messages.filter((m) => {
+    const role = m.role || m.sender?.role;
+    if (role === 'admin') return false;
+    const at = m.createdAt ? new Date(m.createdAt).getTime() : 0;
+    return at > readAt;
+  }).length;
+};
 
 const AdminSupportPage = () => {
   const { user: currentUser } = useAuthStore();
@@ -42,6 +54,12 @@ const AdminSupportPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedTicketIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedTicketIdRef.current = selectedTicket?._id ?? null;
+  }, [selectedTicket?._id]);
 
   useEffect(() => {
     fetchTickets();
@@ -53,6 +71,17 @@ const AdminSupportPage = () => {
     const handleUpdate = (data: Ticket) => {
       setTickets(prev => prev.map(t => t._id === data._id ? data : t));
       setSelectedTicket(prev => prev && prev._id === data._id ? data : prev);
+
+      // Already viewing this ticket — clear the unread badge for the
+      // message that just arrived instead of leaving it stuck at 1+.
+      if (selectedTicketIdRef.current === data._id && countUnread(data) > 0) {
+        ticketService.markRead(data._id).then((readTicket) => {
+          setTickets(prev => prev.map(t => t._id === data._id ? readTicket : t));
+          setSelectedTicket(prev => prev && prev._id === data._id ? readTicket : prev);
+        }).catch(() => {
+          // Ignore — badge just won't clear until next successful sync.
+        });
+      }
     };
 
     const handleCreate = (data: Ticket) => {
@@ -117,7 +146,23 @@ const AdminSupportPage = () => {
     } catch (error) {
       console.error('Failed to fetch ticket details:', error);
     }
+
+    // Clear the unread badge for this ticket (best-effort — a failure here
+    // shouldn't block viewing the conversation).
+    try {
+      const readTicket = await ticketService.markRead(ticket._id);
+      setSelectedTicket((prev) => (prev && prev._id === ticket._id ? readTicket : prev));
+      setTickets((prev) => prev.map((t) => (t._id === ticket._id ? readTicket : t)));
+    } catch (error) {
+      // Ignore — unread badge just won't clear until next successful sync.
+    }
   };
+
+  // Auto-scroll to the latest message whenever a ticket is opened or a new
+  // message arrives in the open conversation.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [selectedTicket?._id, selectedTicket?.messages.length]);
 
   const filteredTickets = tickets.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
@@ -199,8 +244,10 @@ const AdminSupportPage = () => {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-            {filteredTickets.map(ticket => (
-                <div 
+            {filteredTickets.map(ticket => {
+                const unread = countUnread(ticket);
+                return (
+                <div
                     key={ticket._id}
                     onClick={() => handleTicketSelect(ticket)}
                     className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedTicket?._id === ticket._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
@@ -213,8 +260,15 @@ const AdminSupportPage = () => {
                         </span>
                         <span className="text-xs text-gray-400">{ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'N/A'}</span>
                     </div>
-                    <h4 className="font-medium text-gray-800 truncate">{ticket.subject}</h4>
-                    <p className="text-sm text-gray-500 truncate">{ticket.messages[0]?.message}</p>
+                    <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-medium text-gray-800 truncate">{ticket.subject}</h4>
+                        {unread > 0 && (
+                            <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                                {unread > 9 ? '9+' : unread}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-500 truncate">{ticket.messages[ticket.messages.length - 1]?.message}</p>
                     <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-gray-500 flex items-center">
                             <User size={12} className="mr-1"/> {ticket.user?.name || ticket.guestName || 'Guest'}
@@ -227,7 +281,8 @@ const AdminSupportPage = () => {
                         </span>
                     </div>
                 </div>
-            ))}
+                );
+            })}
              {filteredTickets.length === 0 && (
                 <div className="p-8 text-center text-gray-500">
                     No tickets found.
@@ -321,6 +376,7 @@ const AdminSupportPage = () => {
                             </div>
                         );
                     })}
+                    <div ref={messagesEndRef} />
                 </div>
 
                 {/* Reply Box */}

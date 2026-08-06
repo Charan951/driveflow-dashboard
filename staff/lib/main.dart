@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/storage.dart';
 import 'core/app_colors.dart';
+import 'widgets/connectivity_gate.dart';
 import 'state/theme_provider.dart';
 import 'services/background_tracking.dart';
 import 'services/socket_service.dart';
@@ -135,9 +136,12 @@ class StaffApp extends StatelessWidget {
 
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
-      title: 'Speshway Staff',
+      title: 'Carzzi Staff',
       debugShowCheckedModeBanner: false,
       themeMode: mode,
+      builder: (context, child) {
+        return ConnectivityGate(child: child ?? const SizedBox.shrink());
+      },
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(

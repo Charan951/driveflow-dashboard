@@ -18,8 +18,10 @@ class PillBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.mode == ThemeMode.dark;
+    // Watch so this rebuilds when the preference changes; resolve against
+    // the *effective* theme so ThemeMode.system tracks the device setting.
+    context.watch<ThemeProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final backgroundColor = isDark
         ? AppColors.backgroundSecondary.withValues(alpha: 0.8)
@@ -65,9 +67,9 @@ class PillBottomBar extends StatelessWidget {
                     children: [
                       Expanded(
                         child: GlassNavItem(
-                          activeIcon: Icons.settings_rounded,
-                          inactiveIcon: Icons.settings_outlined,
-                          label: 'Services',
+                          activeIcon: Icons.water_drop_rounded,
+                          inactiveIcon: Icons.water_drop_outlined,
+                          label: 'Wash',
                           isActive: selectedIndex == 0,
                           inactiveColor: inactiveColor,
                           onTap: () => onTap(0),
@@ -75,9 +77,9 @@ class PillBottomBar extends StatelessWidget {
                       ),
                       Expanded(
                         child: GlassNavItem(
-                          activeIcon: Icons.shield_rounded,
-                          inactiveIcon: Icons.shield_outlined,
-                          label: 'Essentials',
+                          activeIcon: Icons.settings_rounded,
+                          inactiveIcon: Icons.settings_outlined,
+                          label: 'Service',
                           isActive: selectedIndex == 1,
                           inactiveColor: inactiveColor,
                           onTap: () => onTap(1),
@@ -86,9 +88,9 @@ class PillBottomBar extends StatelessWidget {
                       const SizedBox(width: 70),
                       Expanded(
                         child: GlassNavItem(
-                          activeIcon: Icons.water_drop_rounded,
-                          inactiveIcon: Icons.water_drop_outlined,
-                          label: 'Wash',
+                          activeIcon: Icons.tire_repair_rounded,
+                          inactiveIcon: Icons.tire_repair_outlined,
+                          label: 'Tyre',
                           isActive: selectedIndex == 3,
                           inactiveColor: inactiveColor,
                           onTap: () => onTap(3),
@@ -98,7 +100,7 @@ class PillBottomBar extends StatelessWidget {
                         child: GlassNavItem(
                           activeIcon: Icons.battery_charging_full_rounded,
                           inactiveIcon: Icons.battery_charging_full_outlined,
-                          label: 'Tyre & Battery',
+                          label: 'Battery',
                           isActive: selectedIndex == 4,
                           inactiveColor: inactiveColor,
                           onTap: () => onTap(4),

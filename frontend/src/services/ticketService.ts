@@ -49,4 +49,9 @@ export const ticketService = {
     const response = await api.post(`/tickets/${id}/messages`, { message });
     return response.data;
   },
+
+  markRead: async (id: string) => {
+    const response = await api.put(`/tickets/${id}/read`);
+    return response.data;
+  },
 };

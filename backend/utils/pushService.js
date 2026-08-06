@@ -3,32 +3,6 @@ import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { getIO } from '../socket.js';
 
-/** Roles that use mobile (customer) or staff apps — device push disabled by default; in-app + history kept. */
-const SKIP_FCM_ROLES = new Set(['customer', 'staff']);
-
-/**
- * Customer (mobile) notification types that still send device push (FCM).
- * Add new mobile notifications here one-by-one as they are approved.
- */
-export const CUSTOMER_MOBILE_FCM_TYPES = new Set([
-  'staff_reached_location',
-  'service_started',
-  'merchant_approval',
-  'service_completed_payment_pending',
-  'delivery_otp',
-  'feedback',
-]);
-
-const shouldSkipFcmForRole = (role) =>
-  SKIP_FCM_ROLES.has(String(role || '').toLowerCase());
-
-const shouldSendFcmToUser = (user, type) => {
-  const role = String(user?.role || '').toLowerCase();
-  if (!shouldSkipFcmForRole(role)) return true;
-  if (role === 'customer') return CUSTOMER_MOBILE_FCM_TYPES.has(type);
-  return false;
-};
-
 /** FCM data payloads must use string values only. */
 const fcmStringData = (data) =>
   Object.fromEntries(
@@ -40,6 +14,17 @@ const emitNotificationSocket = (userId, notification) => {
     const io = getIO();
     if (io && userId) {
       io.to(`user_${userId}`).emit('notification', notification);
+    }
+  } catch {
+    // Socket notification emit error
+  }
+};
+
+const emitNotificationToRole = (role, notification) => {
+  try {
+    const io = getIO();
+    if (io && role) {
+      io.to(String(role).toLowerCase()).emit('notification', notification);
     }
   } catch {
     // Socket notification emit error
@@ -80,14 +65,6 @@ export const sendPushToUser = async (
 
     if (!user) {
       return { success: false, message: 'User not found' };
-    }
-
-    if (!shouldSendFcmToUser(user, fcmDataType)) {
-      return {
-        success: true,
-        skippedFcm: true,
-        message: 'In-app notification saved; device push disabled for this role',
-      };
     }
 
     if (!user.fcmTokens || user.fcmTokens.length === 0) {
@@ -167,7 +144,7 @@ export const sendPushToUser = async (
  */
 export const sendPushToRole = async (role, title, body, data = {}, type = 'general') => {
   try {
-    await Notification.create({
+    const notification = await Notification.create({
       role,
       title,
       body,
@@ -175,13 +152,7 @@ export const sendPushToRole = async (role, title, body, data = {}, type = 'gener
       type,
     });
 
-    if (shouldSkipFcmForRole(role)) {
-      return {
-        success: true,
-        skippedFcm: true,
-        message: 'In-app notification saved; device push disabled for this role',
-      };
-    }
+    emitNotificationToRole(role, notification);
 
     const users = await User.find({ role, 'fcmTokens.0': { $exists: true } });
     const tokens = users.flatMap((u) => u.fcmTokens.map((t) => t.token));
@@ -254,7 +225,7 @@ export const sendPushToTopic = async (topic, title, body, data = {}, type = 'gen
 export const sendSilentPush = async (userId, data = {}) => {
   try {
     const user = await User.findById(userId);
-    if (!user || shouldSkipFcmForRole(user.role)) return;
+    if (!user) return;
     if (!user.fcmTokens || user.fcmTokens.length === 0) return;
 
     const tokens = user.fcmTokens.map((t) => t.token);

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'env.dart';
 import 'storage.dart';
+import '../widgets/app_toast.dart';
 
 // Top-level function for background JSON decoding
 dynamic _parseJson(String text) => jsonDecode(text);
@@ -28,6 +30,38 @@ class ApiClient {
   final http.Client _client = http.Client();
   static const Duration _timeout = Duration(seconds: 30);
   static const int _maxRetries = 3;
+
+  static DateTime? _lastNetworkToastAt;
+  static const Duration _networkToastCooldown = Duration(seconds: 4);
+
+  // A `SocketException` only means *this* connection attempt failed — it
+  // fires identically whether the device is truly offline or the API host
+  // is just unreachable (wrong/unreachable dev URL, server down, etc.).
+  // Checking the device's actual radio state lets us tell those apart
+  // instead of always claiming "no internet" when it might just be the
+  // configured API host that's unreachable.
+  static Future<bool> _deviceHasConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      return results.any((r) => r != ConnectivityResult.none);
+    } catch (_) {
+      // If the plugin itself fails, don't let that override the real error.
+      return true;
+    }
+  }
+
+  // Only for true transport-level failures (no response reached us at
+  // all) — structured 4xx/5xx API responses are left to each caller's own
+  // error handling, so nothing double-toasts.
+  static void _notifyNetworkError(String message) {
+    final now = DateTime.now();
+    if (_lastNetworkToastAt != null &&
+        now.difference(_lastNetworkToastAt!) < _networkToastCooldown) {
+      return;
+    }
+    _lastNetworkToastAt = now;
+    AppToast.showError(message);
+  }
 
   Future<dynamic> _decodeBody(http.Response res) async {
     if (res.body.isEmpty) {
@@ -99,23 +133,34 @@ class ApiClient {
         return _decodeBody(res);
       } on TimeoutException {
         if (canRetry && attempts <= _maxRetries) continue;
+        const message =
+            'Request timed out. Please check your internet connection.';
+        _notifyNetworkError(message);
         throw ApiException(
           statusCode: 408,
-          message: 'Request timed out. Please check your internet connection.',
+          message: message,
           isNetworkError: true,
         );
       } on SocketException {
         if (canRetry && attempts <= _maxRetries) continue;
+        final message = await _deviceHasConnectivity()
+            ? 'Unable to reach the server. Please try again later.'
+            : 'No internet connection. Please try again later.';
+        _notifyNetworkError(message);
         throw ApiException(
           statusCode: 0,
-          message: 'No internet connection. Please try again later.',
+          message: message,
           isNetworkError: true,
         );
       } on http.ClientException {
         if (canRetry && attempts <= _maxRetries) continue;
+        final message = await _deviceHasConnectivity()
+            ? 'Unable to reach the server. Please try again later.'
+            : 'Connection issue. Please check your network.';
+        _notifyNetworkError(message);
         throw ApiException(
           statusCode: 0,
-          message: 'Connection issue. Please check your network.',
+          message: message,
           isNetworkError: true,
         );
       } catch (e) {

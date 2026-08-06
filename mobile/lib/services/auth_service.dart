@@ -157,13 +157,13 @@ class AuthService {
     List<SavedAddress>? addresses,
     List<PaymentMethod>? paymentMethods,
   }) async {
-    final body = {
+    final body = <String, dynamic>{
       'name': name,
       'email': email,
       'phone': phone,
       'addresses': addresses?.map((e) => e.toJson()).toList(),
       'paymentMethods': paymentMethods?.map((e) => e.toJson()).toList(),
-    };
+    }..removeWhere((_, value) => value == null);
 
     final res = await _api.putJson(ApiEndpoints.usersProfile, body: body);
     final user = _userFromAuthResponse(res);

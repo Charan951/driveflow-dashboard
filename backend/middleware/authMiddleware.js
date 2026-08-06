@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { getTokenFromRequest } from '../utils/authCookie.js';
 
-const loadUserFromToken = async (decoded) => {
+export const loadUserFromToken = async (decoded) => {
   const user = await User.findById(decoded.id).select('-password');
   if (!user) return null;
   if (

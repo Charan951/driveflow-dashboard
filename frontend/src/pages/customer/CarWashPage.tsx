@@ -49,7 +49,8 @@ const CarWashPage: React.FC = () => {
           const details = await searchVehicleReference(
             selectedVehicleData.make,
             selectedVehicleData.model,
-            selectedVehicleData.variant || ''
+            selectedVehicleData.variant || '',
+            selectedVehicleData.fuelType
           );
           if (details) {
             setCarWashPrices({
@@ -401,8 +402,13 @@ const CarWashPage: React.FC = () => {
                           <p className="font-medium text-foreground text-sm truncate">
                             {vehicle.make} {vehicle.model}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {vehicle.licensePlate}
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                            <span>{vehicle.licensePlate}</span>
+                            {vehicle.fuelType && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                                {vehicle.fuelType}
+                              </span>
+                            )}
                           </p>
                         </div>
                         {selectedVehicle === vehicle._id && (

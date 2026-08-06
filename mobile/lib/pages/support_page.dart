@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
 import '../services/ticket_service.dart';
+import '../services/contact_details_service.dart';
 import '../widgets/customer_drawer.dart';
 import '../core/storage.dart';
 import '../core/socket_sync.dart';
@@ -21,12 +22,14 @@ class SupportPage extends StatefulWidget {
 class _SupportPageState extends State<SupportPage> {
   final _ticketService = TicketService();
   final _socketService = SocketService();
+  final _contactDetailsService = ContactDetailsService();
   List<SupportTicket> _tickets = [];
   bool _loading = true;
   SupportTicket? _selectedTicket;
   final _replyController = TextEditingController();
   bool _isReplying = false;
   String? _currentUserId;
+  ContactDetails? _contactDetails;
 
   Color get _accentPurple => const Color(0xFF3B82F6);
   Color get _accentBlue => const Color(0xFF22D3EE);
@@ -37,12 +40,26 @@ class _SupportPageState extends State<SupportPage> {
     _loadCurrentUser();
     _loadTickets();
     _initSocket();
+    _loadContactDetails();
+  }
+
+  Future<void> _loadContactDetails({bool forceRefresh = false}) async {
+    try {
+      final details = await _contactDetailsService.getContactDetails(
+        forceRefresh: forceRefresh,
+      );
+      if (mounted && details != null) {
+        setState(() => _contactDetails = details);
+      }
+    } catch (_) {
+      // Keep the static fallback values shown below on failure.
+    }
   }
 
   @override
   void dispose() {
     if (_selectedTicket != null) {
-      _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
+      _socketService.leaveRoom('ticket_${_selectedTicket!.id}');
     }
     _socketService.off('ticketUpdated', _onTicketUpdated);
     _replyController.dispose();
@@ -95,10 +112,10 @@ class _SupportPageState extends State<SupportPage> {
 
   void _selectTicket(SupportTicket ticket) {
     if (_selectedTicket != null) {
-      _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
+      _socketService.leaveRoom('ticket_${_selectedTicket!.id}');
     }
     setState(() => _selectedTicket = ticket);
-    _socketService.emit('join', 'ticket_${ticket.id}');
+    _socketService.joinRoom('ticket_${ticket.id}');
   }
 
   Future<void> _loadCurrentUser() async {
@@ -141,11 +158,13 @@ class _SupportPageState extends State<SupportPage> {
 
   Future<void> _handleReply() async {
     if (_selectedTicket == null) return;
-    final messageError = FormValidation.validateChatMessage(_replyController.text);
+    final messageError = FormValidation.validateChatMessage(
+      _replyController.text,
+    );
     if (messageError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(messageError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(messageError)));
       return;
     }
 
@@ -226,8 +245,16 @@ class _SupportPageState extends State<SupportPage> {
                     border: OutlineInputBorder(),
                   ),
                   items:
-                      ['Booking', 'Payment', 'Technical', 'General', 'Complaint']
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      [
+                            'Booking',
+                            'Payment',
+                            'Technical',
+                            'General',
+                            'Complaint',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
                           .toList(),
                   onChanged: (v) => setModalState(() => category = v!),
                 ),
@@ -281,281 +308,298 @@ class _SupportPageState extends State<SupportPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final routeName = ModalRoute.of(context)?.settings.name;
     return GlobalSyncRefresh(
-      entities: SyncEntities.tickets,
+      entities: const [...SyncEntities.tickets, 'hero'],
       onSync: () {
         if (!_loading) _loadTickets();
+        _loadContactDetails(forceRefresh: true);
       },
       child: PopScope(
-      canPop: _selectedTicket == null && Navigator.of(context).canPop(),
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (_selectedTicket != null) {
-          _socketService.emit('leave', 'ticket_${_selectedTicket!.id}');
-          setState(() => _selectedTicket = null);
-          return;
-        }
-        Navigator.of(context).pop();
-      },
-      child: Scaffold(
-        backgroundColor: isDark ? Colors.black : Colors.white,
-        drawer: CustomerDrawer(currentRouteName: routeName),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          leading: Builder(
-            builder: (context) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _selectedTicket == null
-                  ? Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
+        canPop: _selectedTicket == null && Navigator.of(context).canPop(),
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          if (_selectedTicket != null) {
+            _socketService.leaveRoom('ticket_${_selectedTicket!.id}');
+            setState(() => _selectedTicket = null);
+            return;
+          }
+          Navigator.of(context).pop();
+        },
+        child: Scaffold(
+          backgroundColor: isDark ? Colors.black : Colors.white,
+          drawer: CustomerDrawer(currentRouteName: routeName),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            leading: Builder(
+              builder: (context) => Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _selectedTicket == null
+                    ? Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.28)
+                                : Colors.black.withValues(alpha: 0.16),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.menu,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.28)
-                              : Colors.black.withValues(alpha: 0.16),
-                          width: 1.0,
+                              ? Colors.white10
+                              : Colors.black.withValues(alpha: 0.05),
                         ),
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.menu,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back),
                           color: isDark ? Colors.white : Colors.black,
+                          onPressed: () {
+                            if (_selectedTicket != null) {
+                              _socketService.leaveRoom(
+                                'ticket_${_selectedTicket!.id}',
+                              );
+                            }
+                            setState(() => _selectedTicket = null);
+                          },
                         ),
-                        tooltip: 'Menu',
-                        onPressed: () => Scaffold.of(context).openDrawer(),
                       ),
-                    )
-                  : Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.black.withValues(alpha: 0.05),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        color: isDark ? Colors.white : Colors.black,
-                        onPressed: () {
-                          if (_selectedTicket != null) {
-                            _socketService.emit(
-                              'leave',
-                              'ticket_${_selectedTicket!.id}',
-                            );
-                          }
-                          setState(() => _selectedTicket = null);
-                        },
-                      ),
-                    ),
+              ),
+            ),
+            title: Text(
+              _selectedTicket == null ? 'Support' : 'Ticket Details',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          title: Text(
-            _selectedTicket == null ? 'Support' : 'Ticket Details',
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        body: Stack(
-          children: [
-            if (isDark)
-              Container(color: Colors.black)
-            else
-              Container(color: Colors.white),
-            _selectedTicket != null
-                ? _buildTicketConversation(isDark)
-                : RefreshIndicator(
-                    onRefresh: _loadTickets,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.black : Colors.white,
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
+          body: Stack(
+            children: [
+              if (isDark)
+                Container(color: Colors.black)
+              else
+                Container(color: Colors.white),
+              _selectedTicket != null
+                  ? _buildTicketConversation(isDark)
+                  : RefreshIndicator(
+                      onRefresh: _loadTickets,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
                                       color: isDark
-                                          ? Colors.grey.shade900
-                                          : const Color(0xFFE5E7EB),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
+                                          ? Colors.black
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
                                         color: isDark
-                                            ? Colors.black.withValues(
-                                                alpha: 0.35,
-                                              )
-                                            : Colors.black.withValues(
-                                                alpha: 0.04,
+                                            ? Colors.grey.shade900
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: isDark
+                                              ? Colors.black.withValues(
+                                                  alpha: 0.35,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.04,
+                                                ),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                gradient: RadialGradient(
+                                                  center: const Alignment(
+                                                    0,
+                                                    -0.2,
+                                                  ),
+                                                  colors: [
+                                                    _accentBlue.withValues(
+                                                      alpha: 0.85,
+                                                    ),
+                                                    _accentBlue.withValues(
+                                                      alpha: 0.25,
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 10),
+                                              child: const Icon(
+                                                Icons.support_agent_outlined,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'Need help?',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      color: isDark
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF0F172A,
+                                                            ),
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          "We're here 24/7. You can share your issue and our team will assist you.",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: isDark
+                                                    ? Colors.white.withValues(
+                                                        alpha: 0.8,
+                                                      )
+                                                    : Colors.black54,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        _SupportCardRow(
+                                          icon: Icons.phone_outlined,
+                                          title: 'Phone',
+                                          subtitle:
+                                              _contactDetails?.mobileNumber
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? _contactDetails!.mobileNumber
+                                              : '+91 8143404488',
+                                        ),
+                                        const SizedBox(height: 10),
+                                        _SupportCardRow(
+                                          icon: Icons.mail_outline,
+                                          title: 'Email',
+                                          subtitle:
+                                              _contactDetails?.email
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? _contactDetails!.email
+                                              : 'support@carzzi.com',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'My Tickets',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: _createTicket,
+                                        icon: const Icon(Icons.add),
+                                        label: const Text('New Ticket'),
                                       ),
                                     ],
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
+                                  const SizedBox(height: 12),
+                                  if (_loading)
+                                    const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  else if (_tickets.isEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.all(32),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.04,
+                                              )
+                                            : Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
                                         children: [
-                                          Container(
-                                            width: 44,
-                                            height: 44,
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              gradient: RadialGradient(
-                                                center: const Alignment(
-                                                  0,
-                                                  -0.2,
-                                                ),
-                                                colors: [
-                                                  _accentBlue.withValues(
-                                                    alpha: 0.85,
-                                                  ),
-                                                  _accentBlue.withValues(
-                                                    alpha: 0.25,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.support_agent_outlined,
-                                              color: Colors.white,
-                                            ),
+                                          Icon(
+                                            Icons.confirmation_number_outlined,
+                                            size: 48,
+                                            color: isDark
+                                                ? Colors.white24
+                                                : Colors.grey[400],
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              'Need help?',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w900,
-                                                    color: isDark
-                                                        ? Colors.white
-                                                        : const Color(
-                                                            0xFF0F172A,
-                                                          ),
-                                                  ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No active tickets',
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? Colors.white54
+                                                  : Colors.black54,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "We're here 24/7. You can share your issue and our team will assist you.",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: isDark
-                                                  ? Colors.white.withValues(
-                                                      alpha: 0.8,
-                                                    )
-                                                  : Colors.black54,
-                                            ),
+                                    )
+                                  else
+                                    ..._tickets.map(
+                                      (t) => InkWell(
+                                        onTap: () => _selectTicket(t),
+                                        child: _TicketCard(ticket: t),
                                       ),
-                                      const SizedBox(height: 14),
-                                      const _SupportCardRow(
-                                        icon: Icons.phone_outlined,
-                                        title: 'Phone',
-                                        subtitle: '+91 8143404488',
-                                      ),
-                                      const SizedBox(height: 10),
-                                      const _SupportCardRow(
-                                        icon: Icons.mail_outline,
-                                        title: 'Email',
-                                        subtitle: 'support@carzzi.com',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'My Tickets',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
                                     ),
-                                    TextButton.icon(
-                                      onPressed: _createTicket,
-                                      icon: const Icon(Icons.add),
-                                      label: const Text('New Ticket'),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                if (_loading)
-                                  const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                else if (_tickets.isEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.all(32),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.04)
-                                          : Colors.grey[100],
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.confirmation_number_outlined,
-                                          size: 48,
-                                          color: isDark
-                                              ? Colors.white24
-                                              : Colors.grey[400],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No active tickets',
-                                          style: TextStyle(
-                                            color: isDark
-                                                ? Colors.white54
-                                                : Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  ..._tickets.map(
-                                    (t) => InkWell(
-                                      onTap: () => _selectTicket(t),
-                                      child: _TicketCard(ticket: t),
-                                    ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -898,36 +942,42 @@ class _TicketCard extends StatelessWidget {
           Text(ticket.category, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
           if (ticket.messages.isNotEmpty) ...[
-            Builder(builder: (context) {
-              final lastMsg = ticket.messages.last;
-              final hasAdminReply = lastMsg.senderRole == 'admin' || lastMsg.senderRole == 'staff';
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      lastMsg.message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isDark ? Colors.white70 : Colors.black87,
-                        fontWeight: hasAdminReply ? FontWeight.w600 : FontWeight.normal,
+            Builder(
+              builder: (context) {
+                final lastMsg = ticket.messages.last;
+                final hasAdminReply =
+                    lastMsg.senderRole == 'admin' ||
+                    lastMsg.senderRole == 'staff';
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        lastMsg.message,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontWeight: hasAdminReply
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
                       ),
                     ),
-                  ),
-                  if (hasAdminReply)
-                    Container(
-                      width: 10,
-                      height: 10,
-                      margin: const EdgeInsets.only(left: 8, top: 4),
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
+                    if (hasAdminReply)
+                      Container(
+                        width: 10,
+                        height: 10,
+                        margin: const EdgeInsets.only(left: 8, top: 4),
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                ],
-              );
-            }),
+                  ],
+                );
+              },
+            ),
           ],
         ],
       ),

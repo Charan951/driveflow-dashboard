@@ -110,9 +110,14 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       routeName: '/car-wash',
     ),
     _DrawerItem(
-      icon: Icons.battery_charging_full_outlined,
-      label: 'Tires & Battery',
+      icon: Icons.tire_repair_outlined,
+      label: 'Tyres',
       routeName: '/tires',
+    ),
+    _DrawerItem(
+      icon: Icons.battery_charging_full_outlined,
+      label: 'Battery',
+      routeName: '/battery',
     ),
     _DrawerItem(
       icon: Icons.support_agent_outlined,
@@ -124,39 +129,54 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
       label: 'Profile',
       routeName: '/profile',
     ),
-    _DrawerItem(
-      icon: Icons.privacy_tip_outlined,
-      label: 'Privacy Policy',
-      routeName: 'url:https://carzzi.com/privacy',
-    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.mode == ThemeMode.dark;
+    // Watch so this rebuilds when the preference changes; resolve against
+    // the *effective* theme so ThemeMode.system tracks the device setting.
+    context.watch<ThemeProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
       width: 320,
-      backgroundColor: isDark ? AppColors.backgroundPrimary : AppColors.backgroundPrimaryLight,
+      backgroundColor: isDark
+          ? AppColors.backgroundPrimary
+          : AppColors.backgroundPrimaryLight,
       child: SafeArea(
         child: RepaintBoundary(
           child: Column(
             children: [
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.transparent
-                      : Colors.transparent,
+                  color: isDark ? Colors.transparent : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Image.asset(
-                  'assets/carzzilogo.png',
-                  width: double.infinity,
-                  fit: BoxFit.contain,
-                ),
+                child: isDark
+                    ? Image.asset(
+                        'assets/carzzilogo.png',
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                      )
+                    : ColorFiltered(
+                        // Matches the web navbar's `brightness-0` treatment:
+                        // renders the (metallic) logo as solid black so it
+                        // stays legible on a light background.
+                        colorFilter: const ColorFilter.mode(
+                          Colors.black,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/carzzilogo.png',
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
               ),
               Expanded(
                 child: ListView(
@@ -229,7 +249,11 @@ class _DrawerTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: active ? AppStyles.primaryGradient : null,
-              color: active ? null : (isDark ? Colors.transparent : AppColors.backgroundSecondaryLight),
+              color: active
+                  ? null
+                  : (isDark
+                        ? Colors.transparent
+                        : AppColors.backgroundSecondaryLight),
               boxShadow: active
                   ? [
                       BoxShadow(

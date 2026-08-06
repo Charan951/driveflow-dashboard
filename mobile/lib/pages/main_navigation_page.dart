@@ -23,14 +23,11 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   late PageController _pageController;
 
   final List<Widget> _pages = const [
-    BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
-    BookServiceFlowPage(
-      key: ValueKey('essentials'),
-      initialCategory: 'Essentials',
-    ),
-    CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('car-wash'), initialCategory: 'Wash'),
+    BookServiceFlowPage(key: ValueKey('services'), initialCategory: 'Periodic'),
+    CarzziDashboard(),
     BookServiceFlowPage(key: ValueKey('tires'), initialCategory: 'Tyres'),
+    BookServiceFlowPage(key: ValueKey('battery'), initialCategory: 'Battery'),
   ];
 
   @override
@@ -38,7 +35,9 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _navProvider = context.read<NavigationProvider>();
-    _pageController = PageController(initialPage: _navProvider?.selectedIndex ?? 2);
+    _pageController = PageController(
+      initialPage: _navProvider?.selectedIndex ?? 2,
+    );
     _navProvider?.addListener(_syncPageToSelectedTab);
   }
 
@@ -98,7 +97,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     );
 
     // Sync PageController if provider index changed externally
-    if (_pageController.hasClients && _pageController.page?.round() != selectedIndex) {
+    if (_pageController.hasClients &&
+        _pageController.page?.round() != selectedIndex) {
       _pageController.animateToPage(
         selectedIndex,
         duration: const Duration(milliseconds: 350),
@@ -123,46 +123,45 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         if (mounted) setState(() {});
       },
       child: PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _onWillPop();
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        extendBody: selectedIndex == 2,
-        drawer: const CustomerDrawer(currentRouteName: '/customer'),
-        body: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          onPageChanged: (index) {
-            if (_navProvider?.selectedIndex != index) {
-              _navProvider?.setTab(index);
-            }
-          },
-          children: _pages,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          final shouldPop = await _onWillPop();
+          if (shouldPop && context.mounted) {
+            Navigator.of(context).pop();
+          }
+        },
+        child: Scaffold(
+          extendBody: selectedIndex == 2,
+          drawer: const CustomerDrawer(currentRouteName: '/customer'),
+          body: PageView(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            onPageChanged: (index) {
+              if (_navProvider?.selectedIndex != index) {
+                _navProvider?.setTab(index);
+              }
+            },
+            children: _pages,
+          ),
+          bottomNavigationBar: selectedIndex == 2
+              ? Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
+                  child: PillBottomBar(
+                    selectedIndex: selectedIndex,
+                    onTap: (index) {
+                      _navProvider?.setTab(index);
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeInOutCubic,
+                      );
+                    },
+                  ),
+                )
+              : null,
         ),
-        bottomNavigationBar: selectedIndex == 2
-            ? Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 12 + bottomInset),
-                child: PillBottomBar(
-                  selectedIndex: selectedIndex,
-                  onTap: (index) {
-                    _navProvider?.setTab(index);
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeInOutCubic,
-                    );
-                  },
-                ),
-              )
-            : null,
       ),
-    ),
     );
   }
 }
-

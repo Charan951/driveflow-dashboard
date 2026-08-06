@@ -245,13 +245,24 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           mainAxisSize: MainAxisSize.min,
           children: [
             _CategoryTile(
+              icon: Icons.local_car_wash_outlined,
+              title: 'Car Wash',
+              subtitle: 'Premium cleaning services',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(0);
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
               icon: Icons.settings_suggest_outlined,
               title: 'services',
               subtitle: 'General maintenance & repairs',
               color: AppColors.primaryBlue,
               onTap: () {
                 Navigator.pop(context);
-                nav.setTab(0);
+                nav.setTab(1);
               },
             ),
             const SizedBox(height: 12),
@@ -262,15 +273,15 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               color: Colors.purple,
               onTap: () {
                 Navigator.pop(context);
-                nav.setTab(1);
+                Navigator.of(context).pushNamed('/essentials');
               },
             ),
             const SizedBox(height: 12),
             _CategoryTile(
-              icon: Icons.local_car_wash_outlined,
-              title: 'Car Wash',
-              subtitle: 'Premium cleaning services',
-              color: Colors.blue,
+              icon: Icons.tire_repair_outlined,
+              title: 'Tyres',
+              subtitle: 'Replacement & maintenance',
+              color: Colors.orange,
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(3);
@@ -279,7 +290,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             const SizedBox(height: 12),
             _CategoryTile(
               icon: Icons.battery_charging_full_outlined,
-              title: 'Battery/tyres',
+              title: 'Battery',
               subtitle: 'Replacement & maintenance',
               color: Colors.orange,
               onTap: () {
@@ -1591,44 +1602,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Quick Services',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: isDark ? Colors.white : AppColors.textPrimaryLight,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                context.read<NavigationProvider>().navigateTo('/services');
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'View all',
-                    style: TextStyle(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : AppColors.primaryBlue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.85)
-                        : AppColors.primaryBlue,
-                  ),
-                ],
-              ),
-            ),
-          ],
+        Text(
+          'Quick Services',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         AppSpacing.verticalMedium,
         GridView.builder(
@@ -1652,19 +1631,27 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                       final source = item.source!;
                       final cat = (source.category ?? '').trim();
 
+                      if (['Insurance', 'Essentials'].contains(cat)) {
+                        // Essentials is a standalone page, not a bottom-nav
+                        // tab — push it directly instead of navigateTo.
+                        Navigator.of(context).pushNamed('/essentials');
+                        return;
+                      }
+
                       String route = '/services';
 
                       if (['Car Wash', 'Wash', 'Detailing'].contains(cat)) {
                         route = '/car-wash';
-                      } else if (['Insurance', 'Essentials'].contains(cat)) {
-                        route = '/essentials';
+                      } else if ([
+                        'Battery',
+                        'Batteries',
+                        'Battery Service',
+                      ].contains(cat)) {
+                        route = '/battery';
                       } else if ([
                         'Tyre & Battery',
                         'Tyres',
-                        'Battery',
-                        'Batteries',
                         'Tyre Service',
-                        'Battery Service',
                         'Tires',
                       ].contains(cat)) {
                         route = '/tires';

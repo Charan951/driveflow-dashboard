@@ -1192,10 +1192,16 @@ export const getVehicleBookings = async (req, res) => {
     const isElevated = ['admin', 'merchant', 'staff'].includes(req.user.role?.toLowerCase());
     
     if (!isElevated) {
-      // If not elevated, check if they own the vehicle
+      // If not elevated, check if they own the vehicle. A vehicle that no
+      // longer exists (e.g. just deleted) is a 404, not a 403 — conflating
+      // the two made the frontend treat "vehicle was deleted" as "your
+      // session is invalid" and log the user out.
       const Vehicle = (await import('../models/Vehicle.js')).default;
       const vehicle = await Vehicle.findById(vehicleId);
-      if (!vehicle || vehicle.user.toString() !== req.user._id.toString()) {
+      if (!vehicle) {
+        return res.status(404).json({ message: 'Vehicle not found' });
+      }
+      if (vehicle.user.toString() !== req.user._id.toString()) {
         return res.status(403).json({ message: 'Not authorized to view bookings for this vehicle' });
       }
     }

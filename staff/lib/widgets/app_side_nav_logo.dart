@@ -21,12 +21,28 @@ class AppSideNavLogo extends StatelessWidget {
       ),
       child: SizedBox(
         width: double.infinity,
-        child: Image.asset(
-          'assets/carzzilogo.png',
-          height: 120,
-          fit: BoxFit.fitWidth,
-          alignment: Alignment.center,
-        ),
+        child: isDark
+            ? Image.asset(
+                'assets/carzzilogo.png',
+                height: 120,
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.center,
+              )
+            : ColorFiltered(
+                // Matches the web navbar's `brightness-0` treatment: renders
+                // the (metallic) logo as solid black so it stays legible on
+                // a light background.
+                colorFilter: const ColorFilter.mode(
+                  Colors.black,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  'assets/carzzilogo.png',
+                  height: 120,
+                  fit: BoxFit.fitWidth,
+                  alignment: Alignment.center,
+                ),
+              ),
       ),
     );
   }

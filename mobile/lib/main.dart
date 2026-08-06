@@ -37,6 +37,7 @@ import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
 import 'core/app_colors.dart';
 import 'core/env.dart';
+import 'widgets/connectivity_gate.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -365,7 +366,7 @@ class MyApp extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
             ),
             builder: (context, child) {
-              return child ?? const SizedBox.shrink();
+              return ConnectivityGate(child: child ?? const SizedBox.shrink());
             },
             theme: ThemeData(
               useMaterial3: true,
@@ -534,7 +535,7 @@ class MyApp extends StatelessWidget {
               ),
               '/forgot-password': (_) => const ForgotPasswordPage(),
               '/reset-password': (_) => const ResetPasswordPage(),
-              '/services': (_) => const _TabRedirect(index: 0),
+              '/services': (_) => const _TabRedirect(index: 1),
               '/customer': (_) => const MainNavigationPage(),
               '/bookings': (_) => const MyBookingsPage(),
               '/payments': (_) => const MyPaymentsPage(),
@@ -551,12 +552,14 @@ class MyApp extends StatelessWidget {
               },
               '/add-vehicle': (_) => const AddVehiclePage(),
               '/notifications': (_) => const NotificationsPage(),
-              '/essentials': (_) => const _TabRedirect(index: 1),
+              '/essentials': (_) =>
+                  const BookServiceFlowPage(initialCategory: 'Essentials'),
               '/support': (_) => const SupportPage(),
               '/profile': (_) => const ProfilePage(),
               '/coupons': (_) => const CouponsPage(),
-              '/car-wash': (_) => const _TabRedirect(index: 3),
-              '/tires': (_) => const _TabRedirect(index: 4),
+              '/car-wash': (_) => const _TabRedirect(index: 0),
+              '/tires': (_) => const _TabRedirect(index: 3),
+              '/battery': (_) => const _TabRedirect(index: 4),
               '/track': (_) => const TrackBookingPage(),
               '/book': (context) {
                 final args = ModalRoute.of(context)?.settings.arguments;

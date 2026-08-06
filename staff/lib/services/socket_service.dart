@@ -11,7 +11,12 @@ class SocketService extends ValueNotifier<String?> {
 
   io.Socket? _socket;
   bool _isConnected = false;
-  String? _currentBookingRoom;
+
+  /// Rooms explicitly joined via [joinRoom] (booking chat, etc.) — replayed
+  /// on every reconnect below, since a dropped/resumed connection otherwise
+  /// loses that membership silently and the screen stops receiving events
+  /// for it until it's reopened.
+  final Set<String> _activeRooms = {};
 
   bool get isConnected => _isConnected;
 
@@ -26,7 +31,7 @@ class SocketService extends ValueNotifier<String?> {
     _socket = io.io(
       Env.baseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .enableForceNew()
           .setAuth(token != null ? {'token': token} : {})
           .enableAutoConnect()
@@ -47,8 +52,10 @@ class SocketService extends ValueNotifier<String?> {
         joinRoom(role.toLowerCase());
       }
 
-      if (_currentBookingRoom != null) {
-        joinRoom(_currentBookingRoom!);
+      // Rejoin any screen-specific rooms (booking chat, etc.) that were
+      // active before this (re)connect.
+      for (final room in _activeRooms) {
+        _socket?.emit('join', room);
       }
 
       notifyListeners();
@@ -157,16 +164,12 @@ class SocketService extends ValueNotifier<String?> {
   }
 
   void joinRoom(String room) {
-    if (room.startsWith('booking_')) {
-      _currentBookingRoom = room;
-    }
+    _activeRooms.add(room);
     emit('join', room);
   }
 
   void leaveRoom(String room) {
-    if (_currentBookingRoom == room) {
-      _currentBookingRoom = null;
-    }
+    _activeRooms.remove(room);
     emit('leave', room);
   }
 
@@ -175,5 +178,6 @@ class SocketService extends ValueNotifier<String?> {
     _socket?.dispose();
     _socket = null;
     _isConnected = false;
+    _activeRooms.clear();
   }
 }

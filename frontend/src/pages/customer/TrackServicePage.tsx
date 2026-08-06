@@ -205,6 +205,7 @@ const TrackServicePage: React.FC = () => {
         vehicle.make,
         vehicle.model,
         vehicle.variant,
+        vehicle.fuelType,
       );
       setVehicleRef(ref ?? null);
     } catch {

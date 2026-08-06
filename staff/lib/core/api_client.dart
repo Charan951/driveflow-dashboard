@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'env.dart';
 import 'storage.dart';
+import '../widgets/app_toast.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -23,6 +25,22 @@ class ApiClient {
   final http.Client _client = http.Client();
   static const Duration _timeout = Duration(seconds: 12);
   static const Duration _uploadTimeout = Duration(seconds: 60);
+
+  static DateTime? _lastNetworkToastAt;
+  static const Duration _networkToastCooldown = Duration(seconds: 4);
+
+  // Only for true transport-level failures (no response reached us at
+  // all) — structured 4xx/5xx API responses are left to each caller's own
+  // error handling, so nothing double-toasts.
+  static void _notifyNetworkError(String message) {
+    final now = DateTime.now();
+    if (_lastNetworkToastAt != null &&
+        now.difference(_lastNetworkToastAt!) < _networkToastCooldown) {
+      return;
+    }
+    _lastNetworkToastAt = now;
+    AppToast.showError(message);
+  }
 
   Future<dynamic> _decodeBody(http.Response res) async {
     if (res.body.isEmpty) {
@@ -86,7 +104,14 @@ class ApiClient {
       final res = await _client.get(uri, headers: headers).timeout(_timeout);
       return await _decodeBody(res);
     } on TimeoutException {
-      throw ApiException(statusCode: 408, message: 'Request timed out');
+      const message =
+          'Request timed out. Please check your internet connection.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 408, message: message);
+    } on SocketException {
+      const message = 'No internet connection. Please try again later.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 0, message: message);
     }
   }
 
@@ -111,7 +136,14 @@ class ApiClient {
           .timeout(_timeout);
       return await _decodeBody(res);
     } on TimeoutException {
-      throw ApiException(statusCode: 408, message: 'Request timed out');
+      const message =
+          'Request timed out. Please check your internet connection.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 408, message: message);
+    } on SocketException {
+      const message = 'No internet connection. Please try again later.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 0, message: message);
     }
   }
 
@@ -129,7 +161,14 @@ class ApiClient {
           .timeout(_timeout);
       return await _decodeBody(res);
     } on TimeoutException {
-      throw ApiException(statusCode: 408, message: 'Request timed out');
+      const message =
+          'Request timed out. Please check your internet connection.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 408, message: message);
+    } on SocketException {
+      const message = 'No internet connection. Please try again later.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 0, message: message);
     }
   }
 
@@ -204,7 +243,14 @@ class ApiClient {
           .timeout(_timeout);
       return await _decodeBody(res);
     } on TimeoutException {
-      throw ApiException(statusCode: 408, message: 'Request timed out');
+      const message =
+          'Request timed out. Please check your internet connection.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 408, message: message);
+    } on SocketException {
+      const message = 'No internet connection. Please try again later.';
+      _notifyNetworkError(message);
+      throw ApiException(statusCode: 0, message: message);
     }
   }
 }

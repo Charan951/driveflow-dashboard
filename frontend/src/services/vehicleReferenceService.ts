@@ -16,13 +16,20 @@ export const getVehicleReference = async () => {
   return response.data;
 };
 
-export const searchVehicleReference = async (brand_name: string, model: string, variant?: string) => {
+export const searchVehicleReference = async (
+  brand_name: string,
+  model: string,
+  variant?: string,
+  fuel_type?: string,
+) => {
   const b = (brand_name || '').trim();
   const m = (model || '').trim();
   if (!b || !m) return null;
   const params = new URLSearchParams({ brand_name: b, model: m });
   const v = (variant || '').trim();
   if (v) params.set('variant', v);
+  const f = (fuel_type || '').trim();
+  if (f) params.set('fuel_type', f);
   try {
     const response = await api.get(`/vehicle-reference/search?${params.toString()}`);
     return response.data;

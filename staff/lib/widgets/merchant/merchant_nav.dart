@@ -86,7 +86,9 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
       await _authService.updateProfile({'isShopOpen': value});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(value ? 'Shop is now Open' : 'Shop is now Closed')),
+        SnackBar(
+          content: Text(value ? 'Shop is now Open' : 'Shop is now Closed'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -154,7 +156,9 @@ class MerchantDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentRoute = ModalRoute.of(context)?.settings.name;
     final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.mode == ThemeMode.dark;
+    // Resolve against the *effective* theme so ThemeMode.system tracks the
+    // device setting rather than getting stuck on the stored preference.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
       backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
@@ -186,7 +190,9 @@ class MerchantDrawer extends StatelessWidget {
                       Icon(
                         Icons.storefront_rounded,
                         size: 18,
-                        color: isShopOpen ? AppColors.success : AppColors.warning,
+                        color: isShopOpen
+                            ? AppColors.success
+                            : AppColors.warning,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -219,7 +225,9 @@ class MerchantDrawer extends StatelessWidget {
                         value: isShopOpen,
                         onChanged: onShopStatusChanged,
                         activeThumbColor: AppColors.success,
-                        activeTrackColor: AppColors.success.withValues(alpha: 0.3),
+                        activeTrackColor: AppColors.success.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                     ],
                   ),
@@ -251,7 +259,10 @@ class MerchantDrawer extends StatelessWidget {
                           onTap: () {
                             Navigator.pop(context); // Close drawer
                             if (currentRoute != item.route) {
-                              Navigator.pushReplacementNamed(context, item.route);
+                              Navigator.pushReplacementNamed(
+                                context,
+                                item.route,
+                              );
                             }
                           },
                         ),
@@ -259,7 +270,9 @@ class MerchantDrawer extends StatelessWidget {
                     ],
                   );
                 }),
-                if (!filteredItems.any((item) => item.route == '/merchant-profile'))
+                if (!filteredItems.any(
+                  (item) => item.route == '/merchant-profile',
+                ))
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: _MerchantNavTile(

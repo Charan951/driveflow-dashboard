@@ -43,6 +43,7 @@ import careerRoutes from './routes/careerRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
 import captchaRoutes from './routes/captchaRoutes.js';
 import faqRoutes from './routes/faqRoutes.js';
+import { apiLimiter } from './middleware/rateLimiters.js';
 
 
 
@@ -148,6 +149,11 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Global rate limit: 200 requests/minute per client, per endpoint. Runs
+// ahead of every route below; sensitive auth endpoints layer their own
+// tighter limiters on top of this.
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);

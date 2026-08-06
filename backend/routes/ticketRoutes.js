@@ -7,6 +7,7 @@ import {
   updateTicket,
   addMessage,
   createPublicTicket,
+  markTicketRead,
 } from '../controllers/ticketController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { publicFormLimiter } from '../middleware/rateLimiters.js';
@@ -27,5 +28,6 @@ router.route('/:id')
   .put(protect, admin, updateTicket);
 
 router.post('/:id/messages', protect, addMessage);
+router.put('/:id/read', protect, admin, markTicketRead);
 
 export default router;

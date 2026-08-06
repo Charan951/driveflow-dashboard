@@ -93,13 +93,29 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _CategoryTile(
+              icon: Icons.local_car_wash_outlined,
+              title: 'Car Wash',
+              subtitle: 'Premium cleaning services',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.pop(context);
+                nav.setTab(0);
+                if (mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            _CategoryTile(
               icon: Icons.settings_suggest_outlined,
               title: 'services',
               subtitle: 'General maintenance & repairs',
               color: AppColors.primaryBlue,
               onTap: () {
                 Navigator.pop(context);
-                nav.setTab(0);
+                nav.setTab(1);
                 if (mounted) {
                   Navigator.of(
                     context,
@@ -115,20 +131,15 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               color: Colors.purple,
               onTap: () {
                 Navigator.pop(context);
-                nav.setTab(1);
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
-                }
+                Navigator.of(context).pushNamed('/essentials');
               },
             ),
             const SizedBox(height: 12),
             _CategoryTile(
-              icon: Icons.local_car_wash_outlined,
-              title: 'Car Wash',
-              subtitle: 'Premium cleaning services',
-              color: Colors.blue,
+              icon: Icons.tire_repair_outlined,
+              title: 'Tyres',
+              subtitle: 'Replacement & maintenance',
+              color: Colors.orange,
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(3);
@@ -137,7 +148,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
             const SizedBox(height: 12),
             _CategoryTile(
               icon: Icons.battery_charging_full_outlined,
-              title: 'Battery/tyres',
+              title: 'Battery',
               subtitle: 'Replacement & maintenance',
               color: Colors.orange,
               onTap: () {
@@ -534,6 +545,34 @@ class _VehicleCardState extends State<_VehicleCard> {
                           : AppColors.textSecondaryLight,
                     ),
                   ),
+                  if (v.fuelType != null && v.fuelType!.trim().isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        v.fuelType!.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                          color: isDark
+                              ? AppColors.primaryBlue.withValues(alpha: 0.95)
+                              : AppColors.primaryBlue,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               if (v.variant != null && v.variant!.isNotEmpty) ...[

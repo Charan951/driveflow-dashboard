@@ -35,6 +35,12 @@ const ticketSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User', // Support agent
   },
+  // Timestamp of the last time admin/staff opened this ticket — customer
+  // messages newer than this are "unread" for the support inbox badge.
+  readByAdmin: {
+    type: Date,
+    default: null,
+  },
   messages: [{
     sender: {
       type: mongoose.Schema.Types.ObjectId,

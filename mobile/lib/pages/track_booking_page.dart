@@ -324,7 +324,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           final updated = Booking.fromJson(mapData);
           if (updated.id == _bookingId) {
             setState(
-              () => _booking = _mergeTrackBookingCarWashPhotos(_booking, updated),
+              () =>
+                  _booking = _mergeTrackBookingCarWashPhotos(_booking, updated),
             );
             _fetchPendingApprovals(); // Refresh approvals too
             if (updated.status == 'DELIVERED' ||
@@ -382,12 +383,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     final nextId = args?.toString();
     if (nextId != null && nextId.isNotEmpty && nextId != _bookingId) {
       if (_bookingId != null) {
-        _socketService.emit('leave', 'booking_$_bookingId');
+        _socketService.leaveRoom('booking_$_bookingId');
       }
       _bookingId = nextId;
       _nearAlertShown = false;
       _load();
-      _socketService.emit('join', 'booking_$nextId');
+      _socketService.joinRoom('booking_$nextId');
     }
   }
 
@@ -397,7 +398,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     _socketService.off('bookingUpdated');
     _socketService.off('receiveMessage');
     if (_bookingId != null) {
-      _socketService.emit('leave', 'booking_$_bookingId');
+      _socketService.leaveRoom('booking_$_bookingId');
     }
     _approvalsTimer?.cancel();
     super.dispose();
@@ -559,6 +560,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             make: vehicle.make,
             model: vehicle.model,
             variant: vehicle.variant,
+            fuelType: vehicle.fuelType,
           );
           if (mounted) {
             setState(() => _vehicleRef = ref);

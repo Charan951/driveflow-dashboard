@@ -4,6 +4,7 @@ import User from './models/User.js';
 import Booking from './models/Booking.js';
 import { canAccessBooking } from './utils/bookingAccess.js';
 import { getTokenFromSocketHandshake } from './utils/authCookie.js';
+import { loadUserFromToken } from './middleware/authMiddleware.js';
 import Message from './models/Message.js';
 import { sendPushToUser, sendPushToRole } from './utils/pushService.js';
 
@@ -85,7 +86,11 @@ export const initSocket = (server) => {
       
       if (token) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        socket.user = await User.findById(decoded.id).select('-password');
+        // Honor tokenVersion revocation the same way the REST `protect`
+        // middleware does — otherwise a logged-out mobile/staff token
+        // (which never expires on its own) could still open an
+        // authenticated socket and join the user's private room forever.
+        socket.user = await loadUserFromToken(decoded);
       }
       next();
     } catch (error) {

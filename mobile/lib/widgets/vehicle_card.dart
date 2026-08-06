@@ -135,21 +135,46 @@ class VehicleCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (vehicle.fuelType != null &&
+                          vehicle.fuelType!.trim().isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryBlue.withValues(
+                              alpha: 0.16,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.primaryBlue.withValues(
+                                alpha: 0.4,
+                              ),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            vehicle.fuelType!.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                              color: isDark
+                                  ? AppColors.primaryBlue.withValues(
+                                      alpha: 0.95,
+                                    )
+                                  : AppColors.primaryBlue,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
-            // Right: checkmark
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: AppStyles.primaryBlue,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 16),
-              ),
           ],
         ),
       ),

@@ -400,9 +400,10 @@ const BookServicePage: React.FC = () => {
         if (selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
           try {
             const details = await searchVehicleReference(
-              selectedVehicleData.make, 
-              selectedVehicleData.model, 
-              selectedVehicleData.variant
+              selectedVehicleData.make,
+              selectedVehicleData.model,
+              selectedVehicleData.variant,
+              selectedVehicleData.fuelType
             );
             if (details) {
               if (!vehicleTireSize) {
@@ -424,9 +425,10 @@ const BookServicePage: React.FC = () => {
             // Even without variant, try searching with brand and model
             try {
               const details = await searchVehicleReference(
-                selectedVehicleData.make, 
-                selectedVehicleData.model, 
-                ''
+                selectedVehicleData.make,
+                selectedVehicleData.model,
+                '',
+                selectedVehicleData.fuelType
               );
               if (details) {
                 if (!vehicleTireSize) {
@@ -508,9 +510,10 @@ const BookServicePage: React.FC = () => {
         if (!vehicleTireSize && selectedVehicleData.variant && selectedVehicleData.variant.trim() !== '') {
           try {
             const details = await searchVehicleReference(
-              selectedVehicleData.make, 
-              selectedVehicleData.model, 
-              selectedVehicleData.variant
+              selectedVehicleData.make,
+              selectedVehicleData.model,
+              selectedVehicleData.variant,
+              selectedVehicleData.fuelType
             );
             if (details) {
               vehicleTireSize = details.front_tyres || details.rear_tyres;
@@ -995,6 +998,11 @@ const BookServicePage: React.FC = () => {
                           )}
                           <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
                             <span className="font-mono uppercase tracking-wider">{vehicle.licensePlate}</span>
+                            {vehicle.fuelType && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                                {vehicle.fuelType}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1479,6 +1487,11 @@ const BookServicePage: React.FC = () => {
                       )}
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
                         <span className="font-mono uppercase tracking-wider">{selectedVehicleData?.licensePlate}</span>
+                        {selectedVehicleData?.fuelType && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                            {selectedVehicleData.fuelType}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
