@@ -33,7 +33,15 @@ const Footer: React.FC = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex flex-row items-center gap-3 mb-4">
-              <img src="/footer.png" srcSet="/footer-small.png 1x, /footer.png 2x" alt="Carzzi Logo" width={96} height={40} loading="lazy" className="w-24 h-auto object-contain" />
+              <img
+                src="/carzzilogo.webp"
+                srcSet="/carzzilogo-small.webp 250w, /carzzilogo-original.png 514w"
+                alt="Carzzi Logo"
+                width={96}
+                height={40}
+                loading="lazy"
+                className="w-24 h-auto object-contain brightness-0"
+              />
               <p className="text-sm text-muted-foreground">
                 Premium vehicle services at your doorstep. Your car deserves the best care.
               </p>

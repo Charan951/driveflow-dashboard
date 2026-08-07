@@ -153,13 +153,25 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 }
 
 class BackgroundTracking {
+  static const String _notificationChannelId = 'carzzi_staff_tracking';
+
   static Future<void> configure() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
-        isForegroundMode: false,
+        // Required for location updates to keep flowing once the app is
+        // backgrounded (e.g. staff switches to Google Maps for turn-by-turn
+        // navigation) — without a real foreground service, Android
+        // suspends/kills background isolates within seconds on most OEMs.
+        isForegroundMode: true,
         autoStart: false,
+        notificationChannelId: _notificationChannelId,
+        initialNotificationTitle: 'Carzzi Staff — Tracking active',
+        initialNotificationContent:
+            'Sharing your live location for the current job.',
+        foregroundServiceNotificationId: 9001,
+        foregroundServiceTypes: const [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,

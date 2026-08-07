@@ -48,6 +48,28 @@ class _NoInternetScreenState extends State<NoInternetScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
+                  height: 48,
+                  child: isDark
+                      ? Image.asset(
+                          'assets/carzzilogo.png',
+                          fit: BoxFit.contain,
+                        )
+                      : ColorFiltered(
+                          // Matches the web navbar's `brightness-0` treatment:
+                          // renders the (metallic) logo as solid black so it
+                          // stays legible on a light background.
+                          colorFilter: const ColorFilter.mode(
+                            Colors.black,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/carzzilogo.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
                   width: 120,
                   height: 120,
                   child: AnimatedBuilder(

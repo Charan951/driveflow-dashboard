@@ -124,6 +124,36 @@ class AuthService {
     return AuthResult(token: token, user: user);
   }
 
+  Future<Map<String, dynamic>> sendPhoneLoginOtp({
+    required String phone,
+  }) async {
+    return _api.postJson(
+      ApiEndpoints.authPhoneLoginSendOtp,
+      body: {'phone': phone},
+    );
+  }
+
+  Future<AuthResult> verifyPhoneLoginOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final res = await _api.postJson(
+      ApiEndpoints.authPhoneLoginVerifyOtp,
+      body: {'phone': phone, 'otp': otp},
+    );
+    final token = (res['accessToken'] ?? res['token'])?.toString();
+    final user = _userFromAuthResponse(res);
+
+    if (token != null && token.isNotEmpty) {
+      await AppStorage().setToken(token);
+    }
+    if (user != null) {
+      await AppStorage().setUserJson(jsonEncode(user.toJson()));
+    }
+
+    return AuthResult(token: token, user: user);
+  }
+
   Future<AuthResult> login(String email, String password) async {
     final res = await _api.postJson(
       ApiEndpoints.authLogin,

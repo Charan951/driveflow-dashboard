@@ -316,6 +316,48 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Passwordless mobile-number login — sends an OTP straight to the given
+  /// phone (no password step). Returns the masked mobile on success.
+  Future<String?> sendPhoneLoginOtp(String phone) async {
+    await logout();
+
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.sendPhoneLoginOtp(phone: phone);
+      loading = false;
+      notifyListeners();
+      return (res['mobile'] as String?) ?? '';
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> verifyPhoneLoginOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.verifyPhoneLoginOtp(phone: phone, otp: otp);
+      await _completeLoginSession(res);
+      loading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> login(String email, String password) async {
     await logout();
 

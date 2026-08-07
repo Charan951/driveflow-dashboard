@@ -195,7 +195,7 @@ export const createBlog = async (req, res) => {
     if (!validation.valid) {
       return res.status(400).json({ message: validation.message });
     }
-    const { title, excerpt, content, image, category, author, isPublished, tags, readTime } = req.body;
+    const { title, excerpt, content, image, contentImages, category, author, isPublished, tags, readTime } = req.body;
 
     const categoryDoc = await BlogCategory.findById(category);
     if (!categoryDoc) {
@@ -207,6 +207,9 @@ export const createBlog = async (req, res) => {
       excerpt: toTrimmedString(excerpt),
       content: toTrimmedString(content),
       image: toTrimmedString(image),
+      contentImages: Array.isArray(contentImages)
+        ? contentImages.map((url) => toTrimmedString(url)).filter(Boolean)
+        : [],
       category,
       author: toTrimmedString(author) || toTrimmedString(req.user?.name) || 'Admin',
       isPublished: isPublished !== undefined ? Boolean(isPublished) : true,
@@ -251,12 +254,17 @@ export const updateBlog = async (req, res) => {
       }
     }
 
-    const { title, excerpt, content, image, category, author, isPublished, tags, readTime } = req.body;
+    const { title, excerpt, content, image, contentImages, category, author, isPublished, tags, readTime } = req.body;
 
     if (title !== undefined) blog.title = toTrimmedString(title);
     if (excerpt !== undefined) blog.excerpt = toTrimmedString(excerpt);
     if (content !== undefined) blog.content = toTrimmedString(content);
     if (image !== undefined) blog.image = toTrimmedString(image);
+    if (contentImages !== undefined) {
+      blog.contentImages = Array.isArray(contentImages)
+        ? contentImages.map((url) => toTrimmedString(url)).filter(Boolean)
+        : [];
+    }
     if (author !== undefined) blog.author = toTrimmedString(author) || blog.author;
     if (readTime !== undefined) blog.readTime = toTrimmedString(readTime);
     if (isPublished !== undefined) blog.isPublished = Boolean(isPublished);

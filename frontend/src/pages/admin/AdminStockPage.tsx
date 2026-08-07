@@ -12,8 +12,10 @@ import {
   getVehicleReferenceColumns,
   addVehicleReferenceColumn,
   deleteVehicleReferenceColumn,
+  renameVehicleReferenceColumn,
   getVehicleReferenceBuiltinColumns,
   setVehicleReferenceBuiltinColumnHidden,
+  renameVehicleReferenceBuiltinColumn,
   VehicleReferenceColumn,
   VehicleReferenceBuiltinColumn,
 } from '../../services/vehicleReferenceService';
@@ -66,6 +68,9 @@ const AdminVehicleDataPage = () => {
   const [newColumnLabel, setNewColumnLabel] = useState('');
   const [newColumnCategory, setNewColumnCategory] = useState<'tyre' | 'battery'>('tyre');
   const [savingColumn, setSavingColumn] = useState(false);
+  const [editingColumnKey, setEditingColumnKey] = useState<string | null>(null);
+  const [editingColumnLabel, setEditingColumnLabel] = useState('');
+  const [renamingColumn, setRenamingColumn] = useState(false);
   const [formData, setFormData] = useState({
     brand_name: '',
     model: '',
@@ -341,6 +346,62 @@ const AdminVehicleDataPage = () => {
       fetchColumns();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to remove column');
+    }
+  };
+
+  const startEditingColumn = (key: string, currentLabel: string) => {
+    setEditingColumnKey(key);
+    setEditingColumnLabel(currentLabel);
+  };
+
+  const cancelEditingColumn = () => {
+    setEditingColumnKey(null);
+    setEditingColumnLabel('');
+  };
+
+  const handleRenameDynamicColumn = async (col: VehicleReferenceColumn) => {
+    const label = editingColumnLabel.trim();
+    if (!label) {
+      toast.error('Column name cannot be empty');
+      return;
+    }
+    if (label === col.label) {
+      cancelEditingColumn();
+      return;
+    }
+    try {
+      setRenamingColumn(true);
+      await renameVehicleReferenceColumn(col.category, col.key, label);
+      toast.success('Column renamed');
+      cancelEditingColumn();
+      fetchColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to rename column');
+    } finally {
+      setRenamingColumn(false);
+    }
+  };
+
+  const handleRenameBuiltinColumn = async (col: VehicleReferenceBuiltinColumn) => {
+    const label = editingColumnLabel.trim();
+    if (!label) {
+      toast.error('Column name cannot be empty');
+      return;
+    }
+    if (label === col.label) {
+      cancelEditingColumn();
+      return;
+    }
+    try {
+      setRenamingColumn(true);
+      await renameVehicleReferenceBuiltinColumn(col.key, label);
+      toast.success('Column renamed');
+      cancelEditingColumn();
+      fetchBuiltinColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to rename column');
+    } finally {
+      setRenamingColumn(false);
     }
   };
 
@@ -988,7 +1049,13 @@ const AdminVehicleDataPage = () => {
       </Dialog>
 
       {/* Manage Columns Modal */}
-      <Dialog open={isColumnModalOpen} onOpenChange={setIsColumnModalOpen}>
+      <Dialog
+        open={isColumnModalOpen}
+        onOpenChange={(open) => {
+          setIsColumnModalOpen(open);
+          if (!open) cancelEditingColumn();
+        }}
+      >
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>Manage Columns</DialogTitle>
@@ -1000,38 +1067,136 @@ const AdminVehicleDataPage = () => {
                 {[...builtinColumns.filter((c) => !c.hidden), ...columns].length === 0 && (
                   <p className="text-sm text-gray-500">No columns yet.</p>
                 )}
-                {builtinColumns.filter((c) => !c.hidden).map((c) => (
-                  <div key={`builtin-${c.key}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-700">{c.label}</span>
-                      <span className="text-[10px] uppercase tracking-wide text-gray-400">{c.category}</span>
+                {builtinColumns.filter((c) => !c.hidden).map((c) => {
+                  const isEditing = editingColumnKey === `builtin-${c.key}`;
+                  return (
+                    <div key={`builtin-${c.key}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
+                      {isEditing ? (
+                        <Input
+                          autoFocus
+                          value={editingColumnLabel}
+                          onChange={(e) => setEditingColumnLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameBuiltinColumn(c);
+                            if (e.key === 'Escape') cancelEditingColumn();
+                          }}
+                          maxLength={40}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm text-gray-700 truncate">{c.label}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-400 shrink-0">{c.category}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleRenameBuiltinColumn(c)}
+                              disabled={renamingColumn}
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700 px-1"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditingColumn}
+                              className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditingColumn(`builtin-${c.key}`, c.label)}
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
+                              title={`Rename ${c.label} column`}
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBuiltinHidden(c.key, true, c.label)}
+                              className="text-gray-400 hover:text-red-600 transition-colors"
+                              title={`Remove ${c.label} column`}
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleBuiltinHidden(c.key, true, c.label)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
-                      title={`Remove ${c.label} column`}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                {columns.map((c) => (
-                  <div key={`dynamic-${c.fieldName}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-700">{c.label}</span>
-                      <span className="text-[10px] uppercase tracking-wide text-gray-400">{c.category}</span>
+                  );
+                })}
+                {columns.map((c) => {
+                  const isEditing = editingColumnKey === `dynamic-${c.fieldName}`;
+                  return (
+                    <div key={`dynamic-${c.fieldName}`} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
+                      {isEditing ? (
+                        <Input
+                          autoFocus
+                          value={editingColumnLabel}
+                          onChange={(e) => setEditingColumnLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRenameDynamicColumn(c);
+                            if (e.key === 'Escape') cancelEditingColumn();
+                          }}
+                          maxLength={40}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm text-gray-700 truncate">{c.label}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-400 shrink-0">{c.category}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleRenameDynamicColumn(c)}
+                              disabled={renamingColumn}
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700 px-1"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditingColumn}
+                              className="text-xs font-medium text-gray-500 hover:text-gray-700 px-1"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditingColumn(`dynamic-${c.fieldName}`, c.label)}
+                              className="text-gray-400 hover:text-blue-600 transition-colors"
+                              title={`Rename ${c.label} column`}
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteColumn(c)}
+                              className="text-gray-400 hover:text-red-600 transition-colors"
+                              title={`Remove ${c.label} column`}
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteColumn(c)}
-                      className="text-gray-400 hover:text-red-600 transition-colors"
-                      title={`Remove ${c.label} column`}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

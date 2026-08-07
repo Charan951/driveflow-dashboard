@@ -1,76 +1,105 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Wrench, 
-  Shield, 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  Wrench,
+  Shield,
   ArrowRight,
   ChevronRight,
   Droplets,
   Battery,
-  Clock,
-  CheckCircle,
-  Users,
-  Truck,
   Star,
   Zap,
   Disc,
   PaintBucket,
   Thermometer,
-  Package
-} from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { serviceService, Service } from '@/services/serviceService';
-import { heroService } from '@/services/heroService';
+  Package,
+  ReceiptText,
+  CalendarCheck,
+  MapPin,
+  Award,
+  Sparkles,
+  Wallet,
+  Headset,
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { serviceService, Service } from "@/services/serviceService";
+import { heroService } from "@/services/heroService";
 
 const staticServices = [
-  { 
-    icon: Wrench, 
-    title: 'Maintenance', 
-    description: 'Complete vehicle servicing and repairs by certified professionals.', 
-    color: 'bg-blue-500', 
-    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600",
-    link: '/services?category=Cars&service=Periodic%20Maintenance'
+  {
+    icon: Wrench,
+    title: "Maintenance",
+    description:
+      "Complete vehicle servicing and repairs by certified professionals.",
+    color: "bg-blue-500",
+    image:
+      "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600",
+    link: "/services?category=Cars&service=Periodic%20Maintenance",
   },
-  { 
-    icon: Shield, 
-    title: 'Essentials', 
-    description: 'Essential add-ons and safety checks to keep you protected on the road.', 
-    color: 'bg-purple-500', 
-    image: "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=600",
-    link: '/services?service=Essentials'
+  {
+    icon: Shield,
+    title: "Essentials",
+    description:
+      "Essential add-ons and safety checks to keep you protected on the road.",
+    color: "bg-purple-500",
+    image:
+      "https://images.unsplash.com/photo-1560520134-94391c380e1a?auto=format&fit=crop&q=80&w=600",
+    link: "/services?service=Essentials",
   },
-  { 
-    icon: Droplets, 
-    title: 'Car Wash', 
-    description: 'Premium washing and detailing packages for that showroom shine.', 
-    color: 'bg-cyan-500', 
-    image: "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?auto=format&fit=crop&q=80&w=600",
-    link: '/services?category=Cars&service=Car%20Wash'
+  {
+    icon: Droplets,
+    title: "Car Wash",
+    description:
+      "Premium washing and detailing packages for that showroom shine.",
+    color: "bg-cyan-500",
+    image:
+      "https://images.unsplash.com/photo-1607958996333-41a2c7324e8f?auto=format&fit=crop&q=80&w=600",
+    link: "/services?category=Cars&service=Car%20Wash",
   },
-  { 
-    icon: Battery, 
-    title: 'Tires & Battery', 
-    description: 'Quality parts replacement and installation you can trust.', 
-    color: 'bg-orange-500', 
-    image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600",
-    link: '/services?category=Cars&service=Tyres%20%26%20Battery'
+  {
+    icon: Battery,
+    title: "Tires & Battery",
+    description: "Quality parts replacement and installation you can trust.",
+    color: "bg-orange-500",
+    image:
+      "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600",
+    link: "/services?category=Cars&service=Tyres%20%26%20Battery",
   },
 ];
 
 const howItWorks = [
-  { step: 1, title: 'Add Your Vehicle', description: 'Register your vehicle details in our system' },
-  { step: 2, title: 'Book a Service', description: 'Choose from our wide range of services' },
-  { step: 3, title: 'Pickup & Service', description: 'Our driver picks up your vehicle for service' },
-  { step: 4, title: 'Track & Relax', description: 'Real-time updates on your service status' },
+  {
+    step: 1,
+    title: "Add Your Vehicle",
+    description: "Register your vehicle details in our system",
+  },
+  {
+    step: 2,
+    title: "Book a Service",
+    description: "Choose from our wide range of services",
+  },
+  {
+    step: 3,
+    title: "Pickup & Service",
+    description: "Our driver picks up your vehicle for service",
+  },
+  {
+    step: 4,
+    title: "Track & Relax",
+    description: "Real-time updates on your service status",
+  },
 ];
 
 const defaultHeroSlides = [
   {
     id: 1,
-    image: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1200",
+    image:
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=1200",
     titleWhite: "Expert Maintenance &",
     titleBlue: "Repair",
-    subtitle: "Certified mechanics, genuine parts, and transparent pricing. We treat your vehicle like our own."
+    subtitle:
+      "Certified mechanics, genuine parts, and transparent pricing. We treat your vehicle like our own.",
   },
   // {
   //   id: 2,
@@ -90,11 +119,11 @@ const defaultHeroSlides = [
 
 const getHomeHeroImageSources = (imageUrl?: string) => {
   if (!imageUrl) {
-    return { src: '', srcSet: undefined as string | undefined };
+    return { src: "", srcSet: undefined as string | undefined };
   }
 
-  if (imageUrl.includes('unsplash.com')) {
-    const base = imageUrl.split('?')[0];
+  if (imageUrl.includes("unsplash.com")) {
+    const base = imageUrl.split("?")[0];
     const build = (width: number, height: number) =>
       `${base}?auto=format&fm=webp&fit=crop&crop=entropy&q=80&w=${width}&h=${height}`;
 
@@ -111,7 +140,7 @@ const HomePage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [heroSlides, setHeroSlides] = useState<any[]>(() => {
     try {
-      const cached = localStorage.getItem('hero_slides');
+      const cached = localStorage.getItem("hero_slides");
       return cached ? JSON.parse(cached) : defaultHeroSlides;
     } catch {
       return defaultHeroSlides;
@@ -119,7 +148,7 @@ const HomePage: React.FC = () => {
   });
   const [showGetStarted, setShowGetStarted] = useState<boolean>(() => {
     try {
-      const cached = localStorage.getItem('hero_show_get_started');
+      const cached = localStorage.getItem("hero_show_get_started");
       return cached !== null ? JSON.parse(cached) : true;
     } catch {
       return true;
@@ -127,23 +156,24 @@ const HomePage: React.FC = () => {
   });
   const [showLearnMore, setShowLearnMore] = useState<boolean>(() => {
     try {
-      const cached = localStorage.getItem('hero_show_learn_more');
+      const cached = localStorage.getItem("hero_show_learn_more");
       return cached !== null ? JSON.parse(cached) : true;
     } catch {
       return true;
     }
   });
   // Initialize with staticServices to ensure content is always visible (Optimistic UI / Fallback)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [services, setServices] = useState<any[]>(staticServices);
   const { data: servicesData, isLoading: isServicesLoading } = useQuery({
-    queryKey: ['services', 'premium'],
-    queryFn: () => serviceService.getServices(undefined, undefined, undefined, true),
+    queryKey: ["services", "premium"],
+    queryFn: () =>
+      serviceService.getServices(undefined, undefined, undefined, true),
     staleTime: 1000 * 60 * 5,
   });
 
   const { data: heroData, isLoading: isHeroLoading } = useQuery({
-    queryKey: ['heroSettings'],
+    queryKey: ["heroSettings"],
     queryFn: heroService.getHeroSettings,
     staleTime: 1000 * 60 * 5,
   });
@@ -167,71 +197,101 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (heroData) {
-      if (heroData.homeSlides && heroData.homeSlides.length > 0) {
+      if (
+        Array.isArray(heroData.homeSlides) &&
+        heroData.homeSlides.length > 0
+      ) {
         const processedSlides = heroData.homeSlides.map((s: any) => {
           if (s.title && !s.titleWhite && !s.titleBlue) {
-            const parts = s.title.split(' ');
-            const titleBlue = parts.pop() || '';
-            const titleWhite = parts.join(' ');
+            const parts = s.title.split(" ");
+            const titleBlue = parts.pop() || "";
+            const titleWhite = parts.join(" ");
             return { ...s, titleWhite, titleBlue };
           }
           return {
             ...s,
-            titleWhite: s.titleWhite || '',
-            titleBlue: s.titleBlue || ''
+            titleWhite: s.titleWhite || "",
+            titleBlue: s.titleBlue || "",
           };
         });
         setHeroSlides(processedSlides);
         try {
-          localStorage.setItem('hero_slides', JSON.stringify(processedSlides));
+          localStorage.setItem("hero_slides", JSON.stringify(processedSlides));
         } catch (e) {
-          console.error('Failed to cache hero slides', e);
+          console.error("Failed to cache hero slides", e);
         }
       }
       if (heroData.showGetStarted !== undefined) {
         setShowGetStarted(heroData.showGetStarted);
         try {
-          localStorage.setItem('hero_show_get_started', JSON.stringify(heroData.showGetStarted));
-        } catch (e) {}
+          localStorage.setItem(
+            "hero_show_get_started",
+            JSON.stringify(heroData.showGetStarted),
+          );
+        } catch (e) {
+          console.error("Failed to cache hero_show_get_started", e);
+        }
       }
       if (heroData.showLearnMore !== undefined) {
         setShowLearnMore(heroData.showLearnMore);
         try {
-          localStorage.setItem('hero_show_learn_more', JSON.stringify(heroData.showLearnMore));
-        } catch (e) {}
+          localStorage.setItem(
+            "hero_show_learn_more",
+            JSON.stringify(heroData.showLearnMore),
+          );
+        } catch (e) {
+          console.error("Failed to cache hero_show_learn_more", e);
+        }
       }
     }
   }, [heroData]);
 
   useEffect(() => {
-    if (servicesData && Array.isArray(servicesData) && servicesData.length > 0) {
-      const mappedServices = servicesData.slice(0, 4).map((service: Service) => {
-        const config = getServiceConfig(service.category);
-        return {
-          icon: config.icon,
-          title: service.name,
-          description: service.description,
-          color: config.color,
-          image: service.image || 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600',
-          link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`
-        };
-      });
+    if (
+      servicesData &&
+      Array.isArray(servicesData) &&
+      servicesData.length > 0
+    ) {
+      const mappedServices = servicesData
+        .slice(0, 4)
+        .map((service: Service) => {
+          const config = getServiceConfig(service.category);
+          return {
+            icon: config.icon,
+            title: service.name,
+            description: service.description,
+            color: config.color,
+            image:
+              service.image ||
+              "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=600",
+            link: `/services?category=Cars&service=${encodeURIComponent(service.name)}`,
+          };
+        });
       setServices(mappedServices);
     }
   }, [servicesData]);
 
   const getServiceConfig = (category: string) => {
     switch (category) {
-      case 'Periodic': return { icon: Wrench, color: 'bg-blue-500' };
-      case 'Repair': return { icon: Wrench, color: 'bg-red-500' };
-      case 'Wash': return { icon: Droplets, color: 'bg-cyan-500' };
-      case 'Tyres': return { icon: Disc, color: 'bg-orange-500' };
-      case 'Denting': 
-      case 'Painting': return { icon: PaintBucket, color: 'bg-purple-500' };
-      case 'Detailing': return { icon: Star, color: 'bg-indigo-500' };
-      case 'AC': return { icon: Thermometer, color: 'bg-sky-500' };
-      case 'Accessories': return { icon: Package, color: 'bg-green-500' };
-      default: return { icon: Wrench, color: 'bg-gray-500' };
+      case "Periodic":
+        return { icon: Wrench, color: "bg-blue-500" };
+      case "Repair":
+        return { icon: Wrench, color: "bg-red-500" };
+      case "Wash":
+        return { icon: Droplets, color: "bg-cyan-500" };
+      case "Tyres":
+        return { icon: Disc, color: "bg-orange-500" };
+      case "Denting":
+      case "Painting":
+        return { icon: PaintBucket, color: "bg-purple-500" };
+      case "Detailing":
+        return { icon: Star, color: "bg-indigo-500" };
+      case "AC":
+        return { icon: Thermometer, color: "bg-sky-500" };
+      case "Accessories":
+        return { icon: Package, color: "bg-green-500" };
+      default:
+        return { icon: Wrench, color: "bg-gray-500" };
     }
   };
 
@@ -247,18 +307,20 @@ const HomePage: React.FC = () => {
             <div
               key={slide.id || index}
               className={`absolute inset-0 transition-opacity duration-[1500ms] ease-in-out ${
-                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                isActive
+                  ? "opacity-100 z-10"
+                  : "opacity-0 z-0 pointer-events-none"
               }`}
             >
               {imageSources.src ? (
-                <img 
+                <img
                   src={imageSources.src}
                   srcSet={imageSources.srcSet}
                   sizes="100vw"
-                  alt={slide?.titleWhite || slide?.title || 'Carzzi hero'}
+                  alt={slide?.titleWhite || slide?.title || "Carzzi hero"}
                   className="absolute inset-0 h-full w-full object-cover object-[50%_38%] md:object-center"
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={index === 0 ? 'high' : 'low'}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "low"}
                   decoding="async"
                 />
               ) : (
@@ -268,7 +330,7 @@ const HomePage: React.FC = () => {
             </div>
           );
         })}
-        
+
         <div className="relative z-20 mx-auto flex min-h-[600px] h-[100svh] items-center px-4 pt-16 pb-10 container">
           <div className="relative min-h-[250px] flex flex-col justify-center w-full">
             {heroSlides.map((slide, index) => {
@@ -277,44 +339,43 @@ const HomePage: React.FC = () => {
                 <div
                   key={slide.id || index}
                   className={`max-w-4xl flex flex-col justify-center transition-all duration-500 ease-in-out transform ${
-                    isActive 
-                      ? 'relative opacity-100 translate-x-0 z-10' 
-                      : 'absolute inset-0 opacity-0 -translate-x-12 pointer-events-none z-0'
+                    isActive
+                      ? "relative opacity-100 translate-x-0 z-10"
+                      : "absolute inset-0 opacity-0 -translate-x-12 pointer-events-none z-0"
                   }`}
                 >
                   <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-[1.1] min-h-[90px] md:min-h-[140px]">
-                    {slide?.titleWhite || ''} <br />
+                    {slide?.titleWhite || ""} <br />
                     <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
-                      {slide?.titleBlue || ''}
+                      {slide?.titleBlue || ""}
                     </span>
                   </h1>
                   <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl leading-relaxed opacity-90">
-                    {slide?.subtitle || ''}
+                    {slide?.subtitle || ""}
                   </p>
-                  {
-                    (showGetStarted || showLearnMore) && (
-                      <div className="flex flex-row items-center gap-3 sm:gap-5">
-                        {showGetStarted && (
-                          <Link
-                            to="/register"
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
-                          >
-                            Get Started
-                            <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
-                          </Link>
-                        )}
-                        {showLearnMore && (
-                          <Link
-                            to="/about-us"
-                            aria-label="Learn more about Carzzi's automotive services"
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
-                          >
-                            Learn More <span className="sr-only">about our services</span>
-                          </Link>
-                        )}
-                      </div>
-                    )
-                  }
+                  {(showGetStarted || showLearnMore) && (
+                    <div className="flex flex-row items-center gap-3 sm:gap-5">
+                      {showGetStarted && (
+                        <Link
+                          to="/register"
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-primary text-primary-foreground rounded-full font-bold text-lg sm:text-xl hover:bg-primary/90 transition-all duration-300 shadow-xl hover:shadow-primary/40 hover:-translate-y-1.5 whitespace-nowrap"
+                        >
+                          Get Started
+                          <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6" />
+                        </Link>
+                      )}
+                      {showLearnMore && (
+                        <Link
+                          to="/about-us"
+                          aria-label="Learn more about Carzzi's automotive services"
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 sm:px-10 sm:py-4.5 bg-white/5 backdrop-blur-xl text-white rounded-full font-bold text-lg sm:text-xl hover:bg-white/15 transition-all border border-white/30 whitespace-nowrap"
+                        >
+                          Learn More{" "}
+                          <span className="sr-only">about our services</span>
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -332,7 +393,9 @@ const HomePage: React.FC = () => {
                     key={index}
                     onClick={() => setCurrentSlide(index)}
                     className={`h-2 rounded-full transition-all duration-700 ${
-                      currentSlide === index ? 'w-16 bg-primary shadow-lg shadow-primary/50' : 'w-3 bg-white/30 hover:bg-white/50'
+                      currentSlide === index
+                        ? "w-16 bg-primary shadow-lg shadow-primary/50"
+                        : "w-3 bg-white/30 hover:bg-white/50"
                     }`}
                     aria-label={`Go to slide ${index + 1}`}
                   />
@@ -363,18 +426,20 @@ const HomePage: React.FC = () => {
                   className="group block relative overflow-hidden rounded-2xl bg-card border border-border shadow-sm hover:shadow-xl transition-all duration-300 h-full"
                 >
                   <div className="aspect-[4/3] overflow-hidden">
-                    <img 
+                    <img
                       src={
-                        service.image?.includes('unsplash.com')
-                          ? `${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=400`
-                          : service.image?.includes('amazonaws.com') || service.image?.includes('/uploads/')
+                        service.image?.includes("unsplash.com")
+                          ? `${service.image.split("?")[0]}?auto=format&fm=webp&fit=crop&q=50&w=400`
+                          : service.image?.includes("amazonaws.com") ||
+                              service.image?.includes("/uploads/")
                             ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400&output=webp&q=50`
                             : service.image
-                      } 
+                      }
                       srcSet={
-                        service.image?.includes('unsplash.com')
-                          ? `${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=400 400w, ${service.image.split('?')[0]}?auto=format&fm=webp&fit=crop&q=50&w=800 800w`
-                          : service.image?.includes('amazonaws.com') || service.image?.includes('/uploads/')
+                        service.image?.includes("unsplash.com")
+                          ? `${service.image.split("?")[0]}?auto=format&fm=webp&fit=crop&q=50&w=400 400w, ${service.image.split("?")[0]}?auto=format&fm=webp&fit=crop&q=50&w=800 800w`
+                          : service.image?.includes("amazonaws.com") ||
+                              service.image?.includes("/uploads/")
                             ? `https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=400&output=webp&q=50 400w, https://wsrv.nl/?url=${encodeURIComponent(service.image)}&w=800&output=webp&q=50 800w`
                             : undefined
                       }
@@ -384,7 +449,9 @@ const HomePage: React.FC = () => {
                       className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-                    <div className={`absolute top-4 right-4 p-3 rounded-xl ${service.color} text-white shadow-lg`}>
+                    <div
+                      className={`absolute top-4 right-4 p-3 rounded-xl ${service.color} text-white shadow-lg`}
+                    >
                       <service.icon className="w-6 h-6" />
                     </div>
                   </div>
@@ -393,9 +460,7 @@ const HomePage: React.FC = () => {
                     <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
                       {service.description}
                     </p>
-                    <span 
-                      className="inline-flex items-center text-primary font-medium group-hover:gap-2 transition-all"
-                    >
+                    <span className="inline-flex items-center text-primary font-medium group-hover:gap-2 transition-all">
                       View Details <ChevronRight className="w-4 h-4" />
                     </span>
                   </div>
@@ -409,46 +474,109 @@ const HomePage: React.FC = () => {
       {/* Why Choose Us */}
       <section className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-16 items-stretch">
+            {/* Left: heading + 8-card feature grid */}
             <div>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-                Why Drivers Choose <span className="text-primary">Carzzi</span>
+              <h2 className="text-3xl sm:text-5xl font-extrabold mb-3 leading-tight">
+                Why Choose <span className="text-primary">Carzzi?</span>
               </h2>
-              <p className="text-muted-foreground text-lg mb-8">
-                We combine technology with automotive expertise to deliver a service experience 
-                that fits your modern lifestyle.
+              <p className="text-muted-foreground text-lg mb-10">
+                Smart care. Honest service.{" "}
+                <span className="text-primary font-semibold">
+                  Total peace of mind.
+                </span>
               </p>
-              
-              <div className="space-y-6">
+
+              <div className="grid sm:grid-cols-2 gap-4">
                 {[
-                  { icon: Truck, title: "Free Pickup & Delivery", desc: "We handle the logistics so you don't have to." },
-                  { icon: Clock, title: "Real-time Tracking", desc: "Monitor your service status every step of the way." },
-                  { icon: CheckCircle, title: "Quality Guaranteed", desc: "100% satisfaction promise on all services." },
-                  { icon: Users, title: "Expert Professionals", desc: "Verified professionals with years of experience." }
+                  {
+                    icon: Shield,
+                    title: "100% Authorized Dealers Only",
+                    desc: "Your car is in the hands of 100% authorized dealers and trained professionals.",
+                  },
+                  {
+                    icon: ReceiptText,
+                    title: "Upfront Estimates, Always",
+                    desc: "Clear, upfront service estimates before any work begins. No surprises later.",
+                  },
+                  {
+                    icon: CalendarCheck,
+                    title: "Easy & Convenient",
+                    desc: "Book in minutes, choose your time slot, and we handle the rest.",
+                  },
+                  {
+                    icon: MapPin,
+                    title: "Free Pickup & Drop",
+                    desc: "Hassle-free pickup & drop at your doorstep so you save time and effort.",
+                  },
+                  {
+                    icon: Award,
+                    title: "Genuine Parts & Quality Service",
+                    desc: "100% genuine parts and quality checks at every step.",
+                  },
+                  {
+                    icon: Sparkles,
+                    title: "Beauty Care for Your Car",
+                    desc: "Premium cleaning, polishing & detailing to keep your car looking its best.",
+                  },
+                  {
+                    icon: Wallet,
+                    title: "Secure Payments",
+                    desc: "Safe, secure and multiple payment options for a worry-free experience.",
+                  },
+                  {
+                    icon: Headset,
+                    title: "Dedicated Support",
+                    desc: "Real people. Real help. We're here for you, whenever you need us.",
+                  },
                 ].map((item, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
-                      <item.icon className="w-6 h-6" />
+                  <div
+                    key={index}
+                    className="bg-card border border-border rounded-2xl p-5 hover:shadow-md hover:border-primary/30 transition-all"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center mb-3 text-primary">
+                      <item.icon className="w-5 h-5" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-1">{item.title}</h3>
-                      <p className="text-muted-foreground">{item.desc}</p>
-                    </div>
+                    <h3 className="font-semibold text-base mb-1">
+                      {item.title}
+                    </h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {item.desc}
+                    </p>
                   </div>
                 ))}
               </div>
             </div>
-            
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-3xl blur-3xl" />
-              <img 
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" 
-                alt="App Dashboard Preview" 
-                width={1000}
-                height={667}
-                loading="lazy"
-                className="relative rounded-3xl shadow-2xl border border-white/10"
-              />
+
+            {/* Right: photo showcase */}
+            <div className="lg:sticky lg:top-24 flex flex-col h-full">
+              <div className="relative flex-1 min-h-[420px] rounded-3xl overflow-hidden shadow-2xl bg-muted">
+                <img
+                  src="https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&q=80&w=1000"
+                  alt="Carzzi car care"
+                  loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
+                <div className="relative h-full flex flex-col p-8 sm:p-10">
+                  <span className="inline-flex w-fit items-center px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-wider">
+                    We Care For
+                  </span>
+
+                  <div className="mt-auto pt-6 border-t border-white/20">
+                    <p className="text-white/90 text-sm font-medium mb-3">
+                      All Brands & Models • Regular Service & Repairs • Tyres &
+                      Batteries • Beauty Care & Detailing • Roadside Assistance
+                    </p>
+                    <p className="text-2xl font-extrabold text-white">
+                      Better care. Happier drives.
+                    </p>
+                    <p className="text-white/70 italic mt-1">
+                      That's the Carzzi promise.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -457,9 +585,9 @@ const HomePage: React.FC = () => {
       {/* CTA Section */}
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-primary z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&q=80&w=1200" 
-            alt="Road texture" 
+          <img
+            src="https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&q=80&w=1200"
+            alt="Road texture"
             loading="lazy"
             className="w-full h-full object-cover opacity-10 mix-blend-overlay"
           />
@@ -470,7 +598,9 @@ const HomePage: React.FC = () => {
               Built For Modern Car Owners?
             </h2>
             <p className="text-white text-xl mb-10">
-Manage, Maintain, and Elevate your vehicle experience with Carzzi.            </p>
+              Manage, Maintain, and Elevate your vehicle experience with
+              Carzzi.{" "}
+            </p>
             <Link
               to="/register"
               className="inline-flex items-center justify-center gap-2 px-10 py-4 bg-white text-primary rounded-full font-bold text-lg hover:bg-gray-100 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"

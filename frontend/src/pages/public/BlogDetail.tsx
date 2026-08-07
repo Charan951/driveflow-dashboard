@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Calendar, Clock, ChevronLeft } from 'lucide-react';
 import { blogService, BlogPost } from '@/services/blogService';
 import { heroService } from '@/services/heroService';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from '@/components/ui/carousel';
+import Autoplay from 'embla-carousel-autoplay';
 
 const BlogDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -11,6 +18,23 @@ const BlogDetail: React.FC = () => {
   const [heroImage, setHeroImage] = useState(
     'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=2000'
   );
+  const [galleryApi, setGalleryApi] = useState<CarouselApi>();
+  const galleryAutoplay = useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })
+  );
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!galleryApi) return;
+    const onSelect = () => setActiveImageIndex(galleryApi.selectedScrollSnap());
+    onSelect();
+    galleryApi.on('select', onSelect);
+    galleryApi.on('reInit', onSelect);
+    return () => {
+      galleryApi.off('select', onSelect);
+      galleryApi.off('reInit', onSelect);
+    };
+  }, [galleryApi]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,6 +114,37 @@ const BlogDetail: React.FC = () => {
         <article className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap leading-8">
           {blog.content}
         </article>
+
+        {Array.isArray(blog.contentImages) && blog.contentImages.length > 0 && (
+          <Carousel
+            opts={{ loop: true, align: 'center' }}
+            plugins={[galleryAutoplay.current]}
+            setApi={setGalleryApi}
+            className="mt-10"
+          >
+            <CarouselContent>
+              {blog.contentImages.map((url, idx) => {
+                const isActive = idx === activeImageIndex;
+                return (
+                  <CarouselItem key={`${url}-${idx}`} className="basis-4/5 sm:basis-3/5">
+                    <div
+                      className={`aspect-video rounded-2xl overflow-hidden border border-border shadow-sm transition-transform duration-300 origin-center ${
+                        isActive ? 'scale-100 opacity-100' : 'scale-90 opacity-50'
+                      }`}
+                    >
+                      <img
+                        src={url}
+                        alt={`${blog.title} — image ${idx + 1}`}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+          </Carousel>
+        )}
       </main>
     </div>
   );

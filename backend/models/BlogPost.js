@@ -22,6 +22,11 @@ const blogPostSchema = mongoose.Schema(
       default: '',
       trim: true,
     },
+    // Additional images shown inline below the blog content (gallery-style).
+    contentImages: [{
+      type: String,
+      trim: true,
+    }],
     author: {
       type: String,
       required: true,

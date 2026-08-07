@@ -11,6 +11,8 @@ import {
   prepareLogin,
   sendLoginOtp,
   verifyLoginOtp,
+  sendPhoneLoginOtp,
+  verifyPhoneLoginOtp,
   logoutUser,
   getSession,
 } from '../controllers/authController.js';
@@ -35,6 +37,8 @@ router.post('/signup/verify-otp', signupOtpLimiter, rejectPrivilegedAuthFields, 
 router.post('/login/prepare', loginPrepareLimiter, rejectPrivilegedAuthFields, prepareLogin);
 router.post('/login/send-otp', loginOtpLimiter, rejectPrivilegedAuthFields, sendLoginOtp);
 router.post('/login/verify-otp', loginOtpLimiter, rejectPrivilegedAuthFields, verifyLoginOtp);
+router.post('/login/phone/send-otp', loginOtpLimiter, rejectPrivilegedAuthFields, sendPhoneLoginOtp);
+router.post('/login/phone/verify-otp', loginOtpLimiter, rejectPrivilegedAuthFields, verifyPhoneLoginOtp);
 router.post('/register', blockLegacyAuthInProduction, rejectPrivilegedAuthFields, registerUser);
 router.post('/login', blockLegacyAuthInProduction, rejectPrivilegedAuthFields, loginUser);
 router.post('/google', rejectPrivilegedAuthFields, googleLogin);

@@ -13,6 +13,7 @@ export interface BlogPost {
   excerpt: string;
   content: string;
   image: string;
+  contentImages?: string[];
   author: string;
   category: BlogCategory | string;
   isPublished: boolean;
@@ -27,6 +28,7 @@ export interface BlogPayload {
   excerpt: string;
   content: string;
   image?: string;
+  contentImages?: string[];
   author?: string;
   category: string;
   isPublished?: boolean;

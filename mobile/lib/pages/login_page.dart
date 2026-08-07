@@ -7,6 +7,8 @@ import '../core/form_validation.dart';
 import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 
+enum _LoginStep { identifier, password, emailOtp, phoneOtp }
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -16,11 +18,11 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
-  late final TextEditingController _emailController;
+  late final TextEditingController _identifierController;
   late final TextEditingController _passwordController;
   late final TextEditingController _otpController;
   bool _submitting = false;
-  bool _showOtpStep = false;
+  _LoginStep _step = _LoginStep.identifier;
   String? _maskedPhone;
   String? _error;
   bool _showPassword = false;
@@ -31,7 +33,7 @@ class _LoginPageState extends State<LoginPage>
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController();
+    _identifierController = TextEditingController();
     _passwordController = TextEditingController();
     _otpController = TextEditingController();
     _animationController = AnimationController(
@@ -50,7 +52,7 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     _otpController.dispose();
     _animationController.dispose();
@@ -61,22 +63,77 @@ class _LoginPageState extends State<LoginPage>
     if (_error != null) setState(() => _error = null);
   }
 
+  void _goToIdentifierStep() {
+    setState(() {
+      _step = _LoginStep.identifier;
+      _passwordController.clear();
+      _otpController.clear();
+      _error = null;
+    });
+  }
+
+  Future<void> _handleIdentifierNext() async {
+    if (_submitting) return;
+
+    HapticFeedback.mediumImpact();
+    FocusScope.of(context).unfocus();
+    final identifier = _identifierController.text.trim();
+
+    final digits = FormValidation.digitsOnly(identifier);
+    final isPhone = digits.length == 10 && digits == identifier.trim();
+    final emailError = isPhone
+        ? null
+        : FormValidation.validateEmail(identifier, rawInput: identifier);
+
+    if (isPhone) {
+      setState(() {
+        _submitting = true;
+        _error = null;
+      });
+
+      final auth = context.read<AuthProvider>();
+      final masked = await auth.sendPhoneLoginOtp(digits);
+      if (!mounted) return;
+
+      if (masked == null) {
+        setState(() {
+          _submitting = false;
+          _error = auth.lastError ?? 'Failed to send OTP';
+        });
+        return;
+      }
+
+      setState(() {
+        _submitting = false;
+        _maskedPhone = masked;
+        _otpController.clear();
+        _step = _LoginStep.phoneOtp;
+      });
+      return;
+    }
+
+    if (emailError != null) {
+      setState(() {
+        _error = 'Enter a valid email address or 10-digit mobile number';
+      });
+      return;
+    }
+
+    setState(() {
+      _passwordController.clear();
+      _step = _LoginStep.password;
+      _error = null;
+    });
+  }
+
   Future<void> _handleCredentials() async {
     if (_submitting) return;
 
     HapticFeedback.mediumImpact();
     FocusScope.of(context).unfocus();
-    final email = _emailController.text.trim();
+    final email = _identifierController.text.trim();
     final password = _passwordController.text;
 
-    final emailError = FormValidation.validateEmail(
-      email,
-      rawInput: _emailController.text,
-    );
-    if (emailError != null) {
-      setState(() => _error = emailError);
-      return;
-    }
     final passwordError = FormValidation.validateLoginPassword(password);
     if (passwordError != null) {
       setState(() => _error = passwordError);
@@ -106,7 +163,7 @@ class _LoginPageState extends State<LoginPage>
       }
 
       setState(() {
-        _showOtpStep = true;
+        _step = _LoginStep.emailOtp;
         _maskedPhone = masked;
         _otpController.clear();
       });
@@ -118,7 +175,7 @@ class _LoginPageState extends State<LoginPage>
         setState(() => _maskedPhone = sentMasked);
       } else {
         setState(() {
-          _showOtpStep = false;
+          _step = _LoginStep.password;
           _error = auth.lastError ?? 'Failed to send OTP';
         });
       }
@@ -133,7 +190,6 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _handleVerifyOtp() async {
     if (_submitting) return;
 
-    final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
 
     final otpError = FormValidation.validateOtp(otp);
@@ -149,7 +205,16 @@ class _LoginPageState extends State<LoginPage>
 
     try {
       final auth = context.read<AuthProvider>();
-      final ok = await auth.verifyLoginOtp(email: email, otp: otp);
+      final isPhone = _step == _LoginStep.phoneOtp;
+      final ok = isPhone
+          ? await auth.verifyPhoneLoginOtp(
+              phone: FormValidation.digitsOnly(_identifierController.text),
+              otp: otp,
+            )
+          : await auth.verifyLoginOtp(
+              email: _identifierController.text.trim(),
+              otp: otp,
+            );
       if (!mounted) return;
       if (ok) {
         await Future.delayed(Duration.zero);
@@ -168,7 +233,6 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Future<void> _handleResendOtp() async {
-    final email = _emailController.text.trim();
     setState(() {
       _submitting = true;
       _error = null;
@@ -177,7 +241,12 @@ class _LoginPageState extends State<LoginPage>
 
     try {
       final auth = context.read<AuthProvider>();
-      final masked = await auth.sendLoginOtp(email);
+      final isPhone = _step == _LoginStep.phoneOtp;
+      final masked = isPhone
+          ? await auth.sendPhoneLoginOtp(
+              FormValidation.digitsOnly(_identifierController.text),
+            )
+          : await auth.sendLoginOtp(_identifierController.text.trim());
       if (!mounted) return;
       if (masked != null) {
         setState(() => _maskedPhone = masked);
@@ -189,9 +258,50 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  String get _titleText {
+    switch (_step) {
+      case _LoginStep.identifier:
+        return 'Login';
+      case _LoginStep.password:
+        return 'Enter Password';
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        return 'Verify OTP';
+    }
+  }
+
+  void _handlePrimaryAction() {
+    switch (_step) {
+      case _LoginStep.identifier:
+        _handleIdentifierNext();
+        break;
+      case _LoginStep.password:
+        _handleCredentials();
+        break;
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        _handleVerifyOtp();
+        break;
+    }
+  }
+
+  String get _primaryButtonLabel {
+    switch (_step) {
+      case _LoginStep.identifier:
+        return 'Next';
+      case _LoginStep.password:
+        return 'Continue';
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        return 'Verify';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isOtpStep =
+        _step == _LoginStep.emailOtp || _step == _LoginStep.phoneOtp;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -324,7 +434,7 @@ class _LoginPageState extends State<LoginPage>
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       Text(
-                                        _showOtpStep ? 'Verify OTP' : 'Login',
+                                        _titleText,
                                         key: const Key('login_title'),
                                         textAlign: TextAlign.center,
                                         style: theme.textTheme.headlineSmall
@@ -334,7 +444,18 @@ class _LoginPageState extends State<LoginPage>
                                               letterSpacing: 0.5,
                                             ),
                                       ),
-                                      if (_showOtpStep) ...[
+                                      if (_step == _LoginStep.password) ...[
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _identifierController.text.trim(),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                      if (isOtpStep) ...[
                                         const SizedBox(height: 8),
                                         Text(
                                           'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
@@ -346,19 +467,22 @@ class _LoginPageState extends State<LoginPage>
                                         ),
                                       ],
                                       const SizedBox(height: 32),
-                                      if (!_showOtpStep) ...[
+                                      if (_step == _LoginStep.identifier) ...[
                                         _GlassField(
-                                          controller: _emailController,
-                                          hintText: 'Email',
+                                          controller: _identifierController,
+                                          hintText: 'Email or mobile number',
                                           keyboardType:
                                               TextInputType.emailAddress,
-                                          textInputAction: TextInputAction.next,
-                                          prefixIcon: Icons.mail_outline,
+                                          textInputAction: TextInputAction.done,
+                                          prefixIcon: Icons.person_outline,
                                           maxLength:
                                               FormValidation.maxEmailLength,
                                           onChanged: (_) => _clearError(),
+                                          onSubmitted: (_) =>
+                                              _handleIdentifierNext(),
                                         ),
-                                        const SizedBox(height: 20),
+                                      ] else if (_step ==
+                                          _LoginStep.password) ...[
                                         _GlassField(
                                           controller: _passwordController,
                                           hintText: 'Password',
@@ -455,15 +579,13 @@ class _LoginPageState extends State<LoginPage>
                                           ),
                                         ),
                                       ],
-                                      const SizedBox(height: 5),
+                                      const SizedBox(height: 24),
                                       SizedBox(
                                         height: 56,
                                         child: ElevatedButton(
                                           onPressed: _submitting
                                               ? null
-                                              : (_showOtpStep
-                                                    ? _handleVerifyOtp
-                                                    : _handleCredentials),
+                                              : _handlePrimaryAction,
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 AppColors.cinematicOrange,
@@ -493,9 +615,7 @@ class _LoginPageState extends State<LoginPage>
                                                   ),
                                                 )
                                               : Text(
-                                                  _showOtpStep
-                                                      ? 'Verify'
-                                                      : 'Continue',
+                                                  _primaryButtonLabel,
                                                   style: const TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.bold,
@@ -504,20 +624,17 @@ class _LoginPageState extends State<LoginPage>
                                                 ),
                                         ),
                                       ),
-                                      if (_showOtpStep) ...[
+                                      if (_step != _LoginStep.identifier) ...[
                                         const SizedBox(height: 12),
                                         Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment: isOtpStep
+                                              ? MainAxisAlignment.spaceBetween
+                                              : MainAxisAlignment.start,
                                           children: [
                                             TextButton(
                                               onPressed: _submitting
                                                   ? null
-                                                  : () => setState(() {
-                                                      _showOtpStep = false;
-                                                      _otpController.clear();
-                                                      _error = null;
-                                                    }),
+                                                  : _goToIdentifierStep,
                                               child: const Text(
                                                 'Back',
                                                 style: TextStyle(
@@ -525,19 +642,20 @@ class _LoginPageState extends State<LoginPage>
                                                 ),
                                               ),
                                             ),
-                                            TextButton(
-                                              onPressed: _submitting
-                                                  ? null
-                                                  : _handleResendOtp,
-                                              child: const Text(
-                                                'Resend OTP',
-                                                style: TextStyle(
-                                                  color:
-                                                      AppColors.cinematicOrange,
-                                                  fontWeight: FontWeight.bold,
+                                            if (isOtpStep)
+                                              TextButton(
+                                                onPressed: _submitting
+                                                    ? null
+                                                    : _handleResendOtp,
+                                                child: const Text(
+                                                  'Resend OTP',
+                                                  style: TextStyle(
+                                                    color: AppColors
+                                                        .cinematicOrange,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
                                           ],
                                         ),
                                       ],
@@ -624,12 +742,15 @@ class _GlassField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       maxLength: maxLength,
+      // Collapses the counter row entirely instead of just hiding its text
+      // (counterText: '' alone still reserves that blank line of space).
+      buildCounter:
+          (context, {required currentLength, required isFocused, maxLength}) =>
+              null,
       style: const TextStyle(color: Colors.white),
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       inputFormatters: [
-        if (keyboardType == TextInputType.emailAddress)
-          FilteringTextInputFormatter.deny(RegExp(r'\s')),
         if (keyboardType == TextInputType.number)
           FilteringTextInputFormatter.digitsOnly,
       ],

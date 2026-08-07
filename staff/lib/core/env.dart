@@ -40,6 +40,8 @@ class ApiEndpoints {
   static const String authLoginPrepare = '/auth/login/prepare';
   static const String authLoginSendOtp = '/auth/login/send-otp';
   static const String authLoginVerifyOtp = '/auth/login/verify-otp';
+  static const String authPhoneLoginSendOtp = '/auth/login/phone/send-otp';
+  static const String authPhoneLoginVerifyOtp = '/auth/login/phone/verify-otp';
   static const String authProfile = '/users/profile';
   static const String usersMe = '/users/me';
   static const String usersOnlineStatus = '/users/online-status';

@@ -9,6 +9,8 @@ import {
   saveVehicleReferenceColumnsToS3,
   getHiddenBuiltinColumnsFromS3,
   saveHiddenBuiltinColumnsToS3,
+  getBuiltinColumnLabelsFromS3,
+  saveBuiltinColumnLabelsToS3,
 } from '../utils/s3Storage.js';
 import crypto from 'crypto';
 import { protect, admin } from '../middleware/authMiddleware.js';
@@ -322,6 +324,35 @@ router.post('/columns', protect, admin, asyncHandler(async (req, res) => {
   res.status(201).json(newColumn);
 }));
 
+// @desc    Rename a dynamic price column's display label (key/fieldName —
+//          and therefore existing price data — are untouched).
+// @route   PUT /api/vehicle-reference/columns/:category/:key
+// @access  Private/Admin
+router.put('/columns/:category/:key', protect, admin, asyncHandler(async (req, res) => {
+  const { category, key } = req.params;
+  const { label } = req.body;
+
+  const cleanLabel = String(label || '').trim();
+  if (!cleanLabel || cleanLabel.length > 40) {
+    return res.status(400).json({ message: 'Column name is required (max 40 characters)' });
+  }
+
+  const columns = await getVehicleReferenceColumnsFromS3();
+  const index = columns.findIndex((c) => c.category === category && c.key === key);
+  if (index === -1) {
+    return res.status(404).json({ message: 'Column not found' });
+  }
+
+  const updatedColumn = { ...columns[index], label: cleanLabel };
+  const updatedColumns = [...columns];
+  updatedColumns[index] = updatedColumn;
+
+  await saveVehicleReferenceColumnsToS3(updatedColumns);
+  emitEntitySync('vehicle_reference_column', 'updated', updatedColumn);
+
+  res.json(updatedColumn);
+}));
+
 // @desc    Remove a dynamic price column definition
 // @route   DELETE /api/vehicle-reference/columns/:category/:key
 // @access  Private/Admin
@@ -340,45 +371,74 @@ router.delete('/columns/:category/:key', protect, admin, asyncHandler(async (req
   res.json({ message: 'Column removed' });
 }));
 
-// @desc    List the 8 built-in brand columns with their hidden state
+// @desc    List the 8 built-in brand columns with their hidden state and
+//          any admin-renamed label.
 // @route   GET /api/vehicle-reference/builtin-columns
 // @access  Public/Private
 router.get('/builtin-columns', asyncHandler(async (req, res) => {
-  const hidden = await getHiddenBuiltinColumnsFromS3();
+  const [hidden, labels] = await Promise.all([
+    getHiddenBuiltinColumnsFromS3(),
+    getBuiltinColumnLabelsFromS3(),
+  ]);
   const hiddenSet = new Set(hidden);
-  res.json(BUILTIN_COLUMNS.map((col) => ({ ...col, hidden: hiddenSet.has(col.key) })));
+  res.json(BUILTIN_COLUMNS.map((col) => ({
+    ...col,
+    label: labels?.[col.key] || col.label,
+    hidden: hiddenSet.has(col.key),
+  })));
 }));
 
-// @desc    Hide or restore a built-in brand column. Purely a
-//          display/selection-list toggle — underlying price data on
-//          existing vehicle records is never touched or deleted.
+// @desc    Hide/restore and/or rename a built-in brand column. Purely a
+//          display/selection-list concern — underlying price data on
+//          existing vehicle records is never touched, moved, or deleted
+//          (the key/fieldName the data is stored under never changes).
 // @route   PUT /api/vehicle-reference/builtin-columns/:key
 // @access  Private/Admin
 router.put('/builtin-columns/:key', protect, admin, asyncHandler(async (req, res) => {
   const { key } = req.params;
-  const { hidden } = req.body;
+  const { hidden, label } = req.body;
 
   const column = BUILTIN_COLUMNS.find((c) => c.key === key);
   if (!column) {
     return res.status(404).json({ message: 'Unknown built-in column' });
   }
-  if (typeof hidden !== 'boolean') {
+  if (hidden === undefined && label === undefined) {
+    return res.status(400).json({ message: 'Provide "hidden" and/or "label" to update' });
+  }
+  if (hidden !== undefined && typeof hidden !== 'boolean') {
     return res.status(400).json({ message: '"hidden" must be true or false' });
   }
 
-  const current = await getHiddenBuiltinColumnsFromS3();
-  const currentSet = new Set(current);
-  if (hidden) {
-    currentSet.add(key);
+  let resolvedHidden;
+  if (hidden !== undefined) {
+    const current = await getHiddenBuiltinColumnsFromS3();
+    const currentSet = new Set(current);
+    if (hidden) {
+      currentSet.add(key);
+    } else {
+      currentSet.delete(key);
+    }
+    await saveHiddenBuiltinColumnsToS3([...currentSet]);
+    resolvedHidden = hidden;
   } else {
-    currentSet.delete(key);
+    resolvedHidden = (await getHiddenBuiltinColumnsFromS3()).includes(key);
   }
-  const updated = [...currentSet];
 
-  await saveHiddenBuiltinColumnsToS3(updated);
-  emitEntitySync('vehicle_reference_column', hidden ? 'hidden' : 'restored', { key });
+  let resolvedLabel = column.label;
+  if (label !== undefined) {
+    const cleanLabel = String(label || '').trim();
+    if (!cleanLabel || cleanLabel.length > 40) {
+      return res.status(400).json({ message: 'Column name is required (max 40 characters)' });
+    }
+    const labels = await getBuiltinColumnLabelsFromS3();
+    const updatedLabels = { ...labels, [key]: cleanLabel };
+    await saveBuiltinColumnLabelsToS3(updatedLabels);
+    resolvedLabel = cleanLabel;
+  }
 
-  res.json({ ...column, hidden });
+  emitEntitySync('vehicle_reference_column', 'updated', { key, hidden: resolvedHidden, label: resolvedLabel });
+
+  res.json({ ...column, label: resolvedLabel, hidden: resolvedHidden });
 }));
 
 // @desc    Get all vehicle reference data

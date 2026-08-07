@@ -27,6 +27,7 @@ class _SupportPageState extends State<SupportPage> {
   bool _loading = true;
   SupportTicket? _selectedTicket;
   final _replyController = TextEditingController();
+  final _messagesScrollController = ScrollController();
   bool _isReplying = false;
   String? _currentUserId;
   ContactDetails? _contactDetails;
@@ -63,7 +64,17 @@ class _SupportPageState extends State<SupportPage> {
     }
     _socketService.off('ticketUpdated', _onTicketUpdated);
     _replyController.dispose();
+    _messagesScrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollMessagesToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_messagesScrollController.hasClients) return;
+      _messagesScrollController.jumpTo(
+        _messagesScrollController.position.maxScrollExtent,
+      );
+    });
   }
 
   void _initSocket() async {
@@ -103,6 +114,7 @@ class _SupportPageState extends State<SupportPage> {
         if (_selectedTicket != null &&
             _selectedTicket!.id == updatedTicket.id) {
           _loadTickets();
+          _scrollMessagesToBottom();
         }
       }
     } catch (e) {
@@ -116,6 +128,7 @@ class _SupportPageState extends State<SupportPage> {
     }
     setState(() => _selectedTicket = ticket);
     _socketService.joinRoom('ticket_${ticket.id}');
+    _scrollMessagesToBottom();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -176,6 +189,7 @@ class _SupportPageState extends State<SupportPage> {
       );
       _replyController.clear();
       await _loadTickets();
+      _scrollMessagesToBottom();
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -666,6 +680,7 @@ class _SupportPageState extends State<SupportPage> {
         // Messages
         Expanded(
           child: ListView.builder(
+            controller: _messagesScrollController,
             padding: const EdgeInsets.all(16),
             itemCount: _selectedTicket!.messages.length,
             itemBuilder: (context, index) {

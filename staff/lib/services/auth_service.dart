@@ -98,6 +98,30 @@ class AuthService {
     return _completeSession(response);
   }
 
+  /// Passwordless mobile-number login — sends an OTP straight to the given
+  /// phone (no password step).
+  Future<String> sendPhoneLoginOtp({required String phone}) async {
+    final response = await _api.postJson(
+      ApiEndpoints.authPhoneLoginSendOtp,
+      body: {'phone': phone.trim()},
+    );
+
+    return response['mobile']?.toString() ?? '';
+  }
+
+  /// Verify the phone-login OTP and complete login.
+  Future<StaffUser> verifyPhoneLoginOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final response = await _api.postJson(
+      ApiEndpoints.authPhoneLoginVerifyOtp,
+      body: {'phone': phone.trim(), 'otp': otp.trim()},
+    );
+
+    return _completeSession(response);
+  }
+
   /// Legacy direct login (kept for compatibility; prefer prepare + OTP flow).
   Future<StaffUser> login({
     required String email,

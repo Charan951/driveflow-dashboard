@@ -81,6 +81,11 @@ export const deleteVehicleReferenceColumn = async (category: string, key: string
   return response.data;
 };
 
+export const renameVehicleReferenceColumn = async (category: string, key: string, label: string) => {
+  const response = await api.put(`/vehicle-reference/columns/${category}/${key}`, { label });
+  return response.data as VehicleReferenceColumn;
+};
+
 export interface VehicleReferenceBuiltinColumn {
   key: string;
   label: string;
@@ -96,5 +101,10 @@ export const getVehicleReferenceBuiltinColumns = async (): Promise<VehicleRefere
 
 export const setVehicleReferenceBuiltinColumnHidden = async (key: string, hidden: boolean) => {
   const response = await api.put(`/vehicle-reference/builtin-columns/${key}`, { hidden });
+  return response.data as VehicleReferenceBuiltinColumn;
+};
+
+export const renameVehicleReferenceBuiltinColumn = async (key: string, label: string) => {
+  const response = await api.put(`/vehicle-reference/builtin-columns/${key}`, { label });
   return response.data as VehicleReferenceBuiltinColumn;
 };

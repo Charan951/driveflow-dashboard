@@ -139,6 +139,39 @@ export const saveHiddenBuiltinColumnsToS3 = async (data) => {
   lastHiddenBuiltinFetchTime = Date.now();
 };
 
+let builtinColumnLabelsCache = null;
+let lastBuiltinLabelsFetchTime = 0;
+
+// Map of built-in column key -> admin-renamed display label (e.g.
+// { bridgestone: "Bridgestone Tyres" }). Only ever affects the label shown
+// in the UI — the underlying key/fieldName (and thus stored price data)
+// never changes.
+export const getBuiltinColumnLabelsFromS3 = async () => {
+  const now = Date.now();
+  if (builtinColumnLabelsCache && (now - lastBuiltinLabelsFetchTime < CACHE_TTL)) {
+    return builtinColumnLabelsCache;
+  }
+
+  try {
+    const res = await getDataFromS3('vehicle_reference_builtin_labels.json');
+    builtinColumnLabelsCache = res || {};
+    lastBuiltinLabelsFetchTime = now;
+    return builtinColumnLabelsCache;
+  } catch (error) {
+    if (builtinColumnLabelsCache) {
+      console.warn('Error fetching built-in column labels from S3, using expired cache:', error);
+      return builtinColumnLabelsCache;
+    }
+    throw error;
+  }
+};
+
+export const saveBuiltinColumnLabelsToS3 = async (data) => {
+  await saveDataToS3('vehicle_reference_builtin_labels.json', data);
+  builtinColumnLabelsCache = data;
+  lastBuiltinLabelsFetchTime = Date.now();
+};
+
 
 const streamToString = (stream) =>
   new Promise((resolve, reject) => {

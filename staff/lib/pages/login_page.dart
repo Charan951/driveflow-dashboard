@@ -7,6 +7,8 @@ import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/socket_service.dart';
 
+enum _LoginStep { identifier, password, emailOtp, phoneOtp }
+
 class StaffLoginPage extends StatefulWidget {
   const StaffLoginPage({super.key});
 
@@ -17,13 +19,13 @@ class StaffLoginPage extends StatefulWidget {
 class _StaffLoginPageState extends State<StaffLoginPage>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _identifierController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
   bool _isSubmitting = false;
   bool _showPassword = false;
-  bool _showOtpStep = false;
+  _LoginStep _step = _LoginStep.identifier;
   String? _maskedPhone;
   String? _errorText;
   late final AnimationController _animationController;
@@ -35,6 +37,10 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     return RegExp(
       r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$",
     ).hasMatch(v);
+  }
+
+  bool _isValidPhone(String value) {
+    return RegExp(r'^\d{10}$').hasMatch(value.trim());
   }
 
   @override
@@ -56,7 +62,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     _otpController.dispose();
     _animationController.dispose();
@@ -65,6 +71,15 @@ class _StaffLoginPageState extends State<StaffLoginPage>
 
   void _clearError() {
     if (_errorText != null) setState(() => _errorText = null);
+  }
+
+  void _goToIdentifierStep() {
+    setState(() {
+      _step = _LoginStep.identifier;
+      _passwordController.clear();
+      _otpController.clear();
+      _errorText = null;
+    });
   }
 
   void _navigateAfterLogin(StaffUser user) {
@@ -83,27 +98,61 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     }
   }
 
+  Future<void> _handleIdentifierNext() async {
+    FocusScope.of(context).unfocus();
+    final identifier = _identifierController.text.trim();
+
+    if (identifier.isEmpty) {
+      setState(() => _errorText = 'Email or mobile number is required');
+      return;
+    }
+
+    if (_isValidPhone(identifier)) {
+      setState(() {
+        _isSubmitting = true;
+        _errorText = null;
+      });
+
+      try {
+        final masked = await _authService.sendPhoneLoginOtp(phone: identifier);
+        if (!mounted) return;
+        setState(() {
+          _maskedPhone = masked.isNotEmpty ? masked : null;
+          _otpController.clear();
+          _step = _LoginStep.phoneOtp;
+        });
+      } on ApiException catch (e) {
+        if (mounted) setState(() => _errorText = e.message);
+      } catch (_) {
+        if (mounted) {
+          setState(() => _errorText = 'Failed to send OTP. Please try again.');
+        }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    if (identifier.length > 35 || !_isValidEmail(identifier)) {
+      setState(
+        () => _errorText =
+            'Enter a valid email address or 10-digit mobile number',
+      );
+      return;
+    }
+
+    setState(() {
+      _passwordController.clear();
+      _step = _LoginStep.password;
+      _errorText = null;
+    });
+  }
+
   Future<void> _handleCredentials() async {
     FocusScope.of(context).unfocus();
-    final email = _emailController.text.trim();
+    final email = _identifierController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty) {
-      setState(() => _errorText = 'Email is required');
-      return;
-    }
-    if (_emailController.text != _emailController.text.trim()) {
-      setState(() => _errorText = 'invalid email id');
-      return;
-    }
-    if (email.length > 35) {
-      setState(() => _errorText = 'Too long data not accept');
-      return;
-    }
-    if (!_isValidEmail(email)) {
-      setState(() => _errorText = 'invalid email id');
-      return;
-    }
     if (password.isEmpty) {
       setState(() => _errorText = 'Password is required');
       return;
@@ -133,7 +182,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
       }
 
       setState(() {
-        _showOtpStep = true;
+        _step = _LoginStep.emailOtp;
         _maskedPhone = result.maskedPhone;
         _otpController.clear();
       });
@@ -155,7 +204,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
   }
 
   Future<void> _handleVerifyOtp() async {
-    final email = _emailController.text.trim();
+    final identifier = _identifierController.text.trim();
     final otp = _otpController.text.trim();
 
     if (otp.length != 6) {
@@ -169,7 +218,9 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     });
 
     try {
-      final user = await _authService.verifyLoginOtp(email: email, otp: otp);
+      final user = _step == _LoginStep.phoneOtp
+          ? await _authService.verifyPhoneLoginOtp(phone: identifier, otp: otp)
+          : await _authService.verifyLoginOtp(email: identifier, otp: otp);
       if (!mounted) return;
       await SocketService().reconnect();
       _navigateAfterLogin(user);
@@ -187,7 +238,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
   }
 
   Future<void> _handleResendOtp() async {
-    final email = _emailController.text.trim();
+    final identifier = _identifierController.text.trim();
     setState(() {
       _isSubmitting = true;
       _errorText = null;
@@ -195,7 +246,9 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     });
 
     try {
-      final masked = await _authService.sendLoginOtp(email: email);
+      final masked = _step == _LoginStep.phoneOtp
+          ? await _authService.sendPhoneLoginOtp(phone: identifier)
+          : await _authService.sendLoginOtp(email: identifier);
       if (!mounted) return;
       if (masked.isNotEmpty) {
         setState(() => _maskedPhone = masked);
@@ -209,9 +262,50 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     }
   }
 
+  void _handlePrimaryAction() {
+    switch (_step) {
+      case _LoginStep.identifier:
+        _handleIdentifierNext();
+        break;
+      case _LoginStep.password:
+        _handleCredentials();
+        break;
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        _handleVerifyOtp();
+        break;
+    }
+  }
+
+  String get _primaryButtonLabel {
+    switch (_step) {
+      case _LoginStep.identifier:
+        return 'Next';
+      case _LoginStep.password:
+        return 'Continue';
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        return 'Verify';
+    }
+  }
+
+  String get _headingText {
+    switch (_step) {
+      case _LoginStep.identifier:
+        return '';
+      case _LoginStep.password:
+        return 'Enter Password';
+      case _LoginStep.emailOtp:
+      case _LoginStep.phoneOtp:
+        return 'Verify OTP';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isOtpStep =
+        _step == _LoginStep.emailOtp || _step == _LoginStep.phoneOtp;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -327,7 +421,9 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                           ),
                           const SizedBox(height: 30),
                           Card(
-                            color: AppColors.backgroundSecondary.withValues(alpha: 0.9),
+                            color: AppColors.backgroundSecondary.withValues(
+                              alpha: 0.9,
+                            ),
                             elevation: 8,
                             shadowColor: Colors.black.withValues(alpha: 0.5),
                             shape: RoundedRectangleBorder(
@@ -348,7 +444,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(
-                                    _showOtpStep ? 'Verify OTP' : '',
+                                    _headingText,
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
@@ -357,7 +453,18 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                           letterSpacing: 0.5,
                                         ),
                                   ),
-                                  if (_showOtpStep) ...[
+                                  if (_step == _LoginStep.password) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _identifierController.text.trim(),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                  if (isOtpStep) ...[
                                     const SizedBox(height: 8),
                                     Text(
                                       'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
@@ -369,17 +476,19 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                     ),
                                   ],
                                   const SizedBox(height: 32),
-                                  if (!_showOtpStep) ...[
+                                  if (_step == _LoginStep.identifier) ...[
                                     _GlassField(
-                                      controller: _emailController,
-                                      hintText: 'Email',
+                                      controller: _identifierController,
+                                      hintText: 'Email or mobile number',
                                       keyboardType: TextInputType.emailAddress,
-                                      textInputAction: TextInputAction.next,
-                                      prefixIcon: Icons.mail_outline,
+                                      textInputAction: TextInputAction.done,
+                                      prefixIcon: Icons.person_outline,
                                       maxLength: 35,
                                       onChanged: _clearError,
+                                      onSubmitted: (_) =>
+                                          _handleIdentifierNext(),
                                     ),
-                                    const SizedBox(height: 20),
+                                  ] else if (_step == _LoginStep.password) ...[
                                     _GlassField(
                                       controller: _passwordController,
                                       hintText: 'Password',
@@ -422,7 +531,9 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                         vertical: 8,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.error.withValues(alpha: 0.1),
+                                        color: AppColors.error.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
@@ -452,9 +563,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                     child: ElevatedButton(
                                       onPressed: _isSubmitting
                                           ? null
-                                          : (_showOtpStep
-                                                ? _handleVerifyOtp
-                                                : _handleCredentials),
+                                          : _handlePrimaryAction,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             AppColors.cinematicOrange,
@@ -485,9 +594,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                                   ),
                                             )
                                           : Text(
-                                              _showOtpStep
-                                                  ? 'Verify'
-                                                  : 'Continue',
+                                              _primaryButtonLabel,
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
@@ -496,20 +603,17 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                             ),
                                     ),
                                   ),
-                                  if (_showOtpStep) ...[
+                                  if (_step != _LoginStep.identifier) ...[
                                     const SizedBox(height: 12),
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment: isOtpStep
+                                          ? MainAxisAlignment.spaceBetween
+                                          : MainAxisAlignment.start,
                                       children: [
                                         TextButton(
                                           onPressed: _isSubmitting
                                               ? null
-                                              : () => setState(() {
-                                                  _showOtpStep = false;
-                                                  _otpController.clear();
-                                                  _errorText = null;
-                                                }),
+                                              : _goToIdentifierStep,
                                           child: const Text(
                                             'Back',
                                             style: TextStyle(
@@ -517,18 +621,20 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                             ),
                                           ),
                                         ),
-                                        TextButton(
-                                          onPressed: _isSubmitting
-                                              ? null
-                                              : _handleResendOtp,
-                                          child: const Text(
-                                            'Resend OTP',
-                                            style: TextStyle(
-                                              color: AppColors.cinematicOrange,
-                                              fontWeight: FontWeight.bold,
+                                        if (isOtpStep)
+                                          TextButton(
+                                            onPressed: _isSubmitting
+                                                ? null
+                                                : _handleResendOtp,
+                                            child: const Text(
+                                              'Resend OTP',
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.cinematicOrange,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ],
@@ -587,8 +693,6 @@ class _GlassField extends StatelessWidget {
       onChanged: (_) => onChanged?.call(),
       onSubmitted: onSubmitted,
       inputFormatters: [
-        if (keyboardType == TextInputType.emailAddress)
-          FilteringTextInputFormatter.deny(RegExp(r'\s')),
         if (keyboardType == TextInputType.number)
           FilteringTextInputFormatter.digitsOnly,
       ],

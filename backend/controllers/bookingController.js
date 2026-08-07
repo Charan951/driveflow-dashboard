@@ -1746,7 +1746,13 @@ export const updateBookingStatus = async (req, res) => {
         }
 
         if (canonTo === 'COMPLETED') {
-          if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
+          if (isAdmin) {
+            // Admin override — bypass OTP verification, but record it was
+            // an admin override (not an actual customer-entered OTP).
+            if (!booking.deliveryOtp) booking.deliveryOtp = {};
+            booking.deliveryOtp.verifiedAt = booking.deliveryOtp.verifiedAt || new Date();
+            booking.deliveryOtp.verifiedByAdmin = true;
+          } else if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
             return res.status(400).json({ message: 'OTP verification required before marking as COMPLETED' });
           }
         }
@@ -1771,7 +1777,13 @@ export const updateBookingStatus = async (req, res) => {
       }
 
       if (canonTo === 'DELIVERED') {
-        if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
+        if (isAdmin) {
+          // Admin override — bypass OTP verification, but record it was
+          // an admin override (not an actual customer-entered OTP).
+          if (!booking.deliveryOtp) booking.deliveryOtp = {};
+          booking.deliveryOtp.verifiedAt = booking.deliveryOtp.verifiedAt || new Date();
+          booking.deliveryOtp.verifiedByAdmin = true;
+        } else if (!booking.deliveryOtp || !booking.deliveryOtp.verifiedAt) {
           return res.status(400).json({ message: 'OTP verification required before marking as DELIVERED' });
         }
       }

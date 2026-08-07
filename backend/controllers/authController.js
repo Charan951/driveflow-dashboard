@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import PendingSignup from '../models/PendingSignup.js';
 import PendingLogin from '../models/PendingLogin.js';
+import PendingPhoneLogin from '../models/PendingPhoneLogin.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendEmail } from '../utils/emailService.js';
@@ -499,6 +500,135 @@ export const verifyLoginOtp = async (req, res) => {
     return sendAuthResponse(req, res, user);
   } catch (error) {
     console.error('verifyLoginOtp error:', error.message);
+    const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
+    res.status(status).json({ message: error.message || 'OTP verification failed' });
+  }
+};
+
+/**
+ * Passwordless mobile-number login: user enters just their phone number
+ * (no password) — step 1 finds the account and sends an OTP.
+ */
+export const sendPhoneLoginOtp = async (req, res) => {
+  const { phone } = req.body;
+
+  try {
+    if (!phone?.trim()) {
+      return res.status(400).json({ message: 'Mobile number is required' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const user = await User.findOne({
+      $or: [{ phone }, { phone: mobile }, { phone: mobile.slice(2) }],
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'No account found with this mobile number' });
+    }
+
+    if (isAccountLocked(user)) {
+      return res.status(429).json({ message: 'Account temporarily locked. Please try again later.' });
+    }
+
+    if (!user.isApproved) {
+      return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
+    }
+
+    const pending = await PendingPhoneLogin.findOne({ mobile });
+    if (
+      pending?.lastOtpSentAt &&
+      Date.now() - pending.lastOtpSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(429).json({ message: 'Please wait before requesting another OTP.' });
+    }
+
+    const sendResult = await msg91SendAuthOtp(mobile);
+
+    await PendingPhoneLogin.findOneAndUpdate(
+      { mobile },
+      {
+        mobile,
+        userId: user._id,
+        otpHash: sendResult.otpHash || null,
+        expiresAt: new Date(Date.now() + OTP_PENDING_TTL_MS),
+        lastOtpSentAt: new Date(),
+        otpVerifyAttempts: 0,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const channels = sendResult.channels || ['whatsapp'];
+    res.json({
+      message: isTestingEnv()
+        ? 'OTP generated for testing (WhatsApp/SMS disabled). Check server logs.'
+        : `OTP sent to your ${formatChannelLabel(channels)}`,
+      mobile: `******${mobile.slice(-4)}`,
+      channels,
+    });
+  } catch (error) {
+    console.error('sendPhoneLoginOtp error:', error.message);
+    res.status(500).json({ message: error.message || 'Failed to send OTP. Please try again.' });
+  }
+};
+
+/** Step 2 — verify the OTP and log the user straight in. */
+export const verifyPhoneLoginOtp = async (req, res) => {
+  const { phone, otp } = req.body;
+
+  try {
+    if (!phone?.trim()) {
+      return res.status(400).json({ message: 'Mobile number is required' });
+    }
+    if (!isTestingEnv() && !otp) {
+      return res.status(400).json({ message: 'Mobile number and OTP are required' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const pending = await PendingPhoneLogin.findOne({ mobile });
+    if (!pending) {
+      return res.status(400).json({ message: 'Please request a new OTP.' });
+    }
+
+    if (pending.expiresAt < new Date()) {
+      await PendingPhoneLogin.deleteOne({ mobile });
+      return res.status(400).json({ message: 'OTP session expired. Please request a new OTP.' });
+    }
+
+    if (!isTestingEnv()) {
+      pending.otpVerifyAttempts = (pending.otpVerifyAttempts || 0) + 1;
+      if (pending.otpVerifyAttempts > MAX_OTP_VERIFY_ATTEMPTS) {
+        await PendingPhoneLogin.deleteOne({ mobile });
+        return res.status(429).json({ message: 'Too many OTP attempts. Please request a new OTP.' });
+      }
+      await pending.save();
+      await msg91VerifySignupOtp(mobile, otp, pending);
+    }
+
+    const user = await User.findById(pending.userId);
+    if (!user) {
+      await PendingPhoneLogin.deleteOne({ mobile });
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    if (!user.isApproved) {
+      await PendingPhoneLogin.deleteOne({ mobile });
+      return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
+    }
+
+    await clearLoginFailures(user);
+    await PendingPhoneLogin.deleteOne({ mobile });
+
+    return sendAuthResponse(req, res, user);
+  } catch (error) {
+    console.error('verifyPhoneLoginOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
     res.status(status).json({ message: error.message || 'OTP verification failed' });
   }

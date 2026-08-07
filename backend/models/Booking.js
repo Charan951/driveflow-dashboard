@@ -225,6 +225,9 @@ const bookingSchema = mongoose.Schema(
       expiresAt: { type: Date },
       attempts: { type: Number, default: 0 },
       verifiedAt: { type: Date },
+      // Set when an admin overrides OTP verification (e.g. customer can't
+      // receive/enter the OTP) instead of the customer actually entering it.
+      verifiedByAdmin: { type: Boolean, default: false },
     },
     paymentStatus: {
       type: String,

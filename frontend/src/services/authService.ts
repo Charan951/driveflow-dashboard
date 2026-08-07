@@ -45,6 +45,15 @@ export interface VerifySignupOtpData {
     otp: string;
 }
 
+export interface SendPhoneLoginOtpData {
+    phone: string;
+}
+
+export interface VerifyPhoneLoginOtpData {
+    phone: string;
+    otp: string;
+}
+
 export interface LoginData {
     email: string;
     password: string;
@@ -87,6 +96,15 @@ export const authService = {
     },
     verifyLoginOtp: async (data: VerifyLoginOtpData) => {
         const response = await api.post('/auth/login/verify-otp', data);
+        storeAuthToken(response.data);
+        return response.data;
+    },
+    sendPhoneLoginOtp: async (data: SendPhoneLoginOtpData) => {
+        const response = await api.post('/auth/login/phone/send-otp', data);
+        return response.data;
+    },
+    verifyPhoneLoginOtp: async (data: VerifyPhoneLoginOtpData) => {
+        const response = await api.post('/auth/login/phone/verify-otp', data);
         storeAuthToken(response.data);
         return response.data;
     },
