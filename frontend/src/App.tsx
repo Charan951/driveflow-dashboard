@@ -77,6 +77,7 @@ const PublicServices = lazyRetry(() => import("./pages/public/PublicServices"));
 const PublicReviews = lazyRetry(() => import("./pages/public/PublicReviews"));
 const TermsPage = lazyRetry(() => import("./pages/public/TermsPage"));
 const PrivacyPage = lazyRetry(() => import("./pages/public/PrivacyPage"));
+const AccountDeletionPage = lazyRetry(() => import("./pages/public/AccountDeletionPage"));
 const ServiceDetailsPage = lazyRetry(() => import("./pages/public/ServiceDetailsPage"));
 
 // Customer Pages
@@ -179,6 +180,7 @@ const App = () => {
             <Route path="/reviews" element={<PublicReviews />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/account-deletion" element={<AccountDeletionPage />} />
             <Route path="/services/:id" element={<ServiceDetailsPage />} />
             <Route path="/track/:id" element={<TrackServicePage />} />
           </Route>

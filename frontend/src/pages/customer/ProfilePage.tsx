@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Save, Plus, Trash2, Home, Car } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { User, Mail, Phone, MapPin, Save, Plus, Trash2, Home, Car, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { userService } from '@/services/userService';
@@ -14,6 +14,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { isValidName, hasExcessiveRepeatedChars, isValidEmail, isValidPhone10, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, isNameTooLong } from '@/lib/formValidation';
+import { logoutUser } from '@/lib/logout';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -330,6 +342,60 @@ const ProfilePage: React.FC = () => {
             <p className="text-muted-foreground text-sm">No vehicles found.</p>
           )}
         </div>
+      </section>
+
+      {/* Account actions */}
+      <section className="space-y-3 pt-4 border-t border-border flex flex-col sm:max-w-xs">
+        <Button
+          type="button"
+          variant="destructive"
+          className="w-full"
+          onClick={async () => {
+            await logoutUser();
+            navigate('/login', { replace: true });
+          }}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Logout
+        </Button>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Account
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete your account? This will sign you out.
+                To permanently delete your data, please submit a deletion request from our{' '}
+                <Link to="/account-deletion" className="text-primary underline">
+                  Account Deletion
+                </Link>{' '}
+                page.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  await logoutUser();
+                  navigate('/login', { replace: true });
+                }}
+              >
+                Delete Account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </section>
 
       {/* Vehicle Detail Modal */}

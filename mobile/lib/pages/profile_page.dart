@@ -216,6 +216,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 24),
                       _buildLogoutButton(context, isDark),
+                      const SizedBox(height: 12),
+                      _buildDeleteAccountButton(context, isDark),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -529,6 +531,30 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildDeleteAccountButton(BuildContext context, bool isDark) {
+    return OutlinedButton.icon(
+      onPressed: () => _showDeleteAccountConfirmation(context),
+      icon: const Icon(Icons.delete_outline_rounded, size: 22),
+      label: const Text(
+        'Delete Account',
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.8,
+          fontSize: 15,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.red.shade700,
+        side: BorderSide(color: Colors.red.shade300, width: 1.5),
+        minimumSize: const Size(double.infinity, 64),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark
+            ? Colors.red.withValues(alpha: 0.08)
+            : Colors.red.withValues(alpha: 0.04),
+      ),
+    );
+  }
+
   Future<void> _showLogoutConfirmation(
     BuildContext context,
     bool isDark,
@@ -556,10 +582,43 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (result == true && context.mounted) {
-      await context.read<AuthProvider>().logout();
-      if (!context.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      await _performLogout(context);
     }
+  }
+
+  Future<void> _showDeleteAccountConfirmation(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: const Text(
+          'Are you sure you want to delete your account? This will sign you out. '
+          'To permanently delete your data, please submit a deletion request from our website.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      await _performLogout(context);
+    }
+  }
+
+  Future<void> _performLogout(BuildContext context) async {
+    await context.read<AuthProvider>().logout();
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   Future<void> _editProfile(BuildContext context, User? user) async {
