@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter_background_service/flutter_background_service.dart';
+// import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -42,57 +42,57 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-Future<void> initializeBackgroundService() async {
-  final service = FlutterBackgroundService();
+// Future<void> initializeBackgroundService() async {
+//   final service = FlutterBackgroundService();
 
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'high_importance_channel',
-      initialNotificationTitle: 'Carzzi Service',
-      initialNotificationContent: 'Running in background',
-      foregroundServiceNotificationId: 999,
-    ),
-    iosConfiguration: IosConfiguration(
-      autoStart: false,
-      onForeground: onStart,
-      onBackground: onIosBackground,
-    ),
-  );
-  await service.startService();
-}
+//   await service.configure(
+//     androidConfiguration: AndroidConfiguration(
+//       onStart: onStart,
+//       autoStart: false,
+//       isForegroundMode: true,
+//       notificationChannelId: 'high_importance_channel',
+//       initialNotificationTitle: 'Carzzi Service',
+//       initialNotificationContent: 'Running in background',
+//       foregroundServiceNotificationId: 999,
+//     ),
+//     iosConfiguration: IosConfiguration(
+//       autoStart: false,
+//       onForeground: onStart,
+//       onBackground: onIosBackground,
+//     ),
+//   );
+//   await service.startService();
+// }
 
-@pragma('vm:entry-point')
-Future<bool> onIosBackground(ServiceInstance service) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
-  return true;
-}
+// @pragma('vm:entry-point')
+// Future<bool> onIosBackground(ServiceInstance service) async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   DartPluginRegistrant.ensureInitialized();
+//   return true;
+// }
 
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
+// @pragma('vm:entry-point')
+// void onStart(ServiceInstance service) async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   DartPluginRegistrant.ensureInitialized();
 
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) {
-      service.setAsForegroundService();
-    });
-    service.on('setAsBackground').listen((event) {
-      service.setAsBackgroundService();
-    });
-  }
-  service.on('stopService').listen((event) {
-    service.stopSelf();
-  });
+//   if (service is AndroidServiceInstance) {
+//     service.on('setAsForeground').listen((event) {
+//       service.setAsForegroundService();
+//     });
+//     service.on('setAsBackground').listen((event) {
+//       service.setAsBackgroundService();
+//     });
+//   }
+//   service.on('stopService').listen((event) {
+//     service.stopSelf();
+//   });
 
-  // You can initialize your background services here, like socket or tracking
-  Timer.periodic(const Duration(seconds: 1), (timer) async {
-    // Keep alive logic or periodic tasks
-  });
-}
+//   // You can initialize your background services here, like socket or tracking
+//   Timer.periodic(const Duration(seconds: 1), (timer) async {
+//     // Keep alive logic or periodic tasks
+//   });
+// }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -224,7 +224,7 @@ Future<void> _bootstrapApp({
       (Platform.isAndroid || Platform.isIOS) &&
       shouldStartBackgroundService) {
     try {
-      await initializeBackgroundService().timeout(const Duration(seconds: 15));
+      // await initializeBackgroundService().timeout(const Duration(seconds: 15));
     } catch (e) {
       debugPrint('Failed to start background service: $e');
     }

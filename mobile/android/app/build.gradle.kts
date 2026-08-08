@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.carzzi.user"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -27,7 +27,7 @@ android {
         applicationId = "com.carzzi.user"
         // Initial Play Store Release: 1.0.0 (Build 1)
         minSdk = flutter.minSdkVersion
-        targetSdk = 34
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -65,7 +65,6 @@ android {
 
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
-    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")

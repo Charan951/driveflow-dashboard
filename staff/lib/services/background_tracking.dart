@@ -171,7 +171,7 @@ class BackgroundTracking {
         initialNotificationContent:
             'Sharing your live location for the current job.',
         foregroundServiceNotificationId: 9001,
-        foregroundServiceTypes: const [AndroidForegroundType.location],
+        // foregroundServiceTypes: const [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,

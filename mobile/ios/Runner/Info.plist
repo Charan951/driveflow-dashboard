@@ -74,12 +74,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>This app requires camera access to upload vehicle photos during service booking.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>We use your location to track the service vehicle's progress even when the app is in background.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>We use your location to track the service vehicle's progress even when the app is in background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We use your location to select an exact pickup point for service.</string>
+	<string>Carzzi uses your location to select your service location and show nearby service options.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app requires photo library access to upload vehicle related photos.</string>
 	<key>UIApplicationSceneManifest</key>
@@ -105,13 +101,6 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>location</string>
-		<string>audio</string>
-		<string>processing</string>
-	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
