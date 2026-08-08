@@ -1242,9 +1242,11 @@ const BookServicePage: React.FC = () => {
                     ))}
                   </div>
                 )}
-                <p className="text-xs sm:text-sm text-muted-foreground mt-4 font-medium text-center sm:text-left">
-                  Displayed prices are indicative only. The final amount will be as per the generated invoice.
-                </p>
+                {isGeneralService && (
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-4 font-medium text-center sm:text-left">
+                    Displayed prices are indicative only. The final amount will be as per the generated invoice.
+                  </p>
+                )}
               </div>
             )}
 
@@ -1560,9 +1562,11 @@ const BookServicePage: React.FC = () => {
                           ₹{requiresPrepaidCheckout ? checkoutPreview.total : totalPrice}
                         </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground pt-2 font-medium">
-                      Displayed prices are indicative only. The final amount will be as per the generated invoice.
-                    </p>
+                    {isGeneralService && (
+                      <p className="text-xs sm:text-sm text-muted-foreground pt-2 font-medium">
+                        Displayed prices are indicative only. The final amount will be as per the generated invoice.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-4 pb-4 border-b border-border">

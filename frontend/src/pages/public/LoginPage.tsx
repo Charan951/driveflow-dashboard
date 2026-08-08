@@ -321,7 +321,7 @@ const LoginPage: React.FC = () => {
 
   const stepTitle =
     step === 'identifier'
-      ? 'Welcome Back'
+      ? 'Welcome'
       : step === 'password'
         ? 'Enter Password'
         : 'Verify OTP';

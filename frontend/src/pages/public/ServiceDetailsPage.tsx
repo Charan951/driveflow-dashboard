@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { serviceService, Service } from '@/services/serviceService';
+import { isGeneralServiceItem } from '@/lib/orderPricing';
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
 
@@ -55,9 +56,11 @@ const ServiceDetailsPage: React.FC = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Service Price</p>
                 <p className="text-2xl font-bold text-primary">₹{service.price}</p>
-                <p className="text-xs text-muted-foreground mt-1 font-medium">
-                  Displayed prices are indicative only. The final amount will be as per the generated invoice.
-                </p>
+                {isGeneralServiceItem(service) && (
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">
+                    Displayed prices are indicative only. The final amount will be as per the generated invoice.
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Duration</p>

@@ -328,9 +328,6 @@ const CarWashPage: React.FC = () => {
                 <span className="text-2xl sm:text-3xl font-bold text-primary">
                   ₹{getPackagePrice(pkg)}
                 </span>
-                <span className="text-xs text-muted-foreground mt-1 font-medium">
-                  Displayed prices are indicative only. The final amount will be as per the generated invoice.
-                </span>
               </div>
 
               <motion.button

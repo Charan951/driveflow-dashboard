@@ -300,7 +300,7 @@ export const getBookingInvoice = async (req, res) => {
     yR += 11;
 
     const sellerEmail = process.env.INVOICE_SELLER_EMAIL || 'support@carzzi.com';
-    const sellerPhone = process.env.INVOICE_SELLER_PHONE || '+91 9849964945';
+    const sellerPhone = process.env.INVOICE_SELLER_PHONE || '+91-8143404488';
     const sellerAddress =
       process.env.INVOICE_SELLER_ADDRESS ||
       'Plot no 71 & 72, 3rd Floor, Phase IV, IDA Cherlapally, Hyderabad- 500051, India';
