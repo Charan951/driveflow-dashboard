@@ -33,6 +33,12 @@ const isNameTooLong = (value) => {
   return value.trim().length > MAX_NAME_LENGTH;
 };
 
+// Dummy QA credentials — bypasses real OTP delivery/verification so testers can log in
+// with phone 1111111111 + OTP 123456 without hitting MSG91.
+const DUMMY_TEST_MOBILE = '911111111111';
+const DUMMY_TEST_OTP = '123456';
+const DUMMY_TEST_EMAIL = 'verification@gmail.com';
+
 const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -372,7 +378,7 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
-    if (user.role === 'admin' || isTestingEnv()) {
+    if (user.role === 'admin' || isTestingEnv() || normalizedEmail === DUMMY_TEST_EMAIL) {
       return sendAuthResponse(req, res, user, { skipOtp: true });
     }
 
@@ -546,7 +552,10 @@ export const sendPhoneLoginOtp = async (req, res) => {
       return res.status(429).json({ message: 'Please wait before requesting another OTP.' });
     }
 
-    const sendResult = await msg91SendAuthOtp(mobile);
+    const isDummyTestLogin = mobile === DUMMY_TEST_MOBILE;
+    const sendResult = isDummyTestLogin
+      ? { otpHash: null, channels: ['sms'] }
+      : await msg91SendAuthOtp(mobile);
 
     await PendingPhoneLogin.findOneAndUpdate(
       { mobile },
@@ -563,7 +572,9 @@ export const sendPhoneLoginOtp = async (req, res) => {
 
     const channels = sendResult.channels || ['whatsapp'];
     res.json({
-      message: isTestingEnv()
+      message: isDummyTestLogin
+        ? `Use test OTP ${DUMMY_TEST_OTP} to log in.`
+        : isTestingEnv()
         ? 'OTP generated for testing (WhatsApp/SMS disabled). Check server logs.'
         : `OTP sent to your ${formatChannelLabel(channels)}`,
       mobile: `******${mobile.slice(-4)}`,
@@ -602,7 +613,9 @@ export const verifyPhoneLoginOtp = async (req, res) => {
       return res.status(400).json({ message: 'OTP session expired. Please request a new OTP.' });
     }
 
-    if (!isTestingEnv()) {
+    const isDummyTestLogin = mobile === DUMMY_TEST_MOBILE && otp === DUMMY_TEST_OTP;
+
+    if (!isTestingEnv() && !isDummyTestLogin) {
       pending.otpVerifyAttempts = (pending.otpVerifyAttempts || 0) + 1;
       if (pending.otpVerifyAttempts > MAX_OTP_VERIFY_ATTEMPTS) {
         await PendingPhoneLogin.deleteOne({ mobile });

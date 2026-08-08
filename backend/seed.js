@@ -13,6 +13,14 @@ const users = [
     isApproved: true,
     phone: '1234567890'
   },
+  {
+    name: 'Test User',
+    email: 'verification@gmail.com',
+    password: 'Admin@123',
+    role: 'customer',
+    isApproved: true,
+    phone: '1111111111'
+  },
 ];
 
 const seedData = async () => {
