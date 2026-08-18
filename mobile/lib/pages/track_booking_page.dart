@@ -28,6 +28,7 @@ import '../services/review_service.dart';
 import '../services/vehicle_service.dart';
 import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import 'payment_status_page.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../state/auth_provider.dart';
 import 'package:provider/provider.dart';
@@ -196,7 +197,7 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         'bookingId': _bookingId,
       };
 
-      final result = await _paymentService.verifyPayment(verifyData);
+      final result = await _verifyPaymentWithRetry(verifyData);
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -206,23 +207,48 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         final isPaid = result['success'] == true && paymentStatus == 'paid';
 
         if (isPaid) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment Successful!'),
-              backgroundColor: Colors.green,
+          Navigator.of(context).pushNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: true,
+              title: 'Payment successful',
+              message: 'Your booking payment has been completed successfully.',
+              primaryButtonLabel: 'Back to booking',
+              onPrimaryPressed: () {
+                Navigator.of(context).pop();
+                _load();
+              },
             ),
           );
-          _load(); // Reload to update status
-        } else {
+        } else if (_isFailurePaymentStatus(paymentStatus)) {
           final statusMsg = paymentStatus == 'user_dropped'
               ? 'Payment was cancelled.'
               : paymentStatus == 'failed'
                   ? 'Payment failed. Please try again.'
                   : 'Payment not completed (status: $paymentStatus). Please try again.';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(statusMsg),
-              backgroundColor: Colors.red,
+          Navigator.of(context).pushNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: false,
+              title: 'Payment not completed',
+              message: statusMsg,
+              primaryButtonLabel: 'Back to booking',
+              onPrimaryPressed: () => Navigator.of(context).pop(),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: true,
+              title: 'Payment received',
+              message:
+                  'Cashfree reported success. We are still syncing your booking status.',
+              primaryButtonLabel: 'Back to booking',
+              onPrimaryPressed: () {
+                Navigator.of(context).pop();
+                _load();
+              },
             ),
           );
         }
@@ -230,23 +256,81 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verification error: $e'),
-            backgroundColor: Colors.red,
+        Navigator.of(context).pushNamed(
+          '/payment-status',
+          arguments: PaymentStatusPage(
+            success: false,
+            title: 'Payment verification failed',
+            message: 'We could not confirm the payment. Please try again. $e',
+            primaryButtonLabel: 'Back to booking',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         );
       }
     }
   }
 
+  Future<Map<String, dynamic>> _verifyPaymentWithRetry(
+    Map<String, dynamic> verifyData,
+  ) async {
+    const retryDelays = <Duration>[
+      Duration.zero,
+      Duration(milliseconds: 1200),
+      Duration(milliseconds: 2000),
+      Duration(milliseconds: 3000),
+      Duration(milliseconds: 4000),
+      Duration(milliseconds: 5000),
+    ];
+
+    Map<String, dynamic> lastResult = const {};
+
+    for (final delay in retryDelays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+
+      final result = await _paymentService.verifyPayment(verifyData);
+      lastResult = result;
+
+      final data = result['data'] as Map<String, dynamic>?;
+      final paymentStatus = (data?['status'] as String? ?? 'unknown')
+          .toLowerCase();
+      final isPaid = result['success'] == true && paymentStatus == 'paid';
+
+      if (isPaid) return result;
+
+      const transientStatuses = {
+        'pending',
+        'created',
+        'attempted',
+        'processing',
+        'unknown',
+      };
+      if (!transientStatuses.contains(paymentStatus)) {
+        return result;
+      }
+    }
+
+    return lastResult;
+  }
+
+  bool _isFailurePaymentStatus(String status) {
+    final normalized = status.toLowerCase();
+    return normalized == 'failed' ||
+        normalized == 'user_dropped' ||
+        normalized == 'cancelled' ||
+        normalized == 'expired';
+  }
+
   void _handlePaymentError(CFErrorResponse response, String orderId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Payment failed: ${response.getMessage()}. Order: $orderId',
-        ),
-        backgroundColor: Colors.red,
+    Navigator.of(context).pushNamed(
+      '/payment-status',
+      arguments: PaymentStatusPage(
+        success: false,
+        title: 'Payment failed',
+        message: '${response.getMessage()} (Order: $orderId)',
+        primaryButtonLabel: 'Back to booking',
+        onPrimaryPressed: () => Navigator.of(context).pop(),
       ),
     );
   }
@@ -441,6 +525,81 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     if (booking == null) return;
 
     setState(() => _isPaymentLoading = true);
+    var loadingDialogOpen = true;
+    void closeLoadingDialog() {
+      if (!loadingDialogOpen || !mounted) return;
+      loadingDialogOpen = false;
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.backgroundSecondary
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1.08),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(scale: value, child: child);
+                  },
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 3.2),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading secure checkout...',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please wait while Cashfree opens.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white60
+                        : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     try {
       final orderData = await _paymentService.createOrder(
         bookingId: booking.id,
@@ -459,12 +618,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
         final environment = (orderData['environment'] ?? 'sandbox').toString();
 
         if (kIsWeb) {
+          closeLoadingDialog();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payments are only available on mobile'),
             ),
           );
         } else if (orderId.isEmpty || paymentSessionId.isEmpty) {
+          closeLoadingDialog();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payment setup failed. Please try again.'),
@@ -487,10 +648,12 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               .build();
 
           _cashfreeGateway.doPayment(cfPayment);
+          closeLoadingDialog();
         }
       }
     } catch (e) {
       if (!mounted) return;
+      closeLoadingDialog();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Payment initiation failed: $e'),

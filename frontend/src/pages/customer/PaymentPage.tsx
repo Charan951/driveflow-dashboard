@@ -274,24 +274,54 @@ const PaymentPage: React.FC = () => {
 
   const handlePaymentSuccess = (paymentData: any) => {
     setIsLoading(false);
+    const bookingId = paymentData?.booking?._id || tempBookingId || '';
     if (isPayingExistingBooking && tempBookingId) {
-      toast.success('Payment successful!');
-      navigate(`/track/${tempBookingId}`, { replace: true });
+      navigate('/payment/result', {
+        replace: true,
+        state: {
+          success: true,
+          title: 'Payment successful',
+          message: 'Your booking payment has been completed successfully.',
+          bookingId: tempBookingId,
+          primaryTo: `/track/${tempBookingId}`,
+        },
+      });
       return;
     }
-    toast.success('Payment successful! Your service booking has been created.');
-    navigate('/customer/dashboard', {
+    navigate('/payment/result', {
       replace: true,
       state: {
-        showAssignmentToast: true
-      }
+        success: true,
+        title: 'Booking confirmed',
+        message: 'Your payment was successful and the service booking has been created.',
+        bookingId: bookingId || undefined,
+        primaryTo: bookingId ? `/track/${bookingId}` : '/customer/dashboard',
+      },
     });
   };
 
   const handlePaymentFailure = (error: any) => {
     setIsLoading(false);
     console.error('Payment Error:', error);
-    // Error is already toasted in CashfreePayment component
+    const paymentStatus = error?.data?.status || error?.response?.data?.data?.status;
+    const message =
+      paymentStatus === 'user_dropped'
+        ? 'The payment was cancelled before completion.'
+        : paymentStatus === 'failed'
+          ? 'The payment failed. Please try again.'
+          : error?.response?.data?.message || error?.message || 'Payment could not be completed.';
+
+    navigate('/payment/result', {
+      replace: true,
+      state: {
+        success: false,
+        title: 'Payment not completed',
+        message,
+        bookingId: tempBookingId || undefined,
+        retryTo: isPayingExistingBooking && tempBookingId ? `/track/${tempBookingId}` : '/payment',
+        primaryTo: isPayingExistingBooking && tempBookingId ? `/track/${tempBookingId}` : '/payment',
+      },
+    });
   };
 
   return (

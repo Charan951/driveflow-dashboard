@@ -85,6 +85,7 @@ const DashboardPage = lazyRetry(() => import("./pages/customer/DashboardPage"));
 const MyBookingsPage = lazyRetry(() => import("./pages/customer/MyBookingsPage"));
 const MyPaymentsPage = lazyRetry(() => import("./pages/customer/MyPaymentsPage"));
 const PaymentPage = lazyRetry(() => import("./pages/customer/PaymentPage"));
+const PaymentStatusPage = lazyRetry(() => import("./pages/customer/PaymentStatusPage"));
 const AddVehiclePage = lazyRetry(() => import("./pages/customer/AddVehiclePage"));
 const ServicesPage = lazyRetry(() => import("./pages/customer/ServicesPage"));
 const BookServicePage = lazyRetry(() => import("./pages/customer/BookServicePage"));
@@ -208,6 +209,8 @@ const App = () => {
               <Route path="/bookings" element={<MyBookingsPage />} />
               <Route path="/payments" element={<MyPaymentsPage />} />
               <Route path="/payment" element={<PaymentPage />} />
+              <Route path="/payment/result" element={<PaymentStatusPage />} />
+              <Route path="/payment/callback" element={<PaymentStatusPage />} />
               <Route path="/add-vehicle" element={<AddVehiclePage />} />
               <Route path="/vehicles/:id" element={<CustomerVehicleDetailPage />} />
               <Route path="/dashboard/services" element={<ServicesPage />} />

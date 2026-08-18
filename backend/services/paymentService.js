@@ -406,6 +406,9 @@ class PaymentService {
     if (!orderId) return { processed: false, reason: 'Missing order_id' };
     const payment = await Payment.findOne({ orderId });
     if (!payment) return { processed: false, reason: 'Payment not found' };
+    payment.webhookEvents = Array.isArray(payment.webhookEvents)
+      ? payment.webhookEvents
+      : [];
     if (payment.webhookEvents.some((e) => e.eventId === eventId)) {
       return { processed: false, reason: 'Already processed' };
     }

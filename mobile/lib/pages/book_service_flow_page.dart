@@ -35,6 +35,7 @@ import '../state/navigation_provider.dart';
 import '../utils/auth_gate.dart';
 import '../services/socket_service.dart';
 import '../state/global_sync_provider.dart';
+import 'payment_status_page.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../widgets/custom_stepper.dart';
 import '../widgets/vehicle_card.dart';
@@ -924,7 +925,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         'tempBookingData': _currentTempBookingData,
       };
 
-      final result = await _paymentService.verifyPayment(verifyData);
+      final result = await _verifyPaymentWithRetry(verifyData);
 
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -934,25 +935,55 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         final isPaid = result['success'] == true && paymentStatus == 'paid';
 
         if (isPaid) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment successful! Booking created.'),
-              backgroundColor: Colors.green,
+          Navigator.of(context).pushReplacementNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: true,
+              title: 'Payment successful',
+              message:
+                  'Your payment was received and the booking has been created successfully.',
+              primaryButtonLabel: 'Go to home',
+              primaryRoute: '/customer',
+              clearStackOnPrimary: true,
+              secondaryButtonLabel: 'View bookings',
+              secondaryRoute: '/bookings',
+              clearStackOnSecondary: true,
             ),
           );
-
           context.read<SocketService>().sendEvent('booking_created');
-          _navigateToHomeAfterBooking();
-        } else {
+        } else if (_isFailurePaymentStatus(paymentStatus)) {
           final statusMsg = paymentStatus == 'user_dropped'
               ? 'Payment was cancelled.'
               : paymentStatus == 'failed'
                   ? 'Payment failed. Please try again.'
                   : 'Payment not completed (status: $paymentStatus). Please try again.';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(statusMsg),
-              backgroundColor: Colors.red,
+          Navigator.of(context).pushNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: false,
+              title: 'Payment not completed',
+              message: statusMsg,
+              primaryButtonLabel: 'Try again',
+              onPrimaryPressed: _restoreCheckoutAfterPaymentFailure,
+              secondaryButtonLabel: 'Go to home',
+              secondaryRoute: '/customer',
+              clearStackOnSecondary: true,
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacementNamed(
+            '/payment-status',
+            arguments: PaymentStatusPage(
+              success: true,
+              title: 'Payment received',
+              message:
+                  'Cashfree reported success. We are confirming your booking status in the background.',
+              primaryButtonLabel: 'Go to home',
+              primaryRoute: '/customer',
+              clearStackOnPrimary: true,
+              secondaryButtonLabel: 'View bookings',
+              secondaryRoute: '/bookings',
+              clearStackOnSecondary: true,
             ),
           );
         }
@@ -960,11 +991,73 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Verification error: $e')));
+        Navigator.of(context).pushNamed(
+          '/payment-status',
+          arguments: PaymentStatusPage(
+            success: false,
+            title: 'Payment verification failed',
+            message: 'We could not confirm the payment. Please try again. $e',
+            primaryButtonLabel: 'Try again',
+            onPrimaryPressed: _restoreCheckoutAfterPaymentFailure,
+            secondaryButtonLabel: 'Go to home',
+            secondaryRoute: '/customer',
+            clearStackOnSecondary: true,
+          ),
+        );
       }
     }
+  }
+
+  Future<Map<String, dynamic>> _verifyPaymentWithRetry(
+    Map<String, dynamic> verifyData,
+  ) async {
+    const retryDelays = <Duration>[
+      Duration.zero,
+      Duration(milliseconds: 1200),
+      Duration(milliseconds: 2000),
+      Duration(milliseconds: 3000),
+      Duration(milliseconds: 4000),
+      Duration(milliseconds: 5000),
+    ];
+
+    Map<String, dynamic> lastResult = const {};
+
+    for (final delay in retryDelays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+
+      final result = await _paymentService.verifyPayment(verifyData);
+      lastResult = result;
+
+      final data = result['data'] as Map<String, dynamic>?;
+      final paymentStatus = (data?['status'] as String? ?? 'unknown')
+          .toLowerCase();
+      final isPaid = result['success'] == true && paymentStatus == 'paid';
+
+      if (isPaid) return result;
+
+      const transientStatuses = {
+        'pending',
+        'created',
+        'attempted',
+        'processing',
+        'unknown',
+      };
+      if (!transientStatuses.contains(paymentStatus)) {
+        return result;
+      }
+    }
+
+    return lastResult;
+  }
+
+  bool _isFailurePaymentStatus(String status) {
+    final normalized = status.toLowerCase();
+    return normalized == 'failed' ||
+        normalized == 'user_dropped' ||
+        normalized == 'cancelled' ||
+        normalized == 'expired';
   }
 
   void _resetBookingWizard() {
@@ -979,6 +1072,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       _pickupDropLoading = false;
     });
     _notesController.clear();
+  }
+
+  void _restoreCheckoutAfterPaymentFailure() {
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    setState(() => _currentStep = 3);
   }
 
   void _navigateToHomeAfterBooking() {
@@ -1000,12 +1099,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   void _handlePaymentError(CFErrorResponse response, String orderId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Payment failed: ${response.getMessage()}. Order: $orderId',
-        ),
-        backgroundColor: Colors.red,
+    Navigator.of(context).pushNamed(
+      '/payment-status',
+      arguments: PaymentStatusPage(
+        success: false,
+        title: 'Payment failed',
+        message: '${response.getMessage()} (Order: $orderId)',
+        primaryButtonLabel: 'Try again',
+        onPrimaryPressed: _restoreCheckoutAfterPaymentFailure,
+        secondaryButtonLabel: 'Go to home',
+        secondaryRoute: '/customer',
+        clearStackOnSecondary: true,
       ),
     );
   }
@@ -1518,49 +1622,89 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   Widget _buildBottomButtons() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (_currentStep > 0) ...[
-          Expanded(
-            flex: 1,
-            child: TextButton(
-              onPressed: _handleBack,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  side: BorderSide(
-                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+        if (_loading) ...[
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Preparing secure checkout...',
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black87,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                backgroundColor: isDark
-                    ? AppColors.backgroundSecondary
-                    : Colors.white,
-              ),
-              child: Text(
-                'Back',
-                style: TextStyle(
-                  color: isDark
-                      ? AppColors.textPrimary
-                      : const Color(0xFF555555),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
         ],
-        Expanded(
-          flex: 2,
-          child: GradientButton(
-            text: !context.watch<AuthProvider>().isAuthenticated
-                ? 'Log in to book'
-                : _currentStep == _steps.length - 1
-                ? 'Confirm Booking'
-                : 'Continue',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: _handleNext,
-          ),
+        Row(
+          children: [
+            if (_currentStep > 0) ...[
+              Expanded(
+                flex: 1,
+                child: TextButton(
+                  onPressed: _loading ? null : _handleBack,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: BorderSide(
+                        color: isDark
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    backgroundColor: isDark
+                        ? AppColors.backgroundSecondary
+                        : Colors.white,
+                  ),
+                  child: Text(
+                    'Back',
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.textPrimary
+                          : const Color(0xFF555555),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              flex: 2,
+              child: GradientButton(
+                text: _loading
+                    ? 'Preparing payment'
+                    : !context.watch<AuthProvider>().isAuthenticated
+                    ? 'Log in to book'
+                    : _currentStep == _steps.length - 1
+                    ? 'Confirm Booking'
+                    : 'Continue',
+                icon: _loading ? null : Icons.arrow_forward_rounded,
+                onPressed: _loading ? null : _handleNext,
+                isLoading: _loading,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -3937,14 +4081,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
       if (res is Map<String, dynamic> && res['requiresPayment'] == true) {
         // Special handling for payment-required services (Car Wash, Battery, Tyres)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              res['message'] ?? 'Please complete payment to create booking',
-            ),
-          ),
-        );
-        // Redirect to a payment page or show a payment dialog
         final tempBookingId = res['tempBookingId'];
         if (tempBookingId != null) {
           res['requiresPaymentService'] = true;
@@ -4005,6 +4141,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Future<void> _processPayment({Map<String, dynamic>? tempBookingData}) async {
     // Show loading dialog immediately
     if (!mounted) return;
+    var loadingDialogOpen = true;
+    void closeLoadingDialog() {
+      if (!loadingDialogOpen || !mounted) return;
+      loadingDialogOpen = false;
+      Navigator.of(context, rootNavigator: true).pop();
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -4023,16 +4165,50 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1.08),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(scale: value, child: child);
+                  },
+                  onEnd: () {},
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryBlue.withValues(alpha: 0.12),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 3.2),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  'Preparing payment...',
+                  'Loading secure checkout...',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                     color: Theme.of(context).brightness == Brightness.dark
                         ? Colors.white
                         : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please wait while Cashfree opens.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white60
+                        : Colors.black54,
                   ),
                 ),
               ],
@@ -4048,8 +4224,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         tempBookingData: tempBookingData,
       );
 
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      if (!mounted) {
+        closeLoadingDialog();
+        return;
+      }
 
       _currentTempBookingData = tempBookingData;
       final orderId =
@@ -4062,6 +4240,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final environment = (orderData['environment'] ?? 'sandbox').toString();
 
       if (orderId.isEmpty || paymentSessionId.isEmpty) {
+        closeLoadingDialog();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Payment setup failed. Please try again.'),
@@ -4072,6 +4251,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       }
 
       if (kIsWeb) {
+        closeLoadingDialog();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Payments are only available on mobile'),
@@ -4095,10 +4275,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
         // Launch payment immediately
         _cashfreeGateway.doPayment(cfPayment);
+        closeLoadingDialog();
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context);
+        closeLoadingDialog();
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Payment initiation error: $e')));

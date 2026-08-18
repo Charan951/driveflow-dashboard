@@ -55,7 +55,13 @@ export const createOrder = async (req, res) => {
 
 export const verifyPayment = async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const orderId = req.body.orderId || req.body.cashfree_order_id;
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'orderId is required',
+      });
+    }
     const result = await paymentService.processOrderStatus(orderId);
     const payment = result.payment;
     await logAudit({
@@ -74,7 +80,17 @@ export const verifyPayment = async (req, res) => {
     if (result && result.booking) {
       result.booking = sanitizeBooking(result.booking, req.user);
     }
-    res.json({ success: true, message: 'Payment status synced', data: result });
+    const isPaid = payment?.status === 'paid';
+    res.json({
+      success: isPaid,
+      message: isPaid
+          ? 'Payment status synced'
+          : `Payment not completed (status: ${payment?.status || 'unknown'})`,
+      data: {
+        ...result,
+        status: payment?.status || 'pending',
+      },
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message || 'Payment verification failed' });
   }
@@ -90,6 +106,7 @@ export const handleWebhook = async (req, res) => {
     const result = await paymentService.processWebhookEvent(req.body);
     res.status(200).json({ success: true, data: result });
   } catch (error) {
+    console.error('Cashfree webhook error:', error);
     res.status(400).json({ success: false, message: error.message || 'Webhook processing failed' });
   }
 };

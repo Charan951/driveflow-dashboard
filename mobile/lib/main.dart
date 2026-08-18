@@ -15,6 +15,7 @@ import 'pages/register_page.dart';
 import 'pages/legal_webview_page.dart';
 import 'pages/forgot_password_page.dart';
 import 'pages/reset_password_page.dart';
+import 'pages/payment_status_page.dart';
 import 'pages/track_booking_page.dart';
 import 'pages/my_payments_page.dart';
 import 'pages/support_page.dart';
@@ -551,6 +552,15 @@ class MyApp extends StatelessWidget {
               ),
               '/forgot-password': (_) => const ForgotPasswordPage(),
               '/reset-password': (_) => const ResetPasswordPage(),
+              '/payment-status': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments;
+                if (args is PaymentStatusPage) return args;
+                return const PaymentStatusPage(
+                  success: false,
+                  title: 'Payment status unavailable',
+                  message: 'We could not load the payment result.',
+                );
+              },
               '/services': (_) => const _TabRedirect(index: 1),
               '/customer': (_) => const MainNavigationPage(),
               '/bookings': (_) => const MyBookingsPage(),
