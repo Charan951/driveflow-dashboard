@@ -18,6 +18,7 @@ import '../core/form_validation.dart';
 import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../widgets/customer_drawer.dart';
+import '../widgets/guest_login_prompt.dart';
 import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../utils/location_helper.dart';
@@ -123,32 +124,39 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : Colors.black.withValues(alpha: 0.16),
-                      width: 1.0,
+              if (user != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.black.withValues(alpha: 0.16),
+                        width: 1.0,
+                      ),
                     ),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.edit_note_rounded,
-                      size: 20,
-                      color: isDark ? Colors.white : Colors.black,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.edit_note_rounded,
+                        size: 20,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      tooltip: 'Edit Profile',
+                      onPressed: () => _editProfile(context, user),
                     ),
-                    tooltip: 'Edit Profile',
-                    onPressed: () => _editProfile(context, user),
                   ),
                 ),
-              ),
             ],
           ),
-          body: SingleChildScrollView(
+          body: user == null
+              ? const GuestLoginPrompt(
+                  title: 'Your profile',
+                  message:
+                      'Log in to manage your account, addresses, and preferences.',
+                )
+              : SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Center(
               child: ConstrainedBox(
@@ -169,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: _buildStatsRow(context, user, isDark),
                       ),
                       const SizedBox(height: 32),
-                      if (user?.addresses.isNotEmpty ?? false) ...[
+                      if (user.addresses.isNotEmpty) ...[
                         _SectionHeader(
                           title: 'Saved Addresses',
                           icon: Icons.map_rounded,
@@ -179,7 +187,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         RepaintBoundary(
                           child: Column(
                             children: [
-                              ...user!.addresses.map(
+                              ...user.addresses.map(
                                 (a) => _AddressCard(
                                   address: a,
                                   onDelete: () =>
@@ -618,7 +626,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _performLogout(BuildContext context) async {
     await context.read<AuthProvider>().logout();
     if (!context.mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
   Future<void> _editProfile(BuildContext context, User? user) async {

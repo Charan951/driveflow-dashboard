@@ -12,6 +12,7 @@ class AppStorage {
   static const _themeModeKey = 'theme_mode';
   static const _dashboardKey = 'dashboard_state';
   static const _hasSeenNoVehicleModalKey = 'has_seen_no_vehicle_modal';
+  static const _hasSeenOnboardingKey = 'has_seen_onboarding';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -27,6 +28,24 @@ class AppStorage {
   Future<SharedPreferences> _getPrefs() async {
     _prefs ??= await SharedPreferences.getInstance();
     return _prefs!;
+  }
+
+  Future<void> setHasSeenOnboarding(bool value) async {
+    try {
+      final prefs = await _getPrefs();
+      await prefs.setBool(_hasSeenOnboardingKey, value);
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  Future<bool> hasSeenOnboarding() async {
+    try {
+      final prefs = await _getPrefs();
+      return prefs.getBool(_hasSeenOnboardingKey) ?? false;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> setHasSeenNoVehicleModal(bool value) async {

@@ -23,6 +23,7 @@ import '../services/coupon_service.dart';
 import '../utils/coupon_utils.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
+import '../utils/auth_gate.dart';
 import '../widgets/coupon_slider.dart';
 
 class CarzziDashboard extends StatefulWidget {
@@ -149,6 +150,29 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     });
 
     try {
+      final isAuthed = context.read<AuthProvider>().isAuthenticated;
+      if (!isAuthed) {
+        final results = await Future.wait<dynamic>([
+          _catalogService.listServices(isQuickService: true),
+          _couponService.getCoupons().catchError((_) => <dynamic>[]),
+        ]);
+        if (!mounted) return;
+        final services = results[0] as List<ServiceItem>;
+        final coupons = results[1] as List<dynamic>;
+        setState(() {
+          _vehicles = [];
+          _bookings = [];
+          _services = services;
+          _reviews = [];
+          _coupons = filterCouponsForUser(coupons: coupons, user: null);
+          _unreadNotificationsCount = 0;
+          _upcomingBookingCached = null;
+          _recentBookings = [];
+          _loading = false;
+        });
+        return;
+      }
+
       final results = await Future.wait<dynamic>([
         _vehicleService.listMyVehicles(forceRefresh: isInitial),
         _bookingService.listMyBookings(forceRefresh: true),
@@ -202,13 +226,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       if (!mounted) return;
@@ -789,9 +807,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
 
   String _formatPrice(num value) {
     if (value is int || value == value.roundToDouble()) {
-      return '\u20B9 ${value.round()}';
+      return '\u20B9 ${value.round()} onwards';
     }
-    return '\u20B9 ${value.toStringAsFixed(2)}';
+    return '\u20B9 ${value.toStringAsFixed(2)} onwards';
   }
 
   List<Booking> _getOngoingBookings() {
@@ -911,6 +929,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   Future<void> _persistDashboardState() async {
     try {
       final userId = await AppStorage().getUserId();
+      if (userId == null || userId.isEmpty) return;
       final map = {
         'userId': userId,
         'vehicles': _vehicles.map((v) => v.toJson()).toList(),
@@ -1111,11 +1130,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   }
 
   Widget _buildHeader() {
-    final auth = context.read<AuthProvider>();
+    final auth = context.watch<AuthProvider>();
     final rawName = (auth.user?.name ?? '').trim();
     final firstName = rawName.isEmpty ? '' : rawName.split(' ').first;
     final greeting = _greeting();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isGuest = !auth.isAuthenticated;
 
     return Row(
       children: [
@@ -1157,7 +1177,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
               ),
               const SizedBox(height: 4),
               Text(
-                firstName.isNotEmpty ? '$greeting, $firstName' : greeting,
+                firstName.isNotEmpty
+                    ? '$greeting, $firstName'
+                    : (isGuest ? 'Hi Guest' : greeting),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: isDark ? Colors.white : AppColors.textPrimaryLight,
                   fontWeight: FontWeight.w800,
@@ -1169,7 +1191,28 @@ class _CarzziDashboardState extends State<CarzziDashboard>
           ),
         ),
         const SizedBox(width: 8),
-        _AnimatedDashboardCard(
+        if (isGuest)
+          FilledButton(
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              minimumSize: const Size(0, 40),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+            child: const Text('Log in'),
+          )
+        else
+          _AnimatedDashboardCard(
           onTap: _openNotifications,
           child: Stack(
             clipBehavior: Clip.none,
@@ -1245,9 +1288,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
   }
 
   void _openNotifications() {
-    Navigator.pushNamed(context, '/notifications').then((_) {
-      if (!mounted) return;
-      _refreshNotificationCount();
+    ensureLoggedIn(context).then((ok) {
+      if (!ok || !mounted) return;
+      Navigator.pushNamed(context, '/notifications').then((_) {
+        if (!mounted) return;
+        _refreshNotificationCount();
+      });
     });
   }
 
@@ -1468,7 +1514,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             ),
             AppSpacing.verticalSmall,
             Text(
-              'Book a service to keep your vehicle in top condition.',
+              context.watch<AuthProvider>().isAuthenticated
+                  ? 'Book a service to keep your vehicle in top condition.'
+                  : 'Explore our catalog. Log in when you are ready to book.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: isDark ? Colors.white : AppColors.textSecondaryLight,
               ),
@@ -1773,7 +1821,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                 AppSpacing.horizontalMedium,
                 Expanded(
                   child: Text(
-                    'No vehicles yet. Add one to book services faster.',
+                    context.watch<AuthProvider>().isAuthenticated
+                        ? 'No vehicles yet. Add one to book services faster.'
+                        : 'Log in to add your vehicles and book a service.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isDark
                           ? Colors.white.withValues(alpha: 0.8)
@@ -2017,7 +2067,9 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                   AppSpacing.horizontalMedium,
                   Expanded(
                     child: Text(
-                      'No recent services yet. Your history will appear here.',
+                      context.watch<AuthProvider>().isAuthenticated
+                          ? 'No recent services yet. Your history will appear here.'
+                          : 'Log in to view your recent service history.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.8)

@@ -6,6 +6,7 @@ import '../core/app_colors.dart';
 import '../core/form_validation.dart';
 import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 
 enum _LoginStep { identifier, password, emailOtp, phoneOtp }
 
@@ -157,7 +158,7 @@ class _LoginPageState extends State<LoginPage>
           );
         } else {
           NotificationService().requestPermissions();
-          Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+          completeAuthNavigation(context, auth.homeRoute);
         }
         return;
       }
@@ -220,7 +221,7 @@ class _LoginPageState extends State<LoginPage>
         await Future.delayed(Duration.zero);
         if (!mounted) return;
         NotificationService().requestPermissions();
-        Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+        completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
       }
@@ -305,6 +306,27 @@ class _LoginPageState extends State<LoginPage>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white70,
+        actions: [
+          TextButton(
+            onPressed: () => leaveAuthScreens(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+            ),
+            child: const Text(
+              'Skip',
+              style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           Container(

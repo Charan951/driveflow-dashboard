@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
@@ -10,6 +11,8 @@ import '../widgets/customer_drawer.dart';
 import '../core/storage.dart';
 import '../core/socket_sync.dart';
 import '../services/socket_service.dart';
+import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 import '../widgets/global_sync_refresh.dart';
 
 class SupportPage extends StatefulWidget {
@@ -144,6 +147,10 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   Future<void> _loadTickets() async {
+    if (!context.read<AuthProvider>().isAuthenticated) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final tickets = await _ticketService.listMyTickets();
@@ -207,6 +214,9 @@ class _SupportPageState extends State<SupportPage> {
   }
 
   Future<void> _createTicket() async {
+    final loggedIn = await ensureLoggedIn(context);
+    if (!loggedIn || !mounted) return;
+
     final subjectController = TextEditingController();
     final messageController = TextEditingController();
     final formKey = GlobalKey<FormState>();

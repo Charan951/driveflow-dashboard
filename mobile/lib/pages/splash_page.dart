@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../state/auth_provider.dart';
-import '../services/notification_service.dart';
+import 'package:flutter/services.dart';
+
+import '../core/app_colors.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -11,118 +14,195 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
-  bool _navigated = false;
-  bool _isMovingUp = false;
-  late final AnimationController _animationController;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _opacityAnimation;
+    with TickerProviderStateMixin {
+  late final AnimationController _enter;
+  late final AnimationController _ambient;
+  late final AnimationController _progress;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _enter = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 720),
     );
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    _ambient = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4200),
     );
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    _progress = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
     );
-    _animationController.forward();
-    _bootstrap();
+
+    _enter.forward();
+    _progress.forward();
+    _ambient.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce) {
+      _enter.value = 1;
+      _ambient.stop();
+      _ambient.value = 0.4;
+      _progress.value = 1;
+    } else if (!_ambient.isAnimating) {
+      _ambient.repeat(reverse: true);
+    }
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _enter.dispose();
+    _ambient.dispose();
+    _progress.dispose();
     super.dispose();
-  }
-
-  Future<void> _bootstrap() async {
-    final auth = context.read<AuthProvider>();
-    await auth.loadMe();
-
-    if (!mounted) return;
-
-    if (auth.isAuthenticated) {
-      // User already logged in from a previous session; safe to ask now.
-      NotificationService().requestPermissions();
-      // Small delay to allow logo animation to feel natural
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) {
-        setState(() => _isMovingUp = true);
-      }
-      // Wait for animation to complete before letting RootGate switch
-      await Future.delayed(const Duration(milliseconds: 500));
-    } else {
-      // For non-authorized users, we don't navigate automatically anymore.
-      // They must click the screen to go to login.
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
-  }
-
-  void _onInteract() {
-    if (_navigated) return;
-    final auth = context.read<AuthProvider>();
-    // Only allow interaction if we've determined the user is not authenticated
-    if (auth.isInitialized && !auth.isAuthenticated) {
-      _navigated = true;
-      Future.delayed(Duration.zero, () {
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: GestureDetector(
-        onTap: _onInteract,
-        onTapDown: (_) => _onInteract(),
-        onDoubleTap: _onInteract,
-        onLongPress: _onInteract,
-        onPanDown: (_) => _onInteract(),
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            Container(color: Colors.black),
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 600),
-              curve:
-                  Curves.easeOutBack, // Added a little bounce for a better feel
-              alignment: _isMovingUp
-                  ? const Alignment(0, -0.9)
-                  : Alignment.center,
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Opacity(
-                      opacity: _opacityAnimation.value,
-                      child: child,
-                    ),
-                  );
-                },
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Padding(
-                    padding: const EdgeInsets.all(48.0),
-                    child: Image.asset(
-                      'assets/splashscreen.png',
-                      width: 180,
-                      fit: BoxFit.contain,
+    final bottom = MediaQuery.paddingOf(context).bottom;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: AppColors.splashDeepBlack,
+        body: AnimatedBuilder(
+          animation: Listenable.merge([_enter, _ambient, _progress]),
+          builder: (context, _) {
+            final pulse = _ambient.value;
+            final enter = CurvedAnimation(
+              parent: _enter,
+              curve: const Cubic(0.22, 1, 0.36, 1),
+            ).value;
+            final tagline = CurvedAnimation(
+              parent: _enter,
+              curve: const Interval(0.38, 1, curve: Cubic(0.22, 1, 0.36, 1)),
+            ).value;
+            final float = math.sin(pulse * math.pi) * 6;
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: AppColors.splashDeepBlack),
+                _Glow(
+                  alignment: const Alignment(-1.05, -0.85),
+                  color: AppColors.primaryBlue,
+                  size: 340,
+                  offset: Offset(-10 + pulse * 18, pulse * 12),
+                ),
+                _Glow(
+                  alignment: const Alignment(1.1, 0.2),
+                  color: AppColors.cinematicOrange,
+                  size: 300,
+                  offset: Offset(12 - pulse * 16, -pulse * 10),
+                ),
+                _Glow(
+                  alignment: const Alignment(0, 1.2),
+                  color: AppColors.primaryBlueSoft,
+                  size: 260,
+                  offset: Offset(0, pulse * 8),
+                ),
+                Center(
+                  child: Opacity(
+                    opacity: enter,
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - enter) * 18 + float),
+                      child: Transform.scale(
+                        scale: 0.88 + (enter * 0.12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/splashscreen.png',
+                              width: 176,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 18),
+                            Opacity(
+                              opacity: tagline,
+                              child: Transform.translate(
+                                offset: Offset(0, (1 - tagline) * 8),
+                                child: const Text(
+                                  'Car care, simplified.',
+                                  style: TextStyle(
+                                    color: Color(0xFFB8B8B8),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                Positioned(
+                  left: 48,
+                  right: 48,
+                  bottom: 36 + bottom,
+                  child: Column(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: SizedBox(
+                          height: 3,
+                          child: LinearProgressIndicator(
+                            value: _progress.value.clamp(0.0, 1.0),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.08,
+                            ),
+                            color: AppColors.cinematicOrange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Glow extends StatelessWidget {
+  final Alignment alignment;
+  final Color color;
+  final double size;
+  final Offset offset;
+
+  const _Glow({
+    required this.alignment,
+    required this.color,
+    required this.size,
+    required this.offset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: Transform.translate(
+        offset: offset,
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.22),
             ),
-          ],
+          ),
         ),
       ),
     );

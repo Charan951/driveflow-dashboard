@@ -7,6 +7,7 @@ import '../core/app_colors.dart';
 import '../core/form_validation.dart';
 import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -158,7 +159,7 @@ class _RegisterPageState extends State<RegisterPage>
       } else if (auth.isAuthenticated) {
         if (!mounted) return;
         NotificationService().requestPermissions();
-        Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+        completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Failed to send OTP');
       }
@@ -193,7 +194,7 @@ class _RegisterPageState extends State<RegisterPage>
       if (!mounted) return;
       if (ok) {
         NotificationService().requestPermissions();
-        Navigator.of(context).pushReplacementNamed(auth.homeRoute);
+        completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
       }
@@ -224,6 +225,16 @@ class _RegisterPageState extends State<RegisterPage>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        automaticallyImplyLeading: true,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white70,
+        iconTheme: const IconThemeData(color: Colors.white70),
+      ),
       body: Stack(
         children: [
           Container(color: AppColors.splashDeepBlack),

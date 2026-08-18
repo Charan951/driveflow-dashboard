@@ -23,6 +23,7 @@ import '../services/coupon_service.dart';
 import '../utils/coupon_utils.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/coupon_slider.dart';
+import '../utils/auth_gate.dart';
 
 class CustomerDashboardPage extends StatefulWidget {
   const CustomerDashboardPage({super.key});
@@ -260,13 +261,7 @@ class _CustomerDashboardPageState extends State<CustomerDashboardPage> {
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       if (mounted) {

@@ -201,7 +201,11 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
-        if (result['success'] == true || result['bookingId'] != null) {
+        final data = result['data'] as Map<String, dynamic>?;
+        final paymentStatus = data?['status'] as String? ?? 'unknown';
+        final isPaid = result['success'] == true && paymentStatus == 'paid';
+
+        if (isPaid) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payment Successful!'),
@@ -210,11 +214,14 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
           );
           _load(); // Reload to update status
         } else {
+          final statusMsg = paymentStatus == 'user_dropped'
+              ? 'Payment was cancelled.'
+              : paymentStatus == 'failed'
+                  ? 'Payment failed. Please try again.'
+                  : 'Payment not completed (status: $paymentStatus). Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Payment verification failed: ${result['message']}',
-              ),
+              content: Text(statusMsg),
               backgroundColor: Colors.red,
             ),
           );

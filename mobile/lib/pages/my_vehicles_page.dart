@@ -11,6 +11,8 @@ import '../core/socket_sync.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/global_sync_refresh.dart';
+import '../widgets/guest_login_prompt.dart';
+import '../utils/auth_gate.dart';
 
 class MyVehiclesPage extends StatefulWidget {
   const MyVehiclesPage({super.key});
@@ -47,13 +49,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       if (mounted) setState(() => _error = e.toString());
@@ -217,7 +213,13 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               ),
             ),
           ),
-          body: RefreshIndicator(
+          body: !context.watch<AuthProvider>().isAuthenticated
+              ? const GuestLoginPrompt(
+                  title: 'Your vehicles',
+                  message:
+                      'Log in to add vehicles and book doorstep service.',
+                )
+              : RefreshIndicator(
             onRefresh: _load,
             child: _loading && _vehicles.isEmpty
                 ? const Center(child: CircularProgressIndicator())

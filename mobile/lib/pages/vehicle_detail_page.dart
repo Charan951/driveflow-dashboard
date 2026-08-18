@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
@@ -13,7 +12,7 @@ import '../services/booking_service.dart';
 import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
-import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 import '../utils/vehicle_health.dart';
 
 /// Order and copy aligned with [frontend/src/components/VehicleHealthIndicators.tsx].
@@ -83,13 +82,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       errors.add(e.toString());
@@ -107,13 +100,7 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       errors.add(e.toString());

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../core/env.dart';
 import '../services/notification_service.dart';
 import '../core/socket_sync.dart';
+import '../state/auth_provider.dart';
 import '../widgets/global_sync_refresh.dart';
+import '../widgets/guest_login_prompt.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -303,7 +305,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: RefreshIndicator(
+      body: !context.watch<AuthProvider>().isAuthenticated
+          ? const GuestLoginPrompt(
+              title: 'Notifications',
+              message: 'Log in to see booking updates and alerts.',
+            )
+          : RefreshIndicator(
         onRefresh: _load,
         child: _loading
             ? const Center(child: CircularProgressIndicator())

@@ -10,6 +10,8 @@ import '../core/socket_sync.dart';
 import '../state/auth_provider.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/global_sync_refresh.dart';
+import '../widgets/guest_login_prompt.dart';
+import '../utils/auth_gate.dart';
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -66,13 +68,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     } catch (e) {
       if (e is ApiException && e.statusCode == 401) {
         if (!mounted) return;
-        final auth = context.read<AuthProvider>();
-        await auth.logout();
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/login', (route) => false);
-        }
+        await handleUnauthorized(context);
         return;
       }
       if (mounted) setState(() => _error = e.toString());
@@ -217,7 +213,13 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
           ),
           actions: const [],
         ),
-        body: RefreshIndicator(
+        body: !context.watch<AuthProvider>().isAuthenticated
+            ? const GuestLoginPrompt(
+                title: 'Your bookings',
+                message:
+                    'Log in to view and manage your service bookings.',
+              )
+            : RefreshIndicator(
           onRefresh: _load,
           child: _loading
               ? ListView(

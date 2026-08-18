@@ -32,6 +32,7 @@ import '../utils/coupon_utils.dart';
 import '../utils/location_helper.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
+import '../utils/auth_gate.dart';
 import '../services/socket_service.dart';
 import '../state/global_sync_provider.dart';
 import '../widgets/global_sync_refresh.dart';
@@ -880,7 +881,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       setState(() {
         _initialServiceId = service.id;
         _selectedServiceIds = [service.id];
-        _currentStep = 0; // Start at vehicle selection step
+        _currentStep = 0;
 
         // Auto-set subcategory for Tyres/Battery flow
         if (widget.initialCategory == 'Tyres' ||
@@ -928,21 +929,30 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
-        if (result['success'] == true || result['bookingId'] != null) {
+        final data = result['data'] as Map<String, dynamic>?;
+        final paymentStatus = data?['status'] as String? ?? 'unknown';
+        final isPaid = result['success'] == true && paymentStatus == 'paid';
+
+        if (isPaid) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payment successful! Booking created.'),
+              backgroundColor: Colors.green,
             ),
           );
 
           context.read<SocketService>().sendEvent('booking_created');
           _navigateToHomeAfterBooking();
         } else {
+          final statusMsg = paymentStatus == 'user_dropped'
+              ? 'Payment was cancelled.'
+              : paymentStatus == 'failed'
+                  ? 'Payment failed. Please try again.'
+                  : 'Payment not completed (status: $paymentStatus). Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'Payment verification failed: ${result['message']}',
-              ),
+              content: Text(statusMsg),
+              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1018,23 +1028,28 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     try {
+      final isAuthed = context.read<AuthProvider>().isAuthenticated;
       final List<dynamic> results = await Future.wait([
-        _vehicleService.listMyVehicles(forceRefresh: forceRefresh).catchError((
-          e,
-        ) {
-          debugPrint('Error fetching vehicles: $e');
-          return <Vehicle>[];
-        }),
+        isAuthed
+            ? _vehicleService.listMyVehicles(forceRefresh: forceRefresh).catchError((
+                e,
+              ) {
+                debugPrint('Error fetching vehicles: $e');
+                return <Vehicle>[];
+              })
+            : Future<List<Vehicle>>.value(const <Vehicle>[]),
         _catalogService.listServices(forceRefresh: forceRefresh).catchError((
           e,
         ) {
           debugPrint('Error fetching services: $e');
           return <ServiceItem>[];
         }),
-        _bookingService.getAvailableServicePincodes().catchError((e) {
-          debugPrint('Error fetching available service pincodes: $e');
-          return <String>[];
-        }),
+        isAuthed
+            ? _bookingService.getAvailableServicePincodes().catchError((e) {
+                debugPrint('Error fetching available service pincodes: $e');
+                return <String>[];
+              })
+            : Future<List<String>>.value(const <String>[]),
       ]);
 
       final List<Vehicle> vehicles = results[0] as List<Vehicle>;
@@ -1086,9 +1101,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
           _loading = false;
         });
-        await _fetchSlotsForDate(_selectedDate);
         await _fetchCoupons();
-        await _prefetchSavedAddressPincodes();
+        if (isAuthed) {
+          await _fetchSlotsForDate(_selectedDate);
+          await _prefetchSavedAddressPincodes();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1536,7 +1553,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         Expanded(
           flex: 2,
           child: GradientButton(
-            text: _currentStep == _steps.length - 1
+            text: !context.watch<AuthProvider>().isAuthenticated
+                ? 'Log in to book'
+                : _currentStep == _steps.length - 1
                 ? 'Confirm Booking'
                 : 'Continue',
             icon: Icons.arrow_forward_rounded,
@@ -1548,6 +1567,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Future<void> _handleNext() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      final loggedIn = await ensureLoggedIn(context);
+      if (!loggedIn || !mounted) return;
+      await _fetchInitialData(forceRefresh: true);
+      if (!mounted) return;
+      setState(() => _currentStep = 0);
+      return;
+    }
+
     if (_currentStep == 2) {
       if (_selectedTimeSlot == null || _selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1675,6 +1704,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   Widget _buildVehicleStep() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isGuest = !context.watch<AuthProvider>().isAuthenticated;
     if (_vehicles.isEmpty) {
       return Center(
         child: Column(
@@ -1686,12 +1716,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               color: isDark ? Colors.grey.shade600 : Colors.grey,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No vehicles found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              isGuest ? 'Log in to fetch your vehicles' : 'No vehicles found',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text('Please add a vehicle to your profile first.'),
+            Text(
+              isGuest
+                  ? 'Sign in to load your vehicles and continue booking.'
+                  : 'Please add a vehicle to your profile first.',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
@@ -1701,10 +1736,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ElevatedButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  '/add-vehicle',
-                ).then((_) => _fetchInitialData()),
+                onPressed: () async {
+                  if (isGuest) {
+                    final ok = await ensureLoggedIn(context);
+                    if (ok && mounted) await _fetchInitialData(forceRefresh: true);
+                    return;
+                  }
+                  Navigator.pushNamed(
+                    context,
+                    '/add-vehicle',
+                  ).then((_) => _fetchInitialData());
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
@@ -1714,7 +1756,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Add Vehicle'),
+                child: Text(isGuest ? 'Log in' : 'Add Vehicle'),
               ),
             ),
           ],

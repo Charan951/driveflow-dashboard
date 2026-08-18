@@ -5,6 +5,8 @@ import '../core/app_colors.dart';
 import '../core/app_styles.dart';
 import '../state/navigation_provider.dart';
 import '../state/theme_provider.dart';
+import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 
 class CustomerDrawer extends StatefulWidget {
   final String? currentRouteName;
@@ -28,6 +30,13 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     super.dispose();
   }
 
+  static const _accountRoutes = {
+    '/bookings',
+    '/payments',
+    '/vehicles',
+    '/profile',
+  };
+
   Future<void> _navigate(
     BuildContext context, {
     required String routeName,
@@ -47,6 +56,11 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     }
 
     Navigator.of(context).pop();
+
+    if (_accountRoutes.contains(routeName)) {
+      final ok = await ensureLoggedIn(context);
+      if (!ok || !context.mounted) return;
+    }
 
     final navProvider = context.read<NavigationProvider>();
     if (NavigationProvider.routeToTabIndex.containsKey(routeName)) {
@@ -136,7 +150,9 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     // Watch so this rebuilds when the preference changes; resolve against
     // the *effective* theme so ThemeMode.system tracks the device setting.
     context.watch<ThemeProvider>();
+    context.watch<AuthProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isGuest = !context.read<AuthProvider>().isAuthenticated;
 
     return Drawer(
       width: 320,
@@ -197,6 +213,43 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                   ],
                 ),
               ),
+              if (isGuest)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).pushNamed('/login');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.cinematicOrange,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Log in',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Navigator.of(context).pushNamed('/register');
+                        },
+                        child: const Text('Create an account'),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

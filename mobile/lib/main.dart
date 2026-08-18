@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'pages/splash_page.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/legal_webview_page.dart';
@@ -355,12 +356,16 @@ class MyApp extends StatelessWidget {
       child: Builder(
         builder: (context) {
           final mode = context.watch<ThemeProvider>().mode;
+          final isAuthenticated = context.watch<AuthProvider>().isAuthenticated;
+          // Guest browse stays on the Carzzi dark theme so it matches
+          // onboarding/login. Signed-in users keep their saved preference.
+          final themeMode = isAuthenticated ? mode : ThemeMode.dark;
 
           return MaterialApp(
             navigatorKey: rootNavigatorKey,
             title: 'Carzzi',
             debugShowCheckedModeBanner: false,
-            themeMode: mode,
+            themeMode: themeMode,
             themeAnimationDuration: const Duration(milliseconds: 300),
             scrollBehavior: const ScrollBehavior().copyWith(
               physics: const BouncingScrollPhysics(),
@@ -523,6 +528,17 @@ class MyApp extends StatelessWidget {
             routes: {
               '/': (_) => const RootGate(),
               '/splash': (_) => const SplashPage(),
+              '/onboarding': (_) => OnboardingPage(
+                onComplete: () {
+                  rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    '/',
+                    (route) => false,
+                  );
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    rootNavigatorKey.currentState?.pushNamed('/login');
+                  });
+                },
+              ),
               '/login': (_) => const LoginPage(),
               '/register': (_) => const RegisterPage(),
               '/terms': (_) => const LegalWebViewPage(
@@ -576,9 +592,7 @@ class MyApp extends StatelessWidget {
             onGenerateRoute: (settings) {
               if (settings.name == '/auth') {
                 return MaterialPageRoute(
-                  builder: (_) => authProvider.isAuthenticated
-                      ? const MainNavigationPage()
-                      : const LoginPage(),
+                  builder: (_) => const MainNavigationPage(),
                   settings: const RouteSettings(name: '/'),
                 );
               }
@@ -586,9 +600,7 @@ class MyApp extends StatelessWidget {
             },
             onUnknownRoute: (settings) {
               return MaterialPageRoute(
-                builder: (_) => authProvider.isAuthenticated
-                    ? const MainNavigationPage()
-                    : const LoginPage(),
+                builder: (_) => const MainNavigationPage(),
                 settings: const RouteSettings(name: '/'),
               );
             },
@@ -623,23 +635,27 @@ class RootGate extends StatefulWidget {
 }
 
 class _RootGateState extends State<RootGate> {
-  bool _splashDelayComplete = false;
-  bool _delayStarted = false;
+  static bool _coldStartSplashDone = false;
 
-  void _startDelay(bool isAuthenticated) {
-    if (_delayStarted) return;
-    _delayStarted = true;
+  bool _splashDelayComplete = _coldStartSplashDone;
+  bool _hasSeenOnboarding = false;
 
-    // If authenticated, we wait a short bit for the splash animation.
-    // If not authenticated, we can show the splash screen until they click.
-    final delayMs = isAuthenticated ? 800 : 400;
+  @override
+  void initState() {
+    super.initState();
+    if (_coldStartSplashDone) return;
+    Future<void>.delayed(const Duration(milliseconds: 2000), () {
+      _coldStartSplashDone = true;
+      if (!mounted) return;
+      setState(() => _splashDelayComplete = true);
+    });
+  }
 
-    Future.delayed(Duration(milliseconds: delayMs), () {
-      if (mounted) {
-        setState(() {
-          _splashDelayComplete = true;
-        });
-      }
+  void _onOnboardingComplete() {
+    setState(() => _hasSeenOnboarding = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushNamed('/login');
     });
   }
 
@@ -647,28 +663,47 @@ class _RootGateState extends State<RootGate> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
 
-    // Wait until initialization is complete
-    if (!auth.isInitialized) {
-      return const SplashPage();
-    }
-
-    // Start the delay now that we know the auth status
-    _startDelay(auth.isAuthenticated);
-
-    // If authenticated, show home pages after the splash delay
-    if (auth.isAuthenticated) {
-      if (!_splashDelayComplete) {
-        return const SplashPage();
-      }
+    late final Widget child;
+    if (!_splashDelayComplete || !auth.isInitialized) {
+      child = const SplashPage(key: ValueKey('splash'));
+    } else if (auth.isAuthenticated) {
       final role = auth.user?.role;
-      if (role == 'merchant') return const MerchantHomePage();
-      if (role == 'staff') return const StaffHomePage();
-      if (role == 'admin') return const AdminHomePage();
-      return const MainNavigationPage();
+      if (role == 'merchant') {
+        child = const MerchantHomePage(key: ValueKey('merchant'));
+      } else if (role == 'staff') {
+        child = const StaffHomePage(key: ValueKey('staff'));
+      } else if (role == 'admin') {
+        child = const AdminHomePage(key: ValueKey('admin'));
+      } else {
+        child = const MainNavigationPage(key: ValueKey('main'));
+      }
+    } else if (!_hasSeenOnboarding) {
+      child = OnboardingPage(
+        key: const ValueKey('onboarding'),
+        onComplete: _onOnboardingComplete,
+      );
+    } else {
+      child = const MainNavigationPage(key: ValueKey('main'));
     }
 
-    // If not authenticated, directly go to Login Page
-    return const LoginPage();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 520),
+      switchInCurve: const Cubic(0.22, 1, 0.36, 1),
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (current, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.035),
+              end: Offset.zero,
+            ).animate(animation),
+            child: current,
+          ),
+        );
+      },
+      child: child,
+    );
   }
 }
 
@@ -716,11 +751,7 @@ class _RoleHomeScaffold extends StatelessWidget {
             onPressed: () async {
               await context.read<AuthProvider>().logout();
               if (!context.mounted) return;
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
+              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
             },
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',

@@ -7,6 +7,7 @@ import '../services/catalog_service.dart';
 import '../core/socket_sync.dart';
 import '../models/service.dart';
 import '../state/auth_provider.dart';
+import '../utils/auth_gate.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/global_sync_refresh.dart';
 
@@ -309,15 +310,8 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
     try {
       if (!auth.isAuthenticated) {
-        await auth.loadMe();
-      }
-      if (!mounted) return;
-      if (!auth.isAuthenticated) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Please login to book a service')),
-        );
-        await Navigator.pushNamed(context, '/login');
-        return;
+        final loggedIn = await ensureLoggedIn(context);
+        if (!loggedIn || !mounted) return;
       }
 
       // Set the initial service in NavigationProvider
