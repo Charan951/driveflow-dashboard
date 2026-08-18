@@ -186,14 +186,46 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
 
     let refMatch = null;
     if (vehicle) {
-      const cleanBrand = vehicle.make.trim().toLowerCase();
-      const cleanModel = vehicle.model.trim().toLowerCase();
-      const cleanVariant = vehicle.variant ? vehicle.variant.trim().toLowerCase() : '';
+      const clean = (value) =>
+        String(value || '')
+          .replace(/\[[^\]]*\]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+      const exactMatches = (value, search) => clean(value) === search;
+      const partialMatches = (value, search) => clean(value).includes(search);
 
-      refMatch = allRefData.find(item => 
-        item.brand_name.toLowerCase() === cleanBrand && 
-        item.model.toLowerCase() === cleanModel && 
-        (cleanVariant === '' || item.brand_model.toLowerCase() === cleanVariant)
+      const cleanBrand = clean(vehicle.make);
+      const fullModel = clean(vehicle.model);
+      const cleanModel = clean(String(vehicle.model || '').replace(/\[.*\]/g, ''));
+      const cleanVariant = vehicle.variant ? clean(vehicle.variant) : '';
+      const cleanFuelType = clean(vehicle.fuelType);
+
+      const fuelTypeMatches = (item) => clean(item.fuel_type) === cleanFuelType;
+      const findWithFuelTypePreference = (matchFn) => {
+        if (cleanFuelType) {
+          const fuelMatch = allRefData.find((item) => matchFn(item) && fuelTypeMatches(item));
+          if (fuelMatch) return fuelMatch;
+        }
+        return allRefData.find(matchFn);
+      };
+
+      if (cleanVariant) {
+        refMatch = findWithFuelTypePreference((item) =>
+          exactMatches(item.brand_name, cleanBrand) &&
+          (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel)) &&
+          exactMatches(item.brand_model, cleanVariant)
+        );
+      }
+
+      refMatch ??= findWithFuelTypePreference((item) =>
+        exactMatches(item.brand_name, cleanBrand) &&
+        (exactMatches(item.model, fullModel) || exactMatches(item.model, cleanModel))
+      );
+
+      refMatch ??= findWithFuelTypePreference((item) =>
+        exactMatches(item.brand_name, cleanBrand) &&
+        (partialMatches(item.model, fullModel) || partialMatches(item.model, cleanModel))
       );
     }
 
