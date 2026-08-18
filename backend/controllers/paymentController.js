@@ -104,7 +104,11 @@ export const createOrder = async (req, res) => {
  */
 export const verifyPayment = async (req, res) => {
   try {
-    const orderId = req.body.orderId;
+    // Accept both field names for compatibility
+    const orderId = req.body.orderId || req.body.cashfree_order_id;
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'orderId is required' });
+    }
     const { payment, booking } = await paymentService.processOrderStatus(orderId);
 
     if (booking) {
@@ -133,12 +137,13 @@ export const verifyPayment = async (req, res) => {
       emitEntitySync('payment', 'updated', payment);
     }
 
+    const isPaid = payment?.status === 'paid';
     res.json({
-      success: true,
-      message: 'Payment verification synced successfully',
+      success: isPaid,
+      message: isPaid ? 'Payment verified successfully' : `Payment not completed (status: ${payment?.status || 'unknown'})`,
       data: {
         payment,
-        booking: sanitizeBooking(booking, req.user),
+        booking: isPaid ? sanitizeBooking(booking, req.user) : null,
         orderId,
         status: payment?.status || 'pending',
       },
