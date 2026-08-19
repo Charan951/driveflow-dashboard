@@ -11,6 +11,7 @@ import '../services/booking_service.dart';
 import '../services/tracking_service.dart';
 import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
+import '../widgets/order_route_map.dart';
 import '../services/socket_service.dart';
 
 class StaffOrderDetailPage extends StatefulWidget {
@@ -188,18 +189,24 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       }
       if (status == 'REACHED_CUSTOMER' ||
           status == 'REACHED_MERCHANT' ||
-          status == 'DELIVERED') {
-        final info = _tracking.info.value;
-        final staffLat = info.lat;
-        final staffLng = info.lng;
-        BookingLocation? destLoc;
-        if (status == 'REACHED_MERCHANT') {
-          destLoc = booking.merchantLocation ?? booking.location;
-        } else {
-          destLoc = booking.location;
-        }
+          status == 'STAFF_REACHED_MERCHANT') {
+        final destLoc = status == 'REACHED_CUSTOMER'
+            ? booking.location
+            : (booking.merchantLocation ?? booking.location);
         final targetLat = destLoc?.lat;
         final targetLng = destLoc?.lng;
+        var staffLat = _tracking.info.value.lat;
+        var staffLng = _tracking.info.value.lng;
+        if (staffLat == null || staffLng == null) {
+          try {
+            final pos = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.medium,
+              timeLimit: const Duration(seconds: 8),
+            );
+            staffLat = pos.latitude;
+            staffLng = pos.longitude;
+          } catch (_) {}
+        }
         if (staffLat == null ||
             staffLng == null ||
             targetLat == null ||
@@ -207,11 +214,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Location not available to update status'),
+                content: Text(
+                  'Location not available. Tap Navigate first, then mark arrived.',
+                ),
               ),
             );
-          }
-          if (mounted) {
             setState(() {
               _updatingStatus = false;
             });
@@ -233,8 +240,6 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 ),
               ),
             );
-          }
-          if (mounted) {
             setState(() {
               _updatingStatus = false;
             });
@@ -242,18 +247,29 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           return;
         }
       }
-      if (status == 'DELIVERED') {
+      if (status == 'DELIVERED' || status == 'COMPLETED') {
+        await _tracking.stop();
+        try {
+          await _service.generateDeliveryOtp(booking.id);
+        } catch (_) {
+          // Existing code on the booking can still be verified.
+        }
         final controller = TextEditingController();
         if (!mounted) return;
         final ok = await showDialog<bool>(
           context: context,
           builder: (context) {
             return AlertDialog(
-              title: const Text('Delivery OTP'),
+              title: const Text('Delivery code'),
               content: TextField(
                 controller: controller,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Enter OTP'),
+                autofocus: true,
+                maxLength: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Enter the code from the customer',
+                  counterText: '',
+                ),
               ),
               actions: [
                 TextButton(
@@ -262,12 +278,14 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Verify'),
+                  child: const Text('Submit'),
                 ),
               ],
             );
           },
         );
+        final otp = controller.text.trim();
+        controller.dispose();
         if (ok != true) {
           if (mounted) {
             setState(() {
@@ -276,16 +294,45 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           }
           return;
         }
-        final otp = controller.text.trim();
         if (otp.isEmpty) {
           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Enter the delivery code')),
+            );
             setState(() {
               _updatingStatus = false;
             });
           }
           return;
         }
+        // verify-otp already sets DELIVERED / COMPLETED — do not PUT /status again.
         await _service.verifyDeliveryOtp(booking.id, otp);
+        await _load(booking.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Delivery confirmed')),
+        );
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Order Completed'),
+            content: const Text('Order has been marked as completed.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/home',
+                    (route) => false,
+                  );
+                },
+                child: const Text('Go to Home'),
+              ),
+            ],
+          ),
+        );
+        return;
       }
       if (status == 'OUT_FOR_DELIVERY') {
         if (booking.paymentStatus != 'paid') {
@@ -405,64 +452,25 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         booking.id,
       ); // Reload to get full updated object with all fields
 
+      if (status == 'REACHED_CUSTOMER' ||
+          status == 'REACHED_MERCHANT' ||
+          status == 'STAFF_REACHED_MERCHANT') {
+        await _tracking.stop();
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Status updated to $status')));
-
-        if (status == 'DELIVERED' || status == 'COMPLETED') {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Order Completed'),
-              content: const Text('Order has been marked as completed.'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
-                  },
-                  child: const Text('Go to Home'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
-      if (status == 'ACCEPTED' ||
-          status == 'REACHED_CUSTOMER' ||
-          status == 'VEHICLE_PICKED' ||
-          status == 'OUT_FOR_DELIVERY') {
-        _tracking.setActiveBookingId(booking.id);
-      }
-      if (status == 'ACCEPTED' &&
-          booking.location?.lat != null &&
-          booking.location?.lng != null) {
-        _tracking.setAutoStatusTarget(
-          lat: booking.location!.lat,
-          lng: booking.location!.lng,
-          status: 'REACHED_CUSTOMER',
-        );
-      } else if (status == 'VEHICLE_PICKED' &&
-          booking.merchantLocation?.lat != null &&
-          booking.merchantLocation?.lng != null) {
-        _tracking.setAutoStatusTarget(
-          lat: booking.merchantLocation!.lat,
-          lng: booking.merchantLocation!.lng,
-          status: 'REACHED_MERCHANT',
-        );
-      } else {
-        _tracking.setAutoStatusTarget(lat: null, lng: null, status: null);
       }
     } catch (e) {
       if (!mounted) return;
+      final message = e is ApiException && e.message.isNotEmpty
+          ? e.message
+          : 'Failed to update status';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update status')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() {
@@ -789,6 +797,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       );
       return;
     }
+
+    try {
+      await _tracking.startForJob(booking.id);
+    } catch (e) {
+      debugPrint('Failed to start trip tracking: $e');
+    }
+
     final info = _tracking.info.value;
     final query = <String, String>{
       'api': '1',
@@ -901,28 +916,204 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isPickupOrDropEnRoute(booking)
+          ? _buildMapOrderBody(booking, isDark)
+          : _buildOnSiteOrderBody(booking, isDark),
+    );
+  }
+
+  bool _isPickupOrDropEnRoute(BookingDetail booking) {
+    switch (_normalizeStatus(booking.status)) {
+      case 'ASSIGNED':
+      case 'ACCEPTED':
+      case 'VEHICLE_PICKED':
+      case 'SERVICE_COMPLETED':
+      case 'OUT_FOR_DELIVERY':
+      case 'PICKUP_BATTERY_TIRE':
+      case 'CAR_WASH_COMPLETED':
+      case 'DELIVERY':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Widget _buildMapOrderBody(BookingDetail booking, bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const sheetInitial = 0.38;
+        final sheetPeek = constraints.maxHeight * sheetInitial;
+        final dest = _destinationLocation(booking);
+        return Stack(
           children: [
-            _buildDetailsTabs(booking),
-            const SizedBox(height: 24),
-            _buildStatusControl(booking),
-            const SizedBox(height: 24),
+            Positioned.fill(
+              child: ValueListenableBuilder(
+                valueListenable: _tracking.info,
+                builder: (context, info, _) {
+                  return OrderRouteMap(
+                    originLat: info.lat,
+                    originLng: info.lng,
+                    destLat: dest?.lat,
+                    destLng: dest?.lng,
+                    bottomInset: sheetPeek + 72,
+                  );
+                },
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: sheetPeek + 10,
+              child: _buildMapActionButtons(booking),
+            ),
+            Positioned.fill(
+              child: DraggableScrollableSheet(
+                expand: true,
+                initialChildSize: sheetInitial,
+                minChildSize: 0.18,
+                maxChildSize: 0.88,
+                snap: true,
+                snapSizes: const [0.18, 0.38, 0.88],
+                builder: (context, scrollController) {
+                  return _buildDetailsSheet(
+                    booking,
+                    isDark,
+                    scrollController,
+                  );
+                },
+              ),
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildOnSiteOrderBody(BookingDetail booking, bool isDark) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            children: [
+              _buildTabRow(),
+              const SizedBox(height: 12),
+              if (_detailsTabIndex == 0)
+                _buildWorkflowCard(booking)
+              else
+                _buildOrderDetailsCard(booking),
+              const SizedBox(height: 16),
+              _buildSheetSecondaryActions(booking),
+            ],
+          ),
         ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: _buildMapActionButtons(booking),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsSheet(
+    BookingDetail booking,
+    bool isDark,
+    ScrollController scrollController,
+  ) {
+    return Material(
+      color: isDark ? AppColors.backgroundPrimary : Colors.white,
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.borderColor : const Color(0xFFD1D5DB),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          _buildTabRow(),
+          const SizedBox(height: 12),
+          if (_detailsTabIndex == 0)
+            _buildWorkflowCard(booking)
+          else
+            _buildOrderDetailsCard(booking),
+          const SizedBox(height: 16),
+          _buildSheetSecondaryActions(booking),
+        ],
       ),
     );
   }
 
-  Widget _buildStatusControl(BookingDetail booking) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildMapActionButtons(BookingDetail booking) {
+    final nextAction = _getNextStatusAction(booking);
+    final canShowPrimary = nextAction != null;
+    final canShowDirections =
+        _isPickupOrDropEnRoute(booking) && _canShowDirections(booking);
+    if (!canShowPrimary && !canShowDirections) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      children: [
+        if (canShowPrimary)
+          Expanded(
+            flex: canShowDirections ? 3 : 1,
+            child: _statusButton(
+              nextAction.status,
+              nextAction.label,
+              disabled: _shouldDisablePrimaryAction(booking),
+              compact: true,
+            ),
+          ),
+        if (canShowPrimary && canShowDirections) const SizedBox(width: 8),
+        if (canShowDirections)
+          Expanded(
+            flex: canShowPrimary ? 2 : 1,
+            child: _directionsButton(booking),
+          ),
+      ],
+    );
+  }
+
+  bool _canShowDirections(BookingDetail booking) {
+    final status = _normalizeStatus(booking.status);
+    return status != 'DELIVERED' && status != 'COMPLETED';
+  }
+
+  bool _shouldDisablePrimaryAction(BookingDetail booking) {
     final isCarWash = booking.carWash?.isCarWashService == true;
     final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
     final nextAction = _getNextStatusAction(booking);
     final normalizedStatus = _normalizeStatus(booking.status);
+    final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
+    final isWaitingForPayment =
+        !isCarWash &&
+        !isBatteryTire &&
+        normalizedStatus == 'SERVICE_COMPLETED' &&
+        booking.paymentStatus != 'paid';
+    return _updatingStatus ||
+        isWaitingForPayment ||
+        (nextAction?.status == 'VEHICLE_PICKED' &&
+            booking.prePickupPhotos.length < requiredPhotos);
+  }
 
+  bool _shouldShowUpload(BookingDetail booking) {
+    final isCarWash = booking.carWash?.isCarWashService == true;
+    final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
+    final normalizedStatus = _normalizeStatus(booking.status);
     final requiredPhotos = _requiredPhotoCountForCurrentFlow(booking);
     final currentPhotoCount = _currentPhasePhotoCount(booking);
     final hasRequiredPhotos = currentPhotoCount >= requiredPhotos;
@@ -933,7 +1124,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             false);
     bool shouldShowUpload = false;
     if (isCarWash) {
-      shouldShowUpload = (normalizedStatus == 'REACHED_CUSTOMER' || normalizedStatus == 'CAR_WASH_STARTED');
+      shouldShowUpload =
+          (normalizedStatus == 'REACHED_CUSTOMER' ||
+              normalizedStatus == 'CAR_WASH_STARTED');
     } else if (isBatteryTire) {
       if (normalizedStatus == 'REACHED_CUSTOMER') {
         shouldShowUpload = true;
@@ -943,103 +1136,58 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     } else {
       shouldShowUpload = (normalizedStatus == 'REACHED_CUSTOMER');
     }
-
     if (shouldShowUpload && hasRequiredPhotos) {
       shouldShowUpload = false;
     }
-    final canShowPrimary = nextAction != null;
+    return shouldShowUpload;
+  }
 
+  Widget _buildSheetSecondaryActions(BookingDetail booking) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCarWash = booking.carWash?.isCarWashService == true;
+    final isBatteryTire = booking.batteryTire?.isBatteryTireService == true;
+    final normalizedStatus = _normalizeStatus(booking.status);
     final isWaitingForPayment =
         !isCarWash &&
         !isBatteryTire &&
         normalizedStatus == 'SERVICE_COMPLETED' &&
         booking.paymentStatus != 'paid';
+    final shouldShowUpload = _shouldShowUpload(booking);
 
-    final shouldDisablePrimaryAction =
-        _updatingStatus ||
-        isWaitingForPayment ||
-        (nextAction?.status == 'VEHICLE_PICKED' &&
-            booking.prePickupPhotos.length < requiredPhotos);
-
-    // Always add directions button if it makes sense for current status
-    final canShowDirections =
-        booking.status != 'DELIVERED' &&
-        booking.status != 'COMPLETED' &&
-        booking.status != 'CAR_WASH_COMPLETED' &&
-        booking.status != 'SERVICE_COMPLETED' &&
-        booking.status != 'REACHED_MERCHANT' &&
-        booking.status != 'STAFF_REACHED_MERCHANT';
-
-    if (!canShowPrimary && !canShowDirections && !shouldShowUpload) {
+    if (!isWaitingForPayment && !shouldShowUpload) {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (isWaitingForPayment) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isWaitingForPayment)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.warning.withValues(alpha: 0.12)
+                  : const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
                 color: isDark
-                    ? AppColors.warning.withValues(alpha: 0.12)
-                    : const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? AppColors.warning.withValues(alpha: 0.35)
-                      : const Color(0xFFF59E0B),
-                ),
-              ),
-              child: Text(
-                'Waiting for customer payment before vehicle pickup for delivery.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.warning : const Color(0xFF92400E),
-                  fontWeight: FontWeight.w600,
-                ),
+                    ? AppColors.warning.withValues(alpha: 0.35)
+                    : const Color(0xFFF59E0B),
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          if (canShowPrimary)
-            _statusButton(
-              nextAction.status,
-              nextAction.label,
-              disabled: shouldDisablePrimaryAction,
+            child: Text(
+              'Waiting for customer payment before vehicle pickup for delivery.',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.warning : const Color(0xFF92400E),
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          if (canShowDirections && (canShowPrimary || shouldShowUpload))
-            const SizedBox(height: 12),
-          if (canShowDirections)
-            SizedBox(width: double.infinity, child: _directionsButton(booking)),
-          if (shouldShowUpload) ...[
-            if (canShowDirections || canShowPrimary) const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: _photoUploadButton(booking),
-            ),
-          ],
-        ],
-      ),
+          ),
+        if (isWaitingForPayment && shouldShowUpload) const SizedBox(height: 12),
+        if (shouldShowUpload) _photoUploadButton(booking),
+      ],
     );
   }
 
@@ -1263,62 +1411,33 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     );
   }
 
-  Widget _buildDetailsTabs(BookingDetail booking) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+  Widget _buildTabRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _tabButton(
+            label: 'Status & Workflow',
+            selected: _detailsTabIndex == 0,
+            onTap: () {
+              setState(() {
+                _detailsTabIndex = 0;
+              });
+            },
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.25)
-                : Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _tabButton(
+            label: 'Order Details',
+            selected: _detailsTabIndex == 1,
+            onTap: () {
+              setState(() {
+                _detailsTabIndex = 1;
+              });
+            },
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _tabButton(
-                  label: 'Status & Workflow',
-                  selected: _detailsTabIndex == 0,
-                  onTap: () {
-                    setState(() {
-                      _detailsTabIndex = 0;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _tabButton(
-                  label: 'Order Details',
-                  selected: _detailsTabIndex == 1,
-                  onTap: () {
-                    setState(() {
-                      _detailsTabIndex = 1;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_detailsTabIndex == 0)
-            _buildWorkflowCard(booking)
-          else
-            _buildOrderDetailsCard(booking),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1505,10 +1624,15 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     );
   }
 
-  Widget _statusButton(String status, String label, {bool disabled = false}) {
+  Widget _statusButton(
+    String status,
+    String label, {
+    bool disabled = false,
+    bool compact = false,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      height: 54,
+      height: compact ? 48 : 54,
       child: FilledButton(
         onPressed: (_updatingStatus || disabled)
             ? null
@@ -1520,7 +1644,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          elevation: 0,
+          elevation: compact ? 4 : 0,
+          shadowColor: Colors.black.withValues(alpha: 0.35),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16),
         ),
         child: _updatingStatus
             ? const SizedBox(
@@ -1533,10 +1659,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               )
             : Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 16,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: compact ? 13 : 16,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.3,
                   color: Colors.white,
                 ),
               ),
@@ -1637,13 +1765,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   Widget _directionsButton(BookingDetail booking) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      height: 50,
+      height: 48,
       child: FilledButton.icon(
         onPressed: () => _openDirections(booking),
-        icon: const Icon(Icons.directions_outlined, size: 22),
+        icon: const Icon(Icons.navigation_outlined, size: 18),
         label: const Text(
-          'Get Directions',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          'Navigate',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: isDark
@@ -1653,7 +1781,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          elevation: 0,
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: 0.35),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
       ),
     );

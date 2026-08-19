@@ -9,6 +9,7 @@ import 'core/app_colors.dart';
 import 'widgets/connectivity_gate.dart';
 import 'state/theme_provider.dart';
 import 'services/background_tracking.dart';
+import 'services/tracking_service.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
 import 'state/global_sync_provider.dart';
@@ -56,6 +57,7 @@ Future<void> _bootstrapApp(ThemeProvider themeProvider) async {
     SocketService().init(),
     NotificationService().initialize(),
   ]);
+  await StaffTrackingService.instance.stop();
 
   // Global socket listener for role updates
   SocketService().addListener(() {

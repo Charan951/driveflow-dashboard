@@ -2716,15 +2716,13 @@ export const completeCarWash = async (req, res) => {
 
     booking.status = 'CAR_WASH_COMPLETED';
     booking.carWash.washCompletedAt = new Date();
-    await booking.save();
 
-    // Generate delivery OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
     booking.deliveryOtp = {
-      code: otpCode,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      attempts: 0
+      code,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      attempts: 0,
+      verifiedAt: null,
     };
     await booking.save();
     
@@ -2745,14 +2743,14 @@ export const completeCarWash = async (req, res) => {
       const isEssentials = populated.services?.some(s => s.category?.toLowerCase().includes('essentials'));
       const pushTitle = isEssentials ? 'Service Completed' : 'Car Wash Completed';
       const pushBody = isEssentials 
-        ? `Your service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`
-        : `Your car wash service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${otpCode}`;
+        ? `Your service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${code}`
+        : `Your car wash service (#${booking.orderNumber}) is completed! Your delivery OTP is: ${code}`;
 
       const pushResult = await sendPushToUser(
         booking.user,
         pushTitle,
         pushBody,
-        { bookingId: booking._id.toString(), type: 'car_wash_completed', otp: otpCode },
+        { bookingId: booking._id.toString(), type: 'car_wash_completed', otp: code },
         'order'
       );
     } catch (err) {

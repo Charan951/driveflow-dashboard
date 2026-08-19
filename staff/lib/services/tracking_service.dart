@@ -68,9 +68,6 @@ class StaffTrackingService {
 
   Future<void> setActiveBookingId(String? id) async {
     _activeBookingId = id;
-    if (_isTracking) {
-      await BackgroundTracking.start(bookingId: id);
-    }
   }
 
   void setAutoStatusTarget({
@@ -81,6 +78,11 @@ class StaffTrackingService {
     _targetLat = lat;
     _targetLng = lng;
     _targetForStatus = status;
+  }
+
+  Future<void> startForJob(String bookingId) async {
+    _activeBookingId = bookingId;
+    await start();
   }
 
   Future<void> start() async {
@@ -137,6 +139,9 @@ class StaffTrackingService {
     _heartbeatTimer = null;
     await _positionSub?.cancel();
     _positionSub = null;
+    _targetLat = null;
+    _targetLng = null;
+    _targetForStatus = null;
     await BackgroundTracking.stop();
     await _updateOnlineStatus(false);
   }
@@ -157,8 +162,9 @@ class StaffTrackingService {
   Future<bool> _ensurePermissions() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      debugPrint('TrackingService: Location services are disabled');
-      return false;
+      debugPrint(
+        'TrackingService: isLocationServiceEnabled=false; continuing if permission allows',
+      );
     }
 
     var permission = await Geolocator.checkPermission();
@@ -302,29 +308,6 @@ class StaffTrackingService {
     debugPrint(
       'TrackingService: Position update: ${position.latitude}, ${position.longitude} (Accuracy: ${position.accuracy}m)',
     );
-
-    if (_targetLat != null &&
-        _targetLng != null &&
-        _targetForStatus != null &&
-        _activeBookingId != null) {
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        _targetLat!,
-        _targetLng!,
-      );
-      if (distance < autoStatusDistanceMeters) {
-        try {
-          await _api.putJson(
-            ApiEndpoints.bookingStatus(_activeBookingId!),
-            body: {'status': _targetForStatus},
-          );
-          _targetLat = null;
-          _targetLng = null;
-          _targetForStatus = null;
-        } catch (_) {}
-      }
-    }
 
     final socket = _socket;
     // Live tracking via socket - every 1 second for real-time accuracy

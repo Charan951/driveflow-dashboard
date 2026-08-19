@@ -4,6 +4,12 @@ String? _orderNumberFromJson(dynamic value) {
   return s.isEmpty ? null : s;
 }
 
+double? _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
 class BookingSummary {
   final String id;
   final String? orderNumber;
@@ -11,11 +17,14 @@ class BookingSummary {
   final String? date;
   final String? createdAt;
   final String? vehicleName;
+  final String? vehicleMake;
   final String? vehicleModel;
   final String? licensePlate;
   final String? customerName;
   final String? paymentStatus;
   final String? locationAddress;
+  final double? customerLat;
+  final double? customerLng;
   final String? serviceName;
   final List<String> serviceNames;
   final List<dynamic>? services;
@@ -27,11 +36,14 @@ class BookingSummary {
     this.date,
     this.createdAt,
     this.vehicleName,
+    this.vehicleMake,
     this.vehicleModel,
     this.licensePlate,
     this.customerName,
     this.paymentStatus,
     this.locationAddress,
+    this.customerLat,
+    this.customerLng,
     this.serviceName,
     this.serviceNames = const [],
     this.services,
@@ -121,11 +133,14 @@ class BookingSummary {
       date: getField('date')?.toString(),
       createdAt: getField('createdAt')?.toString(),
       vehicleName: vehicleName.isEmpty ? null : vehicleName,
+      vehicleMake: make,
       vehicleModel: model,
       licensePlate: plate,
       customerName: user?['name']?.toString(),
       paymentStatus: getField('paymentStatus')?.toString(),
       locationAddress: location?['address']?.toString(),
+      customerLat: _toDouble(location?['lat']),
+      customerLng: _toDouble(location?['lng']),
       serviceName: serviceName,
       serviceNames: serviceNames,
       services: allServices,

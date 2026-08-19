@@ -3,7 +3,9 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../core/api_client.dart';
 import '../core/env.dart';
@@ -157,6 +159,9 @@ class BackgroundTracking {
 
   static Future<void> configure() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    if (Platform.isAndroid) {
+      await _ensureAndroidNotificationChannel();
+    }
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
@@ -171,7 +176,7 @@ class BackgroundTracking {
         initialNotificationContent:
             'Sharing your live location for the current job.',
         foregroundServiceNotificationId: 9001,
-        // foregroundServiceTypes: const [AndroidForegroundType.location],
+        foregroundServiceTypes: const [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -179,10 +184,45 @@ class BackgroundTracking {
         onBackground: _onIosBackground,
       ),
     );
+    await stop();
+  }
+
+  static Future<void> _ensureAndroidNotificationChannel() async {
+    const channel = AndroidNotificationChannel(
+      _notificationChannelId,
+      'Live tracking',
+      description: 'Shown while sharing your location for an active job.',
+      importance: Importance.low,
+    );
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  static Future<bool> _canStartAndroidForegroundService() async {
+    if (!Platform.isAndroid) return true;
+    var status = await Permission.notification.status;
+    if (!status.isGranted) {
+      status = await Permission.notification.request();
+    }
+    if (!status.isGranted) {
+      debugPrint(
+        'BackgroundTracking: skipping foreground service (notifications not granted)',
+      );
+      return false;
+    }
+    await _ensureAndroidNotificationChannel();
+    return true;
   }
 
   static Future<void> start({String? bookingId}) async {
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    try {
+      if (Platform.isAndroid && !await _canStartAndroidForegroundService()) {
+        return;
+      }
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
       if (!running) {
@@ -191,16 +231,18 @@ class BackgroundTracking {
       if (bookingId != null && bookingId.isNotEmpty) {
         service.invoke('set_booking', {'bookingId': bookingId});
       }
+    } catch (e) {
+      debugPrint('BackgroundTracking: failed to start service: $e');
     }
   }
 
   static Future<void> stop() async {
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    try {
       final service = FlutterBackgroundService();
-      final running = await service.isRunning();
-      if (running) {
-        service.invoke('stopService');
-      }
+      service.invoke('stopService');
+    } catch (e) {
+      debugPrint('BackgroundTracking: failed to stop service: $e');
     }
   }
 }

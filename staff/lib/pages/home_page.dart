@@ -40,7 +40,6 @@ class _StaffHomePageState extends State<StaffHomePage> {
   bool _isLoading = false;
   bool _isProfileLoading = false;
   String? _errorText;
-  bool _shareLocation = true;
   StaffBottomNavTab _selectedTab = StaffBottomNavTab.dashboard;
   late final VoidCallback _trackingListener;
   int _unreadNotifications = 0;
@@ -48,6 +47,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
   String _ordersSort = 'latest';
   int _currentOngoingPage = 0;
   late final PageController _ongoingPageController;
+  bool _gpsRefreshInFlight = false;
 
   @override
   void initState() {
@@ -76,8 +76,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
   Future<void> _prepareAfterLogin() async {
     await PostLoginPermissions.request();
-    if (!mounted) return;
-    await _startTrackingIfEnabled();
+    await _trackingService.stop();
   }
 
   Future<void> _loadData() async {
@@ -118,6 +117,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
         _unreadNotifications = notifications.where((n) => !n.isRead).length;
       });
       _updateActiveBookingId();
+      if (_trackingService.isTracking) {
+        _refreshStaffPosition();
+      }
     } catch (e) {
       debugPrint('Error loading bookings: $e');
       if (!mounted) return;
@@ -453,72 +455,8 @@ class _StaffHomePageState extends State<StaffHomePage> {
     super.dispose();
   }
 
-  Future<void> _startTrackingIfEnabled() async {
-    if (_shareLocation) {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (!mounted) return;
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Please turn on location services to share your live status.',
-            ),
-            action: SnackBarAction(
-              label: 'Settings',
-              onPressed: Geolocator.openLocationSettings,
-            ),
-          ),
-        );
-        return;
-      }
-
-      // Play Store requirement: Prominent Disclosure for Background Location
-      final permission = await Geolocator.checkPermission();
-      if (!mounted) return;
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        final proceed =
-            await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text('Location Access Required'),
-                content: const Text(
-                  'Speshway Staff collects location data to enable tracking for your assigned orders even when the app is closed or not in use. This information is required for:\n\n'
-                  '• Real-time tracking of active service bookings.\n'
-                  '• Updating customers on technician arrival status.\n'
-                  '• Automatic status updates (e.g., Reached Customer).\n\n'
-                  'Your location data is collected in the background only during active working hours and is never shared with third parties or used for advertising.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('NO THANKS'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('ACCEPT'),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-
-        if (!proceed) {
-          setState(() {
-            _shareLocation = false;
-          });
-          return;
-        }
-      }
-
-      _updateActiveBookingId();
-      await _trackingService.start();
-    }
-  }
-
   void _updateActiveBookingId() {
+    if (_trackingService.isTracking) return;
     String? id;
     for (final b in _bookings) {
       if (_isActiveStatus(b.status)) {
@@ -539,7 +477,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
         s == 'VEHICLE_AT_MERCHANT' ||
         s == 'SERVICE_STARTED' ||
         s == 'SERVICE_COMPLETED' ||
-        s == 'OUT_FOR_DELIVERY';
+        s == 'OUT_FOR_DELIVERY' ||
+        s == 'CAR_WASH_STARTED' ||
+        s == 'CAR_WASH_COMPLETED' ||
+        s == 'PICKUP_BATTERY_TIRE' ||
+        s == 'DELIVERY';
   }
 
   String _formatTime(DateTime? dt) {
@@ -635,33 +577,16 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   },
                 ),
                 const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Live Status',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    Switch(
-                      value: _shareLocation,
-                      onChanged: (v) {
-                        setState(() {
-                          _shareLocation = v;
-                        });
-                        _handleToggleTracking(v);
-                      },
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: isDark
-                          ? AppColors.success
-                          : const Color(0xFF22C55E),
-                    ),
-                  ],
-                ),
                 Text(
-                  'Share location',
+                  'Live location',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Shared only after you tap Navigate on a pickup or drop.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: isDark
                         ? AppColors.textMuted
@@ -705,9 +630,9 @@ class _StaffHomePageState extends State<StaffHomePage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _shareLocation
-                                  ? 'You are Online & Tracking'
-                                  : 'Tracking paused',
+                              _trackingService.isTracking
+                                  ? 'Sharing location for this trip'
+                                  : 'Location sharing off',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: isDark
@@ -757,24 +682,6 @@ class _StaffHomePageState extends State<StaffHomePage> {
     );
   }
 
-  Future<void> _handleToggleTracking(bool v) async {
-    try {
-      if (v) {
-        _updateActiveBookingId();
-        await _trackingService.start();
-      } else {
-        await _trackingService.stop();
-      }
-    } catch (e) {
-      debugPrint('Error toggling live status: $e');
-      if (mounted) {
-        setState(() {
-          _shareLocation = !v;
-        });
-      }
-    }
-  }
-
   String get _selectedTitle {
     switch (_selectedTab) {
       case StaffBottomNavTab.dashboard:
@@ -820,7 +727,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
     return Column(
       children: [
         SizedBox(
-          height: 108,
+          height: 168,
           child: PageView.builder(
             controller: _ongoingPageController,
             itemCount: ongoingAssigned.length,
@@ -867,58 +774,241 @@ class _StaffHomePageState extends State<StaffHomePage> {
     bool isDark,
     BookingSummary booking,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        title: Text(
-          booking.vehicleName ?? 'Booking',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-        subtitle: Text(
-          'Order #${booking.orderNumber ?? booking.id}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: isDark ? Colors.grey[400] : const Color(0xFF374151),
-          ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0EAFF),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            BookingDetail.getStatusLabel(
-              booking.status,
-              services: booking.services,
-            ),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFF1E40AF),
-            ),
-          ),
-        ),
+    final statusLabel = BookingDetail.getStatusLabel(
+      booking.status,
+      services: booking.services,
+    );
+    final isDrop = _isDropTrip(booking.status);
+    final distanceLabel = _distanceToCustomer(booking);
+    final vehicleTitle = [
+      if ((booking.vehicleMake ?? '').isNotEmpty) booking.vehicleMake,
+      if ((booking.vehicleModel ?? '').isNotEmpty) booking.vehicleModel,
+    ].join(' ');
+    final plate = (booking.licensePlate ?? '').trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () {
           final id = booking.id.trim();
           if (id.isEmpty) return;
           Navigator.of(context).pushNamed('/order', arguments: id);
         },
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.backgroundSecondary : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            vehicleTitle.isNotEmpty
+                                ? vehicleTitle
+                                : (booking.vehicleName ?? 'Vehicle'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          if (plate.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              plate,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                                color: isDark
+                                    ? Colors.grey[300]
+                                    : const Color(0xFF374151),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFE0EAFF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? const Color(0xFF1D4ED8)
+                              : const Color(0xFF1E40AF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _tripChip(
+                      isDark: isDark,
+                      icon: isDrop
+                          ? Icons.local_shipping_outlined
+                          : Icons.directions_car_outlined,
+                      label: isDrop ? 'Drop' : 'Pickup',
+                      color: isDrop
+                          ? const Color(0xFF0F766E)
+                          : const Color(0xFF1D4ED8),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: _tripChip(
+                        isDark: isDark,
+                        icon: Icons.near_me_rounded,
+                        label: distanceLabel ?? 'Distance unavailable',
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _tripChip({
+    required bool isDark,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundSurface : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isDropTrip(String status) {
+    switch (status.toUpperCase()) {
+      case 'SERVICE_COMPLETED':
+      case 'OUT_FOR_DELIVERY':
+      case 'DELIVERY':
+      case 'CAR_WASH_COMPLETED':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  String? _distanceToCustomer(BookingSummary booking) {
+    final staffLat = _trackingService.info.value.lat;
+    final staffLng = _trackingService.info.value.lng;
+    final destLat = booking.customerLat;
+    final destLng = booking.customerLng;
+    if (staffLat == null ||
+        staffLng == null ||
+        destLat == null ||
+        destLng == null) {
+      return null;
+    }
+    final meters = Geolocator.distanceBetween(
+      staffLat,
+      staffLng,
+      destLat,
+      destLng,
+    );
+    // iOS Simulator lastKnownPosition is often Apple Park (~13,500 km from Hyderabad).
+    if (meters > 150000) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshStaffPosition();
+      });
+      return 'Updating location...';
+    }
+    if (meters < 1000) return '${meters.round()} m';
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  Future<void> _refreshStaffPosition() async {
+    if (_gpsRefreshInFlight) return;
+    _gpsRefreshInFlight = true;
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 8),
+        );
+      } catch (e) {
+        debugPrint('Fresh GPS failed: $e');
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) {
+          final age = DateTime.now().difference(last.timestamp);
+          if (age <= const Duration(seconds: 45)) {
+            position = last;
+          }
+        }
+      }
+      if (position == null || !mounted) return;
+
+      _trackingService.info.value = _trackingService.info.value.copyWith(
+        lat: position.latitude,
+        lng: position.longitude,
+        lastUpdate: DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('Staff position for distance skipped: $e');
+    } finally {
+      _gpsRefreshInFlight = false;
+    }
   }
 
   String _formatJobDate(String? raw) {

@@ -80,6 +80,10 @@ class BookingService {
     await _api.postJson(ApiEndpoints.bookingVerifyOtp(id), body: {'otp': otp});
   }
 
+  Future<void> generateDeliveryOtp(String id) async {
+    await _api.postJson(ApiEndpoints.bookingGenerateOtp(id));
+  }
+
   Future<void> updatePrePickupPhotos(String id, List<String> urls) async {
     await _api.putJson(
       ApiEndpoints.bookingDetails(id),
