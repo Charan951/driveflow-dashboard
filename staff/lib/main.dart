@@ -135,13 +135,13 @@ class StaffApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mode = context.watch<ThemeProvider>().mode;
+    final themeMode = context.watch<ThemeProvider>().appThemeMode;
 
     return MaterialApp(
       navigatorKey: rootNavigatorKey,
       title: 'Carzzi Staff',
       debugShowCheckedModeBanner: false,
-      themeMode: mode,
+      themeMode: themeMode,
       builder: (context, child) {
         return ConnectivityGate(child: child ?? const SizedBox.shrink());
       },

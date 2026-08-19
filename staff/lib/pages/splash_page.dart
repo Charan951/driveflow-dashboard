@@ -3,10 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/storage.dart';
 import '../services/auth_service.dart';
+import '../state/theme_provider.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -81,6 +83,8 @@ class _SplashPageState extends State<SplashPage>
     _navigated = true;
 
     if (user != null) {
+      await context.read<ThemeProvider>().applyAfterLogin();
+      if (!mounted) return;
       final role = user.role.toLowerCase();
       if (role == 'merchant') {
         Navigator.of(context).pushReplacementNamed('/merchant-dashboard');

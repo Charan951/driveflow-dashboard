@@ -254,39 +254,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         } catch (_) {
           // Existing code on the booking can still be verified.
         }
-        final controller = TextEditingController();
         if (!mounted) return;
-        final ok = await showDialog<bool>(
+        final otp = (await showDialog<String>(
           context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('Delivery code'),
-              content: TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                maxLength: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Enter the code from the customer',
-                  counterText: '',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Submit'),
-                ),
-              ],
-            );
-          },
-        );
-        final otp = controller.text.trim();
-        controller.dispose();
-        if (ok != true) {
+          builder: (context) => const _DeliveryCodeDialog(),
+        ))?.trim();
+        if (otp == null) {
           if (mounted) {
             setState(() {
               _updatingStatus = false;
@@ -1981,6 +1954,57 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DeliveryCodeDialog extends StatefulWidget {
+  const _DeliveryCodeDialog();
+
+  @override
+  State<_DeliveryCodeDialog> createState() => _DeliveryCodeDialogState();
+}
+
+class _DeliveryCodeDialogState extends State<_DeliveryCodeDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Delivery code'),
+      content: TextField(
+        controller: _controller,
+        keyboardType: TextInputType.number,
+        autofocus: true,
+        maxLength: 6,
+        decoration: const InputDecoration(
+          labelText: 'Enter the code from the customer',
+          counterText: '',
+        ),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }

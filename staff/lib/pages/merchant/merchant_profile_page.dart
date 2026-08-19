@@ -7,6 +7,9 @@ import '../../widgets/global_sync_refresh.dart';
 import '../../models/user.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 import '../../core/app_colors.dart';
+import '../../state/theme_provider.dart';
+import '../../widgets/appearance_settings.dart';
+import 'package:provider/provider.dart';
 
 class MerchantProfilePage extends StatefulWidget {
   const MerchantProfilePage({super.key});
@@ -384,131 +387,140 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
               )
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.backgroundSecondary
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.borderColor
-                          : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 48,
-                        backgroundColor: isDark
-                            ? AppColors.backgroundSurface
-                            : const Color(0xFFE0EAFF),
-                        child: Icon(
-                          Icons.store_rounded,
-                          size: 48,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.backgroundSecondary
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
                           color: isDark
-                              ? AppColors.primaryBlue
-                              : const Color(0xFF2563EB),
+                              ? AppColors.borderColor
+                              : const Color(0xFFE5E7EB),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _user!.name,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF111827),
-                        ),
-                      ),
-                      Text(
-                        _user!.role.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark
-                              ? AppColors.primaryBlue
-                              : const Color(0xFF2563EB),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      if (_user!.categories.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Category: ${_user!.categories.join(', ')}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      const Divider(height: 1),
-                      const SizedBox(height: 24),
-                      _ProfileDetailItem(
-                        icon: Icons.email_outlined,
-                        label: 'Email Address',
-                        value: _user!.email,
-                        isDark: isDark,
-                      ),
-                      const SizedBox(height: 16),
-                      _ProfileDetailItem(
-                        icon: Icons.phone_android_rounded,
-                        label: 'Phone Number',
-                        value: _user!.phone ?? 'Not provided',
-                        isDark: isDark,
-                      ),
-                      if (_user!.location?.address != null) ...[
-                        const SizedBox(height: 16),
-                        _ProfileDetailItem(
-                          icon: Icons.location_on_outlined,
-                          label: 'Address',
-                          value: _user!.location!.address!,
-                          isDark: isDark,
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await _authService.logout();
-                            if (!context.mounted) return;
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              '/login',
-                              (route) => false,
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.logout_rounded,
-                            color: AppColors.error,
-                          ),
-                          label: const Text(
-                            'Logout',
-                            style: TextStyle(
-                              color: AppColors.error,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 48,
+                            backgroundColor: isDark
+                                ? AppColors.backgroundSurface
+                                : const Color(0xFFE0EAFF),
+                            child: Icon(
+                              Icons.store_rounded,
+                              size: 48,
                               color: isDark
-                                  ? AppColors.error.withValues(alpha: 0.45)
-                                  : AppColors.error.withValues(alpha: 0.25),
+                                  ? AppColors.primaryBlue
+                                  : const Color(0xFF2563EB),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _user!.name,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF111827),
                             ),
+                          ),
+                          Text(
+                            _user!.role.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? AppColors.primaryBlue
+                                  : const Color(0xFF2563EB),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          if (_user!.categories.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Category: ${_user!.categories.join(', ')}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          const Divider(height: 1),
+                          const SizedBox(height: 24),
+                          _ProfileDetailItem(
+                            icon: Icons.email_outlined,
+                            label: 'Email Address',
+                            value: _user!.email,
+                            isDark: isDark,
+                          ),
+                          const SizedBox(height: 16),
+                          _ProfileDetailItem(
+                            icon: Icons.phone_android_rounded,
+                            label: 'Phone Number',
+                            value: _user!.phone ?? 'Not provided',
+                            isDark: isDark,
+                          ),
+                          if (_user!.location?.address != null) ...[
+                            const SizedBox(height: 16),
+                            _ProfileDetailItem(
+                              icon: Icons.location_on_outlined,
+                              label: 'Address',
+                              value: _user!.location!.address!,
+                              isDark: isDark,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const AppearanceSettingsCard(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await _authService.logout();
+                          if (!context.mounted) return;
+                          context.read<ThemeProvider>().markUnauthenticated();
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login',
+                            (route) => false,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: AppColors.error,
+                        ),
+                        label: const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(
+                            color: isDark
+                                ? AppColors.error.withValues(alpha: 0.45)
+                                : AppColors.error.withValues(alpha: 0.25),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
       ),

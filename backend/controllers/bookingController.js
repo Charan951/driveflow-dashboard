@@ -1623,7 +1623,14 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
-      if (canonTo === 'SERVICE_STARTED' || canonTo === 'CAR_WASH_STARTED' || canonTo === 'INSTALLATION' || canonTo === 'SERVICE_COMPLETED' || canonTo === 'CAR_WASH_COMPLETED' || canonTo === 'DELIVERY') {
+      // Delivery OTP is for handover, not job start. Generate and notify only
+      // when the vehicle is ready to go back to the customer.
+      const shouldIssueDeliveryOtp =
+        canonTo === 'SERVICE_COMPLETED' ||
+        canonTo === 'CAR_WASH_COMPLETED' ||
+        canonTo === 'OUT_FOR_DELIVERY' ||
+        canonTo === 'DELIVERY';
+      if (shouldIssueDeliveryOtp) {
         if (!booking.deliveryOtp || !booking.deliveryOtp.code) {
           const code = Math.floor(1000 + Math.random() * 9000).toString();
           booking.deliveryOtp = {

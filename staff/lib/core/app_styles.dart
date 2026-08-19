@@ -8,9 +8,9 @@ class AppStyles {
   static const Color primaryBlueSoft = Color(0xFF4D95F9);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment(0.00, 0.50),
-    end: Alignment(1.00, 0.50),
-    colors: [primaryBlue, primaryBlueSoft, primaryBlue],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primaryBlue, primaryBlue],
   );
 
   // Text Styles

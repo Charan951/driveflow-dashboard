@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
+import '../state/theme_provider.dart';
 import '../utils/post_login_permissions.dart';
 
 enum _LoginStep { identifier, password, emailOtp, phoneOtp }
@@ -83,6 +85,8 @@ class _StaffLoginPageState extends State<StaffLoginPage>
   }
 
   Future<void> _navigateAfterLogin(StaffUser user) async {
+    await context.read<ThemeProvider>().applyAfterLogin();
+    if (!mounted) return;
     final role = user.role.toLowerCase();
     if (role == 'merchant') {
       await PostLoginPermissions.request();

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -15,8 +16,14 @@ import '../core/storage.dart';
 Future<void> _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  final api = ApiClient();
   final storage = AppStorage();
+  final token = await storage.getToken();
+  if (token == null || token.isEmpty) {
+    await service.stopSelf();
+    return;
+  }
+
+  final api = ApiClient();
   String? bookingId;
   io.Socket? socket;
 
@@ -121,6 +128,11 @@ Future<void> _onStart(ServiceInstance service) async {
 
     // 2. Persistent update via REST (Throttle to 1 second as a fallback)
     if (nowMs - lastRestMs > 1000) {
+      final latestToken = await storage.getToken();
+      if (latestToken == null || latestToken.isEmpty) {
+        await service.stopSelf();
+        return;
+      }
       try {
         await api.putJson(
           ApiEndpoints.trackingUser,
@@ -156,6 +168,9 @@ Future<bool> _onIosBackground(ServiceInstance service) async {
 
 class BackgroundTracking {
   static const String _notificationChannelId = 'carzzi_staff_tracking';
+  static const MethodChannel _nativeStop = MethodChannel(
+    'com.carzzi.staff/bg_tracking',
+  );
 
   static Future<void> configure() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
@@ -239,8 +254,10 @@ class BackgroundTracking {
   static Future<void> stop() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     try {
-      final service = FlutterBackgroundService();
-      service.invoke('stopService');
+      FlutterBackgroundService().invoke('stopService');
+    } catch (_) {}
+    try {
+      await _nativeStop.invokeMethod('forceStop');
     } catch (e) {
       debugPrint('BackgroundTracking: failed to stop service: $e');
     }

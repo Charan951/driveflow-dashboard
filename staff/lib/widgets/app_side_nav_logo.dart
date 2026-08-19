@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/app_colors.dart';
 
 class AppSideNavLogo extends StatelessWidget {
   const AppSideNavLogo({super.key});
@@ -8,41 +7,17 @@ class AppSideNavLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(8, 60, 8, 14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundPrimary : Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? AppColors.borderColor : Colors.grey.shade200,
-          ),
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Image.asset(
+          isDark ? 'assets/carzzilogo.png' : 'assets/carzzilogo_light.png',
+          width: double.infinity,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
         ),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: isDark
-            ? Image.asset(
-                'assets/carzzilogo.png',
-                height: 120,
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.center,
-              )
-            : ColorFiltered(
-                // Matches the web navbar's `brightness-0` treatment: renders
-                // the (metallic) logo as solid black so it stays legible on
-                // a light background.
-                colorFilter: const ColorFilter.mode(
-                  Colors.black,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  'assets/carzzilogo.png',
-                  height: 120,
-                  fit: BoxFit.fitWidth,
-                  alignment: Alignment.center,
-                ),
-              ),
       ),
     );
   }

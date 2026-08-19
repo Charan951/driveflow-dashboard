@@ -210,14 +210,27 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          TextButton(
+          IconButton(
+            tooltip: 'Mark all as read',
             onPressed: hasUnread ? _markAllAsRead : null,
-            child: const Text('Mark all read'),
+            icon: Icon(
+              Icons.done_all_rounded,
+              color: hasUnread
+                  ? (isDark ? Colors.white70 : const Color(0xFF4B5563))
+                  : (isDark ? Colors.white24 : const Color(0xFFD1D5DB)),
+            ),
           ),
-          TextButton(
+          IconButton(
+            tooltip: 'Clear all',
             onPressed: _items.isEmpty ? null : _clearAllNotifications,
-            child: const Text('Clear All'),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: _items.isEmpty
+                  ? (isDark ? Colors.white24 : const Color(0xFFD1D5DB))
+                  : AppColors.primaryBlue,
+            ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: _loading

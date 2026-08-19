@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
 import '../models/booking.dart';
@@ -16,8 +15,9 @@ import '../widgets/global_sync_refresh.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../state/theme_provider.dart';
-import '../widgets/app_side_nav_logo.dart';
+import '../widgets/appearance_settings.dart';
 import '../widgets/staff/staff_bottom_nav.dart';
+import '../widgets/staff/staff_drawer.dart';
 import '../utils/post_login_permissions.dart';
 
 class StaffHomePage extends StatefulWidget {
@@ -139,6 +139,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
     await _trackingService.stop();
     await _authService.logout();
     if (!mounted) return;
+    context.read<ThemeProvider>().markUnauthenticated();
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
@@ -484,201 +485,24 @@ class _StaffHomePageState extends State<StaffHomePage> {
         s == 'DELIVERY';
   }
 
-  String _formatTime(DateTime? dt) {
-    if (dt == null) return '-';
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
-  Widget _buildSidebarContent(
-    ThemeData theme,
-    TrackingInfo trackingInfo,
-    bool isCompact,
-  ) {
-    final isDark = theme.brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const AppSideNavLogo(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _NavItem(
-                  icon: Icons.dashboard_rounded,
-                  label: 'Dashboard',
-                  selected: _selectedTab == StaffBottomNavTab.dashboard,
-                  isDark: isDark,
-                  onTap: () {
-                    setState(() {
-                      _selectedTab = StaffBottomNavTab.dashboard;
-                    });
-                    if (isCompact) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                _NavItem(
-                  icon: Icons.list_alt_rounded,
-                  label: 'Orders',
-                  selected: _selectedTab == StaffBottomNavTab.orders,
-                  isDark: isDark,
-                  onTap: () {
-                    setState(() {
-                      _selectedTab = StaffBottomNavTab.orders;
-                    });
-                    if (isCompact) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                _NavItem(
-                  icon: Icons.person_rounded,
-                  label: 'Profile',
-                  selected: _selectedTab == StaffBottomNavTab.profile,
-                  isDark: isDark,
-                  onTap: () {
-                    setState(() {
-                      _selectedTab = StaffBottomNavTab.profile;
-                    });
-                    if (isCompact) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                _NavItem(
-                  icon: isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  label: isDark ? 'Light Mode' : 'Dark Mode',
-                  selected: false,
-                  isDark: isDark,
-                  onTap: () {
-                    context.read<ThemeProvider>().toggleTheme();
-                  },
-                ),
-                const SizedBox(height: 8),
-                _NavItem(
-                  icon: Icons.privacy_tip_rounded,
-                  label: 'Privacy Policy',
-                  selected: false,
-                  isDark: isDark,
-                  onTap: () async {
-                    const url = 'https://carzzi.com/privacy';
-                    if (await canLaunchUrl(Uri.parse(url))) {
-                      await launchUrl(Uri.parse(url));
-                    }
-                  },
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  'Live location',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Shared only after you tap Navigate on a pickup or drop.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark
-                        ? AppColors.textMuted
-                        : const Color(0xFF6B7280),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.backgroundSurface
-                        : const Color(0xFFECFDF3),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.borderColor
-                          : const Color(0xFFBBF7D0),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isDark
-                                  ? AppColors.success
-                                  : const Color(0xFF22C55E),
-                            ),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _trackingService.isTracking
-                                  ? 'Sharing location for this trip'
-                                  : 'Location sharing off',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? AppColors.success
-                                    : const Color(0xFF166534),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _StatusLine(
-                        label: 'Latitude',
-                        value: trackingInfo.lat != null
-                            ? trackingInfo.lat!.toStringAsFixed(6)
-                            : '-',
-                        isDark: isDark,
-                      ),
-                      const SizedBox(height: 4),
-                      _StatusLine(
-                        label: 'Longitude',
-                        value: trackingInfo.lng != null
-                            ? trackingInfo.lng!.toStringAsFixed(6)
-                            : '-',
-                        isDark: isDark,
-                      ),
-                      const SizedBox(height: 4),
-                      _StatusLine(
-                        label: 'Last Update',
-                        value: _formatTime(trackingInfo.lastUpdate),
-                        isDark: isDark,
-                      ),
-                      const SizedBox(height: 4),
-                      _StatusLine(
-                        label: 'Server Sync',
-                        value: _formatTime(trackingInfo.lastServerSync),
-                        isDark: isDark,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+  Widget _buildSidebarContent({required bool closeDrawer}) {
+    return StaffSideNav(
+      selectedTab: _selectedTab,
+      unreadCount: _unreadNotifications,
+      onSelectTab: (tab) {
+        setState(() => _selectedTab = tab);
+        if (closeDrawer) Navigator.of(context).pop();
+      },
+      onNotifications: () async {
+        if (closeDrawer) Navigator.of(context).pop();
+        await Navigator.pushNamed(context, '/notifications');
+        if (!mounted) return;
+        _loadData();
+      },
+      onLogout: () {
+        if (closeDrawer) Navigator.of(context).pop();
+        _logout();
+      },
     );
   }
 
@@ -1527,36 +1351,38 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 value: user.phone ?? 'Not provided',
                 isDark: isDark,
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(
-                    Icons.logout_rounded,
-                    color: AppColors.error,
-                  ),
-                  label: const Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(
-                      color: isDark
-                          ? AppColors.error.withValues(alpha: 0.45)
-                          : AppColors.error.withValues(alpha: 0.25),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const AppearanceSettingsCard(),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _logout,
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: AppColors.error,
+            ),
+            label: const Text(
+              'Logout',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: BorderSide(
+                color: isDark
+                    ? AppColors.error.withValues(alpha: 0.45)
+                    : AppColors.error.withValues(alpha: 0.25),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
         ),
       ],
@@ -1568,8 +1394,6 @@ class _StaffHomePageState extends State<StaffHomePage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bookings = _bookings;
-    final trackingInfo = _trackingService.info.value;
-
     int todayCount = 0;
     int completedCount = 0;
     for (final b in bookings) {
@@ -1599,6 +1423,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
           final isCompact = constraints.maxWidth < 720;
           if (isCompact) {
             return Scaffold(
+              extendBody: true,
               appBar: AppBar(
                 title: Text(
                   _selectedTitle,
@@ -1660,9 +1485,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 ],
               ),
               drawer: Drawer(
-                child: SafeArea(
-                  child: _buildSidebarContent(theme, trackingInfo, true),
-                ),
+                width: 320,
+                backgroundColor: isDark
+                    ? AppColors.backgroundPrimary
+                    : AppColors.backgroundPrimaryLight,
+                child: _buildSidebarContent(closeDrawer: true),
               ),
               bottomNavigationBar: StaffBottomNav(
                 selectedTab: _selectedTab,
@@ -1672,16 +1499,19 @@ class _StaffHomePageState extends State<StaffHomePage> {
                   });
                 },
               ),
-              body: Container(
-                color: isDark
-                    ? AppColors.backgroundPrimary
-                    : const Color(0xFFF3F4F6),
-                child: _buildMainContent(
-                  theme,
-                  bookings,
-                  todayCount,
-                  completedCount,
-                  isDark,
+              body: Padding(
+                padding: const EdgeInsets.only(bottom: 96),
+                child: Container(
+                  color: isDark
+                      ? AppColors.backgroundPrimary
+                      : const Color(0xFFF3F4F6),
+                  child: _buildMainContent(
+                    theme,
+                    bookings,
+                    todayCount,
+                    completedCount,
+                    isDark,
+                  ),
                 ),
               ),
             );
@@ -1693,11 +1523,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    width: 260,
+                    width: 320,
                     decoration: BoxDecoration(
                       color: isDark
                           ? AppColors.backgroundSecondary
-                          : Colors.white,
+                          : AppColors.backgroundPrimaryLight,
                       border: Border(
                         right: BorderSide(
                           color: isDark
@@ -1715,7 +1545,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                         ),
                       ],
                     ),
-                    child: _buildSidebarContent(theme, trackingInfo, false),
+                    child: _buildSidebarContent(closeDrawer: false),
                   ),
                   Expanded(
                     child: Container(
@@ -1804,56 +1634,6 @@ class _ProfileDetailItem extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: selected
-            ? (isDark ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB))
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: selected
-              ? Colors.white
-              : (isDark ? Colors.grey[400] : const Color(0xFF4B5563)),
-        ),
-        title: Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: selected
-                ? Colors.white
-                : (isDark ? Colors.grey[300] : const Color(0xFF374151)),
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        visualDensity: const VisualDensity(horizontal: -1, vertical: -2),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -1916,41 +1696,6 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatusLine extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isDark;
-
-  const _StatusLine({
-    required this.label,
-    required this.value,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
-          ),
-        ),
-        Text(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.grey[300] : const Color(0xFF111827),
-          ),
-        ),
-      ],
     );
   }
 }

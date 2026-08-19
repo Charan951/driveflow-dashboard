@@ -289,6 +289,12 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
               _tabController!.index = 3; // QC CHECK
             } else if (!hadQcCompleted && hasQcCompleted) {
               _tabController!.index = 4; // Health after final confirmation
+            } else if (previousBooking != null &&
+                previousBooking.status.trim().toUpperCase() !=
+                    'SERVICE_STARTED' &&
+                data.status.trim().toUpperCase() == 'SERVICE_STARTED' &&
+                !isBattery) {
+              _tabController!.index = 1; // Inspection — same as web
             } else if (_tabController!.index > maxUnlockedIndex) {
               _tabController!.index = maxUnlockedIndex;
             }
@@ -323,6 +329,39 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     return parts.any(
       (p) => p.approved || p.approvalStatus?.toLowerCase() == 'approved',
     );
+  }
+
+  bool _isGeneralWorkshopOrder(BookingDetail booking) {
+    if (booking.batteryTire?.isBatteryTireService == true) return false;
+    if (booking.carWash?.isCarWashService == true) return false;
+    final services = booking.services;
+    if (services == null) return false;
+    return services.any((raw) {
+      if (raw is! Map) return false;
+      final cat = raw['category']?.toString() ?? '';
+      final name = (raw['name']?.toString() ?? '').toLowerCase();
+      return cat == 'Periodic' ||
+          cat == 'Services' ||
+          name.contains('general service');
+    });
+  }
+
+  bool _shouldHideMerchantChat(BookingDetail booking) {
+    final payment = (booking.paymentStatus ?? '').toLowerCase();
+    final status = booking.status.trim();
+    if (payment == 'paid') return true;
+    if (['DELIVERED', 'COMPLETED', 'CANCELLED'].contains(status.toUpperCase())) {
+      return true;
+    }
+    if (!_isGeneralWorkshopOrder(booking)) return false;
+    const visible = {
+      'SERVICE_STARTED',
+      'SERVICE_COMPLETED',
+      'OUT_FOR_DELIVERY',
+      'ON HOLD',
+      'QC_PENDING',
+    };
+    return !visible.contains(status.toUpperCase());
   }
 
   bool _hasServiceDataSaved(BookingDetail booking) {
@@ -523,51 +562,6 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
     }
     try {
       await _service.updateBookingStatus(_booking!.id, newStatus);
-
-      // specific logic for SERVICE_STARTED to set start time and send parts to chat
-      if (newStatus == 'SERVICE_STARTED' &&
-          _booking!.serviceExecution?.jobStartTime == null) {
-        await _service.updateBookingDetails(_booking!.id, {
-          'serviceExecution': {
-            'jobStartTime': DateTime.now().toIso8601String(),
-          },
-        });
-
-        // Send additional parts to chat
-        final inspectionParts = _booking!.inspection?.additionalParts ?? [];
-        if (inspectionParts.isNotEmpty) {
-          final partsMessage = inspectionParts
-              .where((part) => part.approvalStatus == 'Approved')
-              .map(
-                (part) =>
-                    '${part.name} (Qty: ${part.quantity}, Price: ₹${part.price})',
-              )
-              .join(', ');
-          if (partsMessage.isNotEmpty) {
-            _socketService.emit('chat_message', {
-              'bookingId': _booking!.id,
-              'senderId':
-                  _booking!.merchant?.id, // Assuming merchant is the sender
-              'senderType': 'merchant',
-              'message':
-                  'Service started. Approved additional parts: $partsMessage',
-              'type': 'system',
-            });
-          }
-        }
-
-        // Open chat automatically when service is started
-        _showChatDialog(openEmpty: true);
-      }
-
-      // Set jobEndTime when moving to SERVICE_COMPLETED
-      if (newStatus == 'SERVICE_COMPLETED' &&
-          _booking!.serviceExecution?.jobEndTime == null) {
-        await _service.updateBookingDetails(_booking!.id, {
-          'serviceExecution': {'jobEndTime': DateTime.now().toIso8601String()},
-        });
-      }
-
       await _load(_booking!.id);
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
@@ -899,15 +893,9 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
   }
 
   Widget _buildChatButton() {
-    final bool isChatEnabled = [
-      'SERVICE_STARTED',
-      'CAR_WASH_STARTED',
-      'INSTALLATION',
-      'ON HOLD',
-      'On Hold',
-    ].contains(_booking?.status.toUpperCase());
-
-    if (!isChatEnabled) return const SizedBox.shrink();
+    final booking = _booking;
+    if (booking == null) return const SizedBox.shrink();
+    if (_shouldHideMerchantChat(booking)) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -3895,7 +3883,7 @@ class _MerchantOrderDetailPageState extends State<MerchantOrderDetailPage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Go to Billing tab to upload bill and complete service.',
+                      'Complete QC Check and Health, then use Billing to upload the bill and complete service.',
                       style: TextStyle(
                         color: isDark
                             ? const Color(0xFFBFDBFE)
@@ -4553,6 +4541,7 @@ class _ChatDialogState extends State<_ChatDialog> {
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onComposerChanged);
     _loadCurrentUser();
     _socketService.on('receiveMessage', _handleReceiveMessage);
     _socketService.on('loadMessages', _handleLoadMessages);
@@ -4586,9 +4575,14 @@ class _ChatDialogState extends State<_ChatDialog> {
     _socketService.off('receiveMessage', _handleReceiveMessage);
     _socketService.off('loadMessages', _handleLoadMessages);
     _socketService.off('newApproval');
+    _controller.removeListener(_onComposerChanged);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onComposerChanged() {
+    if (mounted) setState(() {});
   }
 
   void _handleReceiveMessage(dynamic data) {
@@ -5000,11 +4994,14 @@ class _ChatDialogState extends State<_ChatDialog> {
 
         // Input
         Container(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 12,
-            bottom: MediaQuery.of(context).padding.bottom + 12,
+          padding: EdgeInsets.fromLTRB(
+            12,
+            10,
+            12,
+            10 +
+                (MediaQuery.viewInsetsOf(context).bottom > 0
+                    ? MediaQuery.viewInsetsOf(context).bottom
+                    : MediaQuery.paddingOf(context).bottom),
           ),
           decoration: BoxDecoration(
             color: isDark ? AppColors.backgroundSecondary : Colors.white,
@@ -5012,58 +5009,108 @@ class _ChatDialogState extends State<_ChatDialog> {
               top: BorderSide(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.grey[200]!,
+                    : const Color(0xFFE5E7EB),
               ),
             ),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.add_circle_outline,
-                  color: isDark
-                      ? AppColors.primaryPurple
-                      : const Color(0xFF7C3AED),
-                ),
-                onPressed: _showAddPartDialog,
-              ),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.backgroundSurface
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
+              Material(
+                color: isDark
+                    ? AppColors.backgroundSurface
+                    : const Color(0xFFF3F4F6),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _showAddPartDialog,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      Icons.add,
+                      color: isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED),
                     ),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.grey[600] : Colors.grey,
-                      ),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.primaryPurple
-                      : const Color(0xFF7C3AED),
-                  shape: BoxShape.circle,
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: 2000,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: isDark ? Colors.white : const Color(0xFF111827),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    hintStyle: TextStyle(
+                      fontSize: 15,
+                      color: isDark ? Colors.grey[500] : const Color(0xFF9CA3AF),
+                    ),
+                    counterText: '',
+                    isDense: true,
+                    filled: true,
+                    fillColor: isDark
+                        ? AppColors.backgroundSurface
+                        : const Color(0xFFF3F4F6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppColors.borderColor
+                            : const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(
+                        color: (isDark
+                                ? AppColors.primaryPurple
+                                : const Color(0xFF7C3AED))
+                            .withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
                 ),
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                  onPressed: _sendMessage,
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: _controller.text.trim().isEmpty
+                    ? (isDark
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : const Color(0xFFD1D5DB))
+                    : (isDark
+                          ? AppColors.primaryPurple
+                          : const Color(0xFF7C3AED)),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _controller.text.trim().isEmpty ? null : _sendMessage,
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  ),
                 ),
               ),
             ],
@@ -5091,6 +5138,16 @@ class _AddPartDialogState extends State<_AddPartDialog> {
   String? _imageUrl;
   bool _loading = false;
   final _picker = ImagePicker();
+
+  static const _accent = Color(0xFF7C3AED);
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _qtyController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     final XFile? photo = await _picker.pickImage(
@@ -5146,186 +5203,279 @@ class _AddPartDialogState extends State<_AddPartDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelStyle = TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      color: isDark ? Colors.grey[300] : const Color(0xFF374151),
-    );
+    final fill = isDark ? AppColors.backgroundSurface : const Color(0xFFF3F4F6);
+    final labelColor = isDark ? Colors.grey[400] : const Color(0xFF6B7280);
+    final textColor = isDark ? Colors.white : const Color(0xFF111827);
+    final radius = BorderRadius.circular(14);
     final fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: radius,
       borderSide: BorderSide(
         color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
       ),
     );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(
+        color: (isDark ? AppColors.primaryPurple : _accent).withValues(
+          alpha: 0.7,
+        ),
+      ),
+    );
 
-    Widget labeledField({
-      required String label,
-      required Widget field,
+    InputDecoration deco({
+      String? hint,
+      String? prefix,
     }) {
+      return InputDecoration(
+        hintText: hint,
+        prefixText: prefix,
+        hintStyle: TextStyle(
+          color: isDark ? Colors.grey[600] : const Color(0xFF9CA3AF),
+        ),
+        filled: true,
+        fillColor: fill,
+        isDense: true,
+        counterText: '',
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        focusedBorder: focusedBorder,
+      );
+    }
+
+    Widget labeled(String label, Widget field) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: labelStyle),
-          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: labelColor,
+            ),
+          ),
+          const SizedBox(height: 8),
           field,
         ],
       );
     }
 
-    return AlertDialog(
-      title: const Text('Add Additional Part'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            labeledField(
-              label: 'Part Name',
-              field: TextField(
-                controller: _nameController,
-                minLines: 1,
-                maxLines: 4,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: 'Enter part name',
-                  border: fieldBorder,
-                  enabledBorder: fieldBorder,
-                  focusedBorder: fieldBorder.copyWith(
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.primaryPurple
-                          : const Color(0xFF7C3AED),
-                    ),
-                  ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: labeledField(
-                    label: 'Quantity',
-                    field: TextField(
-                      controller: _qtyController,
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Add Additional Part',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
                       ),
-                      decoration: InputDecoration(
-                        hintText: '1',
-                        border: fieldBorder,
-                        enabledBorder: fieldBorder,
-                        focusedBorder: fieldBorder.copyWith(
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? AppColors.primaryPurple
-                                : const Color(0xFF7C3AED),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _loading
+                          ? null
+                          : () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                labeled(
+                  'Part Name',
+                  TextField(
+                    controller: _nameController,
+                    minLines: 1,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(color: textColor, fontSize: 15),
+                    decoration: deco(hint: 'Enter part name'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: labeled(
+                        'Quantity',
+                        TextField(
+                          controller: _qtyController,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: textColor, fontSize: 15),
+                          decoration: deco(hint: '1'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: labeled(
+                        'Price',
+                        TextField(
+                          controller: _priceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
-                        ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                          style: TextStyle(color: textColor, fontSize: 15),
+                          decoration: deco(hint: '0', prefix: '₹ '),
                         ),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                labeled(
+                  'Part Image (Optional)',
+                  InkWell(
+                    onTap: _loading ? null : _pickImage,
+                    borderRadius: radius,
+                    child: Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(minHeight: 108),
+                      decoration: BoxDecoration(
+                        color: fill,
+                        borderRadius: radius,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.borderColor
+                              : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _imageUrl != null
+                          ? Stack(
+                              children: [
+                                SizedBox(
+                                  height: 140,
+                                  width: double.infinity,
+                                  child: CachedNetworkImage(
+                                    imageUrl: _imageUrl!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Material(
+                                    color: Colors.black54,
+                                    shape: const CircleBorder(),
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: _loading
+                                          ? null
+                                          : () => setState(() => _imageUrl = null),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 22),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    size: 28,
+                                    color: isDark
+                                        ? Colors.grey[500]
+                                        : const Color(0xFF9CA3AF),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _loading ? 'Uploading…' : 'Tap to upload',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.grey[400]
+                                          : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: labeledField(
-                    label: 'Price',
-                    field: TextField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '0',
-                        prefixText: '₹ ',
-                        border: fieldBorder,
-                        enabledBorder: fieldBorder,
-                        focusedBorder: fieldBorder.copyWith(
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? AppColors.primaryPurple
-                                : const Color(0xFF7C3AED),
-                          ),
-                        ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => Navigator.pop(context),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.primaryPurple : _accent,
                         ),
                       ),
                     ),
-                  ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Send for Approval',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            labeledField(
-              label: 'Part Image (Optional)',
-              field: InkWell(
-                onTap: _loading ? null : _pickImage,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _imageUrl != null
-                      ? Column(
-                          children: [
-                            const Icon(Icons.check_circle, color: Colors.green),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Image Selected',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            const Icon(Icons.add_a_photo, color: Colors.grey),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Tap to upload',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _loading ? null : _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7C3AED),
-            foregroundColor: Colors.white,
-          ),
-          child: Text(_loading ? 'Sending...' : 'Send for Approval'),
-        ),
-      ],
     );
   }
 }

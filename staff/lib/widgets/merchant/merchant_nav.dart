@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../core/app_colors.dart';
-import '../../state/theme_provider.dart';
 import '../app_side_nav_logo.dart';
+import '../pill_bottom_bar.dart';
 
 class MerchantNavItem {
   final IconData icon;
@@ -101,19 +100,19 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final currentRoute = ModalRoute.of(context)?.settings.name;
-    final int currentIndex = _filteredItems.indexWhere(
-      (item) => item.route == currentRoute,
-    );
-
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+      extendBody: true,
+      backgroundColor: isDark
+          ? AppColors.backgroundPrimary
+          : const Color(0xFFF3F4F6),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: isDark ? AppColors.backgroundPrimary : Colors.white,
+        backgroundColor: isDark
+            ? AppColors.backgroundPrimary
+            : const Color(0xFFF3F4F6),
         foregroundColor: isDark ? Colors.white : Colors.black,
         title: Text(
           widget.title,
@@ -129,13 +128,13 @@ class _MerchantScaffoldState extends State<MerchantScaffold> {
         isShopOpen: _isShopOpen,
         onShopStatusChanged: _toggleShopStatus,
       ),
-      body: widget.body,
+      body: Padding(
+        padding: const EdgeInsets.only(bottom: 96),
+        child: widget.body,
+      ),
       bottomNavigationBar: _filteredItems.isEmpty
           ? null
-          : MerchantBottomNav(
-              currentIndex: currentIndex >= 0 ? currentIndex : 0,
-              filteredItems: _filteredItems,
-            ),
+          : MerchantBottomNav(filteredItems: _filteredItems),
       floatingActionButton: widget.floatingActionButton,
     );
   }
@@ -155,9 +154,6 @@ class MerchantDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentRoute = ModalRoute.of(context)?.settings.name;
-    final themeProvider = context.watch<ThemeProvider>();
-    // Resolve against the *effective* theme so ThemeMode.system tracks the
-    // device setting rather than getting stuck on the stored preference.
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
@@ -235,56 +231,25 @@ class MerchantDrawer extends StatelessWidget {
                 const SizedBox(height: 12),
                 ...filteredItems.map((item) {
                   final bool isActive = currentRoute == item.route;
-                  return Column(
-                    children: [
-                      if (item.route == '/merchant-profile') ...[
-                        _MerchantNavTile(
-                          icon: isDark
-                              ? Icons.light_mode_rounded
-                              : Icons.dark_mode_rounded,
-                          label: isDark ? 'Light Mode' : 'Dark Mode',
-                          isActive: false,
-                          isDark: isDark,
-                          onTap: themeProvider.toggleTheme,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: _MerchantNavTile(
-                          icon: item.icon,
-                          label: item.label,
-                          isActive: isActive,
-                          isDark: isDark,
-                          onTap: () {
-                            Navigator.pop(context); // Close drawer
-                            if (currentRoute != item.route) {
-                              Navigator.pushReplacementNamed(
-                                context,
-                                item.route,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _MerchantNavTile(
+                      icon: item.icon,
+                      label: item.label,
+                      isActive: isActive,
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.pop(context); // Close drawer
+                        if (currentRoute != item.route) {
+                          Navigator.pushReplacementNamed(
+                            context,
+                            item.route,
+                          );
+                        }
+                      },
+                    ),
                   );
                 }),
-                if (!filteredItems.any(
-                  (item) => item.route == '/merchant-profile',
-                ))
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: _MerchantNavTile(
-                      icon: isDark
-                          ? Icons.light_mode_rounded
-                          : Icons.dark_mode_rounded,
-                      label: isDark ? 'Light Mode' : 'Dark Mode',
-                      isActive: false,
-                      isDark: isDark,
-                      onTap: themeProvider.toggleTheme,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -295,86 +260,35 @@ class MerchantDrawer extends StatelessWidget {
 }
 
 class MerchantBottomNav extends StatelessWidget {
-  final int currentIndex;
   final List<MerchantNavItem> filteredItems;
 
   const MerchantBottomNav({
     super.key,
-    required this.currentIndex,
     required this.filteredItems,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Determine which items to show in bottom nav.
-    // Dashboard, Orders, Stock, Feedback, Profile are usually the most important.
-
-    final List<MerchantNavItem> bottomNavItems = [
+    final displayItems = [
       filteredItems.firstWhere((i) => i.label == 'Orders'),
       filteredItems.firstWhere((i) => i.label == 'Dashboard'),
       filteredItems.firstWhere((i) => i.label == 'Profile'),
     ];
 
-    final displayItems = bottomNavItems;
-
-    // Find if the current route is in our display items
     final currentRoute = ModalRoute.of(context)?.settings.name;
-    int effectiveIndex = displayItems.indexWhere(
+    var selectedIndex = displayItems.indexWhere(
       (item) => item.route == currentRoute,
     );
+    if (selectedIndex < 0) selectedIndex = 1;
 
-    // If not in display items, don't highlight any or default to 0 if we must
-    // But since it's a BottomNavigationBar, we need a valid index.
-    // If we're on a page not in bottom nav (like Services or Vehicles),
-    // we could show no highlight or just default to Dashboard.
-    final bool isCurrentRouteInBottomNav = effectiveIndex >= 0;
-    if (!isCurrentRouteInBottomNav) {
-      effectiveIndex = 0; // Default to Dashboard if on a hidden tab
-    }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.backgroundSecondary : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? AppColors.borderColor : Colors.grey[200]!,
-          ),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: effectiveIndex,
-        onTap: (index) {
-          final String route = displayItems[index].route;
-          final currentRoute = ModalRoute.of(context)?.settings.name;
-          if (currentRoute != route) {
-            Navigator.pushReplacementNamed(context, route);
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: isDark ? AppColors.backgroundSecondary : Colors.white,
-        selectedItemColor: isCurrentRouteInBottomNav
-            ? (isDark ? AppColors.primaryBlue : Colors.deepPurple)
-            : Colors.grey[600],
-        unselectedItemColor: Colors.grey[600],
-        selectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        elevation: 0,
-        items: displayItems.map((item) {
-          return BottomNavigationBarItem(
-            icon: Icon(item.icon),
-            label: item.label,
-            activeIcon: Icon(
-              item.icon,
-              color: isDark ? AppColors.primaryBlue : Colors.deepPurple,
-            ),
-          );
-        }).toList(),
-      ),
+    return AppPillBottomBar.staffMerchant(
+      selectedIndex: selectedIndex,
+      onTap: (index) {
+        final route = displayItems[index].route;
+        if (currentRoute != route) {
+          Navigator.pushReplacementNamed(context, route);
+        }
+      },
     );
   }
 }
