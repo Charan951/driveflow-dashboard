@@ -1289,6 +1289,14 @@ export const getAllBookings = async (req, res) => {
     // If merchant, only show their bookings
     if (req.user.role === 'merchant') {
       query = { merchant: req.user._id };
+    } else if (req.user.role === 'staff') {
+      query = {
+        $or: [
+          { pickupDriver: req.user._id },
+          { technician: req.user._id },
+          { 'carWash.staffAssigned': req.user._id },
+        ],
+      };
     }
 
     const bookings = await Booking.find(query)

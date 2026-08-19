@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
@@ -45,10 +46,13 @@ class _StaffHomePageState extends State<StaffHomePage> {
   int _unreadNotifications = 0;
   String _ordersSearchQuery = '';
   String _ordersSort = 'latest';
+  int _currentOngoingPage = 0;
+  late final PageController _ongoingPageController;
 
   @override
   void initState() {
     super.initState();
+    _ongoingPageController = PageController(viewportFraction: 0.94);
     _trackingListener = () {
       if (mounted) {
         setState(() {});
@@ -444,6 +448,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
 
   @override
   void dispose() {
+    _ongoingPageController.dispose();
     _trackingService.info.removeListener(_trackingListener);
     super.dispose();
   }
@@ -781,6 +786,237 @@ class _StaffHomePageState extends State<StaffHomePage> {
     }
   }
 
+  Widget _buildOngoingServicesCarousel(
+    ThemeData theme,
+    bool isDark,
+    List<BookingSummary> ongoingAssigned,
+  ) {
+    if (ongoingAssigned.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.backgroundSecondary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Text(
+          'No ongoing assigned services.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+          ),
+        ),
+      );
+    }
+
+    if (ongoingAssigned.length == 1) {
+      return _buildOngoingServiceCard(theme, isDark, ongoingAssigned.first);
+    }
+
+    final page = _currentOngoingPage.clamp(0, ongoingAssigned.length - 1);
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 108,
+          child: PageView.builder(
+            controller: _ongoingPageController,
+            itemCount: ongoingAssigned.length,
+            onPageChanged: (idx) {
+              setState(() => _currentOngoingPage = idx);
+            },
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _buildOngoingServiceCard(
+                  theme,
+                  isDark,
+                  ongoingAssigned[index],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            ongoingAssigned.length,
+            (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: page == index ? 16 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: page == index
+                    ? const Color(0xFF4A90E2)
+                    : Colors.grey.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOngoingServiceCard(
+    ThemeData theme,
+    bool isDark,
+    BookingSummary booking,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        title: Text(
+          booking.vehicleName ?? 'Booking',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        subtitle: Text(
+          'Order #${booking.orderNumber ?? booking.id}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: isDark ? Colors.grey[400] : const Color(0xFF374151),
+          ),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0EAFF),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            BookingDetail.getStatusLabel(
+              booking.status,
+              services: booking.services,
+            ),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFF1E40AF),
+            ),
+          ),
+        ),
+        onTap: () {
+          final id = booking.id.trim();
+          if (id.isEmpty) return;
+          Navigator.of(context).pushNamed('/order', arguments: id);
+        },
+      ),
+    );
+  }
+
+  String _formatJobDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('dd MMM yyyy, hh:mm a').format(parsed.toLocal());
+  }
+
+  Widget _buildActiveJobCard(
+    ThemeData theme,
+    bool isDark,
+    BookingSummary booking,
+  ) {
+    final dateLabel = _formatJobDate(booking.date);
+    final statusLabel = BookingDetail.getStatusLabel(
+      booking.status,
+      services: booking.services,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundSecondary : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.borderColor : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundColor: isDark
+              ? AppColors.backgroundSurface
+              : const Color(0xFFE0EAFF),
+          child: Icon(
+            Icons.directions_car_filled_rounded,
+            color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB),
+          ),
+        ),
+        title: Text(
+          booking.vehicleName ?? 'Booking',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 2),
+            Text(
+              'Order #${booking.orderNumber ?? booking.id}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.grey[400] : const Color(0xFF374151),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (dateLabel.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                dateLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE0EAFF),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            statusLabel,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFF1E40AF),
+            ),
+          ),
+        ),
+        onTap: () {
+          final id = booking.id.trim();
+          if (id.isEmpty) return;
+          Navigator.of(context).pushNamed('/order', arguments: id);
+        },
+      ),
+    );
+  }
+
   Widget _buildMainContent(
     ThemeData theme,
     List<BookingSummary> bookings,
@@ -865,108 +1101,11 @@ class _StaffHomePageState extends State<StaffHomePage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (ongoingAssigned.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 20,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.backgroundSecondary
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.borderColor
-                                : const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Text(
-                          'No ongoing assigned services.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark
-                                ? Colors.grey[400]
-                                : const Color(0xFF6B7280),
-                          ),
-                        ),
-                      )
-                    else
-                      Column(
-                        children: ongoingAssigned
-                            .map(
-                              (b) => Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.backgroundSecondary
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? AppColors.borderColor
-                                        : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 6,
-                                  ),
-                                  title: Text(
-                                    b.vehicleName ?? 'Booking',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark
-                                              ? Colors.white
-                                              : Colors.black,
-                                        ),
-                                  ),
-                                  subtitle: Text(
-                                    'Order #${b.orderNumber ?? b.id}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: isDark
-                                          ? Colors.grey[400]
-                                          : const Color(0xFF374151),
-                                    ),
-                                  ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF1E293B)
-                                          : const Color(0xFFE0EAFF),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      BookingDetail.getStatusLabel(
-                                        b.status,
-                                        services: b.services,
-                                      ),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: isDark
-                                            ? const Color(0xFF1D4ED8)
-                                            : const Color(0xFF1E40AF),
-                                      ),
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed('/order', arguments: b.id);
-                                  },
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                    _buildOngoingServicesCarousel(
+                      theme,
+                      isDark,
+                      ongoingAssigned,
+                    ),
                     const SizedBox(height: 32),
                     RepaintBoundary(
                       child: Row(
@@ -1181,96 +1320,7 @@ class _StaffHomePageState extends State<StaffHomePage> {
                     Column(
                       children: filteredOrders
                           .map(
-                            (b) => Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.backgroundSecondary
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isDark
-                                      ? AppColors.borderColor
-                                      : const Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.all(16),
-                                leading: CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: isDark
-                                      ? AppColors.backgroundSurface
-                                      : const Color(0xFFE0EAFF),
-                                  child: Icon(
-                                    Icons.directions_car_filled_rounded,
-                                    color: isDark
-                                        ? const Color(0xFF1D4ED8)
-                                        : const Color(0xFF2563EB),
-                                  ),
-                                ),
-                                title: Text(
-                                  b.vehicleName ?? 'Booking',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Order #${b.orderNumber ?? b.id}',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: isDark
-                                                ? Colors.grey[400]
-                                                : const Color(0xFF374151),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Status: ${b.status}',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: isDark
-                                                ? const Color(0xFF1D4ED8)
-                                                : const Color(0xFF2563EB),
-                                          ),
-                                    ),
-                                    if (b.locationAddress != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        b.locationAddress!,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: isDark
-                                                  ? Colors.grey[400]
-                                                  : Colors.black54,
-                                            ),
-                                      ),
-                                    ],
-                                    if (b.date != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        b.date!,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: isDark
-                                                  ? Colors.grey[400]
-                                                  : Colors.black54,
-                                            ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                onTap: () {
-                                  Navigator.of(
-                                    context,
-                                  ).pushNamed('/order', arguments: b.id);
-                                },
-                              ),
-                            ),
+                            (b) => _buildActiveJobCard(theme, isDark, b),
                           )
                           .toList(),
                     ),

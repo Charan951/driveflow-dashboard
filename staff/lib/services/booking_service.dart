@@ -40,7 +40,8 @@ class BookingService {
   }
 
   Future<List<BookingSummary>> getMyBookings() async {
-    return getMerchantBookings();
+    final data = await _api.getAny(ApiEndpoints.myBookings);
+    return _parseBookingList(data);
   }
 
   Future<List<BookingSummary>> getCarWashBookings() async {

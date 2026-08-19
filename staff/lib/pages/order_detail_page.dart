@@ -146,9 +146,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         }
       }
     } catch (e) {
+      debugPrint('Failed to load booking $id: $e');
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load booking';
+        _error = e is ApiException ? e.message : 'Failed to load booking';
       });
     } finally {
       if (mounted) {
