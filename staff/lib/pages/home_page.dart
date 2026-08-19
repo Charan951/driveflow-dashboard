@@ -17,6 +17,7 @@ import '../core/api_client.dart';
 import '../state/theme_provider.dart';
 import '../widgets/app_side_nav_logo.dart';
 import '../widgets/staff/staff_bottom_nav.dart';
+import '../utils/post_login_permissions.dart';
 
 class StaffHomePage extends StatefulWidget {
   const StaffHomePage({super.key});
@@ -66,7 +67,13 @@ class _StaffHomePageState extends State<StaffHomePage> {
     });
 
     _loadData();
-    _startTrackingIfEnabled();
+    _prepareAfterLogin();
+  }
+
+  Future<void> _prepareAfterLogin() async {
+    await PostLoginPermissions.request();
+    if (!mounted) return;
+    await _startTrackingIfEnabled();
   }
 
   Future<void> _loadData() async {

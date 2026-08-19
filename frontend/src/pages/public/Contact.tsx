@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { heroService } from "@/services/heroService";
 import { ticketService } from "@/services/ticketService";
 import { captchaService, CaptchaData } from "@/services/captchaService";
-import { isValidEmail, isValidName as sharedIsValidName, MAX_EMAIL_LENGTH, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
+import { isValidEmail, isValidName as sharedIsValidName, MAX_NAME_LENGTH as SHARED_MAX_NAME_LENGTH, isDisposableEmail } from "@/lib/formValidation";
 
 const Contact = () => {
   const [hero, setHero] = useState({
@@ -175,10 +175,6 @@ const Contact = () => {
 
     if (name === 'email') {
       value = value.toLowerCase();
-      // Only check max length while typing
-      if (value.length > MAX_EMAIL_LENGTH) {
-        value = value.slice(0, MAX_EMAIL_LENGTH);
-      }
     }
 
     if (name === 'name') {
@@ -340,12 +336,11 @@ const Contact = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground/80">Email Address (max {MAX_EMAIL_LENGTH} characters)</label>
+                    <label className="text-sm font-medium text-foreground/80">Email Address</label>
                     <input
                       type="email"
                       name="email"
                       required
-                      maxLength={MAX_EMAIL_LENGTH}
                       value={formData.email}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-xl border border-input bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-300"

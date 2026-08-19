@@ -6,7 +6,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
-import { isStrongPassword, isValidEmail, isValidPhone10, isEmailTooLong, hasLeadingTrailingSpaces, isPasswordTooLong, isValidName, isNameTooLong, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH, isDisposableEmail } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, hasLeadingTrailingSpaces, isPasswordTooLong, isValidName, isNameTooLong, MAX_NAME_LENGTH, MAX_PASSWORD_LENGTH, isDisposableEmail } from '@/lib/formValidation';
 
 type RegisterStep = 'form' | 'otp';
 
@@ -287,7 +287,6 @@ const RegisterPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Email address"
                 required
-                maxLength={MAX_EMAIL_LENGTH}
                 readOnly={Boolean((location.state as { fromGoogle?: boolean })?.fromGoogle && formData.email)}
                 className="w-full pl-10 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all read-only:opacity-80"
               />

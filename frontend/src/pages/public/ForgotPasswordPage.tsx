@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowRight } from 'lucide-react';
 import { authService } from '@/services/authService';
 import { toast } from 'sonner';
-import { isValidEmail, MAX_EMAIL_LENGTH } from '@/lib/formValidation';
+import { isValidEmail } from '@/lib/formValidation';
 
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +54,6 @@ const ForgotPasswordPage: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              maxLength={MAX_EMAIL_LENGTH}
               placeholder="Email address"
               required
               className="w-full pl-11 pr-4 py-2.5 md:py-3 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"

@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
-import { isStrongPassword, isValidEmail, isValidPhone10, isPasswordTooLong, MAX_EMAIL_LENGTH, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isPasswordTooLong, MAX_PASSWORD_LENGTH } from '@/lib/formValidation';
 
 const AdminMerchantsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -595,7 +595,6 @@ const AdminMerchantsPage: React.FC = () => {
                       required
                       value={newMerchant.email}
                       onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
-                      maxLength={MAX_EMAIL_LENGTH}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -756,7 +755,6 @@ const AdminMerchantsPage: React.FC = () => {
                       required
                       value={editingMerchant.email}
                       onChange={(e) => setEditingMerchant({ ...editingMerchant, email: e.target.value })}
-                      maxLength={MAX_EMAIL_LENGTH}
                       className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

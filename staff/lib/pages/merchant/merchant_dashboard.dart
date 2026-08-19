@@ -8,6 +8,7 @@ import '../../models/user.dart';
 import '../../widgets/global_sync_refresh.dart';
 import '../../widgets/merchant/merchant_nav.dart';
 import '../../core/app_colors.dart';
+import '../../utils/post_login_permissions.dart';
 
 class MerchantDashboardPage extends StatefulWidget {
   const MerchantDashboardPage({super.key});
@@ -45,6 +46,7 @@ class _MerchantDashboardPageState extends State<MerchantDashboardPage> {
     }
 
     try {
+      await PostLoginPermissions.request();
       final user = await _authService.getCurrentUser(forceRefresh: true);
       final stats = await _bookingService.getMerchantStats();
       final bookings = await _bookingService.getMerchantBookings();

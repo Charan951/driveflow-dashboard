@@ -319,7 +319,7 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
           let isMobileOk = true;
 
           if (email) {
-            if (email.length > 100 || isDisposableEmail(email) || !isValidEmail(email).valid) {
+            if (isDisposableEmail(email) || !isValidEmail(email).valid) {
               isEmailOk = false;
             }
           }
@@ -384,10 +384,6 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
       return;
     }
     if (email) {
-      if (email.length > 100) {
-        toast.error('Email cannot exceed 100 characters');
-        return;
-      }
       if (!isValidEmail(email).valid) {
         toast.error('Enter a valid email address');
         return;
@@ -760,7 +756,6 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                         <Label className="block text-xs font-medium text-muted-foreground">
                           Email address
                         </Label>
-                        <span className="text-[10px] text-muted-foreground">{newUser.email.length}/100 characters</span>
                       </div>
                       <Input
                         type="email"
@@ -769,7 +764,6 @@ const CouponModal = ({ coupon, onClose, onSave }) => {
                         onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUser(); } }}
                         className="h-9 text-sm"
-                        maxLength={100}
                       />
                     </div>
                     <div className="flex-1">

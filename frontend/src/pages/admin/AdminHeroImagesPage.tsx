@@ -36,7 +36,6 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
   isValidEmail,
-  isEmailTooLong,
   isValidPhone10,
   isValidHeroTitle,
   isHeroTitleTooLong,
@@ -572,10 +571,6 @@ const AdminHeroImagesPage = () => {
       toast.error('Please enter a valid email address');
       return;
     }
-    if (isEmailTooLong(contactDetails.email)) {
-      toast.error('Email is too long');
-      return;
-    }
 
     setSavingPageHeroes(true);
     try {
@@ -638,10 +633,6 @@ const AdminHeroImagesPage = () => {
           toast.error(emailValidation.error || 'Please enter a valid email address');
           return;
         }
-      }
-      if (isEmailTooLong(contactDetails.email)) {
-        toast.error('Email is too long');
-        return;
       }
       updatedContactDetails.address = contactDetails.address;
       updatedContactDetails.mobileNumber = contactDetails.mobileNumber;
@@ -759,10 +750,6 @@ const AdminHeroImagesPage = () => {
         toast.error(emailValidation.error || 'Please enter a valid email address');
         return;
       }
-    }
-    if (isEmailTooLong(contactDetails.email)) {
-      toast.error('Email is too long');
-      return;
     }
 
     setSavingAll(true);
@@ -1508,7 +1495,6 @@ const AdminHeroImagesPage = () => {
                               onChange={(e) => setContactDetails((prev) => ({ ...prev, email: e.target.value }))}
                               className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all"
                               placeholder="support@carzzi.com"
-                              maxLength={50}
                             />
                           </div>
                         </>

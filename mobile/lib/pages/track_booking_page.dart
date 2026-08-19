@@ -213,11 +213,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               success: true,
               title: 'Payment successful',
               message: 'Your booking payment has been completed successfully.',
-              primaryButtonLabel: 'Back to booking',
-              onPrimaryPressed: () {
-                Navigator.of(context).pop();
-                _load();
-              },
+              primaryButtonLabel: 'Go to home',
+              primaryRoute: '/customer',
+              clearStackOnPrimary: true,
             ),
           );
         } else if (_isFailurePaymentStatus(paymentStatus)) {
@@ -244,11 +242,9 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
               title: 'Payment received',
               message:
                   'Cashfree reported success. We are still syncing your booking status.',
-              primaryButtonLabel: 'Back to booking',
-              onPrimaryPressed: () {
-                Navigator.of(context).pop();
-                _load();
-              },
+              primaryButtonLabel: 'Go to home',
+              primaryRoute: '/customer',
+              clearStackOnPrimary: true,
             ),
           );
         }

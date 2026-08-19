@@ -10,6 +10,7 @@ class AppStorage {
   static const _tokenKey = 'staff_access_token';
   static const _userKey = 'staff_auth_user';
   static const _themeModeKey = 'theme_mode';
+  static const _hasSeenOnboardingKey = 'has_seen_onboarding';
 
   /// Cleared on app uninstall; used to wipe Keychain leftovers on fresh install.
   static const _installMarkerKey = 'staff_install_marker';
@@ -45,6 +46,24 @@ class AppStorage {
       return prefs.getString(_themeModeKey);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> setHasSeenOnboarding(bool value) async {
+    try {
+      final prefs = await _getPrefs();
+      await prefs.setBool(_hasSeenOnboardingKey, value);
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  Future<bool> hasSeenOnboarding() async {
+    try {
+      final prefs = await _getPrefs();
+      return prefs.getBool(_hasSeenOnboardingKey) ?? false;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -89,9 +108,13 @@ class AppStorage {
       await _secureStorage.deleteAll();
       final prefs = await _getPrefs();
       final themeMode = prefs.getString(_themeModeKey);
+      final hasSeenOnboarding = prefs.getBool(_hasSeenOnboardingKey);
       await prefs.clear();
       if (themeMode != null) {
         await prefs.setString(_themeModeKey, themeMode);
+      }
+      if (hasSeenOnboarding != null) {
+        await prefs.setBool(_hasSeenOnboardingKey, hasSeenOnboarding);
       }
     } catch (e) {
       // Silent catch

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isValidName, hasExcessiveRepeatedChars, isValidEmail, isValidPhone10, MAX_NAME_LENGTH, MAX_EMAIL_LENGTH, isNameTooLong } from '@/lib/formValidation';
+import { isValidName, hasExcessiveRepeatedChars, isValidEmail, isValidPhone10, MAX_NAME_LENGTH, isNameTooLong } from '@/lib/formValidation';
 import { logoutUser } from '@/lib/logout';
 import {
   AlertDialog,
@@ -221,7 +221,7 @@ const ProfilePage: React.FC = () => {
               <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" maxLength={MAX_EMAIL_LENGTH} />
+                <Input id="email" name="email" value={formData.email} onChange={handleChange} className="pl-10" placeholder="john@example.com" />
               </div>
             </div>
             <div className="space-y-2">

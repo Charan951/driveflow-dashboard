@@ -9,10 +9,8 @@ import { toast } from 'sonner';
 import {
   isValidEmail,
   isValidPhone10,
-  isEmailTooLong,
   hasLeadingTrailingSpaces,
   isPasswordTooLong,
-  MAX_EMAIL_LENGTH,
   MAX_PASSWORD_LENGTH,
 } from '@/lib/formValidation';
 
@@ -86,7 +84,7 @@ const LoginPage: React.FC = () => {
     }
 
     if (kind === 'email') {
-      if (isEmailTooLong(trimmed) || hasLeadingTrailingSpaces(identifier)) {
+      if (hasLeadingTrailingSpaces(identifier)) {
         toast.error('Enter a valid email address');
         return;
       }
@@ -358,7 +356,6 @@ const LoginPage: React.FC = () => {
                 placeholder="Email or mobile number"
                 required
                 autoFocus
-                maxLength={MAX_EMAIL_LENGTH}
                 className="w-full pl-10 pr-4 py-2.5 bg-muted/40 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>

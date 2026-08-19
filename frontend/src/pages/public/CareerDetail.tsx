@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { isValidEmail, isValidPhone10, isValidName, hasExcessiveRepeatedChars } from "@/lib/formValidation";
 
 const CAREER_MAX_NAME_LENGTH = 10;
-const CAREER_MAX_EMAIL_LENGTH = 20;
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -246,16 +245,10 @@ const CareerDetail: React.FC = () => {
             />
             <input 
               required 
-              maxLength={CAREER_MAX_EMAIL_LENGTH} 
               type="email" 
               value={form.email} 
               onChange={(e) => {
-                let newEmail = e.target.value;
-                // Truncate if too long
-                if (newEmail.length > CAREER_MAX_EMAIL_LENGTH) {
-                  newEmail = newEmail.slice(0, CAREER_MAX_EMAIL_LENGTH);
-                }
-                setForm((prev) => ({ ...prev, email: newEmail }));
+                setForm((prev) => ({ ...prev, email: e.target.value }));
               }} 
               placeholder="Email address" 
               className="w-full px-4 py-2 bg-muted/50 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none" 

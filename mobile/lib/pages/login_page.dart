@@ -158,7 +158,7 @@ class _LoginPageState extends State<LoginPage>
           );
         } else {
           NotificationService().requestPermissions();
-          completeAuthNavigation(context, auth.homeRoute);
+          await completeAuthNavigation(context, auth.homeRoute);
         }
         return;
       }
@@ -221,7 +221,7 @@ class _LoginPageState extends State<LoginPage>
         await Future.delayed(Duration.zero);
         if (!mounted) return;
         NotificationService().requestPermissions();
-        completeAuthNavigation(context, auth.homeRoute);
+        await completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
       }

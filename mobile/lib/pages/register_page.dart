@@ -159,7 +159,7 @@ class _RegisterPageState extends State<RegisterPage>
       } else if (auth.isAuthenticated) {
         if (!mounted) return;
         NotificationService().requestPermissions();
-        completeAuthNavigation(context, auth.homeRoute);
+        await completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Failed to send OTP');
       }
@@ -194,7 +194,7 @@ class _RegisterPageState extends State<RegisterPage>
       if (!mounted) return;
       if (ok) {
         NotificationService().requestPermissions();
-        completeAuthNavigation(context, auth.homeRoute);
+        await completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
       }

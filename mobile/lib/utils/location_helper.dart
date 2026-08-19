@@ -63,6 +63,23 @@ class LocationHelper {
     }
   }
 
+  /// Shows the OS location prompt after login/signup.
+  /// Does not open Settings if the user previously denied forever.
+  static Future<void> requestPermissionAfterLogin() async {
+    if (kIsWeb) return;
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+      await Geolocator.requestPermission();
+    } catch (e) {
+      debugPrint('Location permission after login skipped: $e');
+    }
+  }
+
   /// Ensures that location permissions are granted.
   /// If denied, requests them.
   /// If deniedForever, prompts the user with a dialog to open App Settings.

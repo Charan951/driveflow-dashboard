@@ -4,8 +4,8 @@ import '../core/api_client.dart';
 import '../core/app_colors.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
-import '../services/notification_service.dart';
 import '../services/socket_service.dart';
+import '../utils/post_login_permissions.dart';
 
 enum _LoginStep { identifier, password, emailOtp, phoneOtp }
 
@@ -82,13 +82,15 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     });
   }
 
-  void _navigateAfterLogin(StaffUser user) {
+  Future<void> _navigateAfterLogin(StaffUser user) async {
     final role = user.role.toLowerCase();
     if (role == 'merchant') {
-      NotificationService().requestPermissions();
+      await PostLoginPermissions.request();
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
     } else if (role == 'staff' || role == 'admin') {
-      NotificationService().requestPermissions();
+      await PostLoginPermissions.request();
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
       _authService.logout();
@@ -133,7 +135,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
       return;
     }
 
-    if (identifier.length > 35 || !_isValidEmail(identifier)) {
+    if (!_isValidEmail(identifier)) {
       setState(
         () => _errorText =
             'Enter a valid email address or 10-digit mobile number',
@@ -292,7 +294,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
   String get _headingText {
     switch (_step) {
       case _LoginStep.identifier:
-        return '';
+        return 'Login';
       case _LoginStep.password:
         return 'Enter Password';
       case _LoginStep.emailOtp:
@@ -307,9 +309,11 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     final isOtpStep =
         _step == _LoginStep.emailOtp || _step == _LoginStep.phoneOtp;
 
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: Stack(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        body: Stack(
         children: [
           Container(
             decoration: const BoxDecoration(
@@ -483,7 +487,6 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.done,
                                       prefixIcon: Icons.person_outline,
-                                      maxLength: 35,
                                       onChanged: _clearError,
                                       onSubmitted: (_) =>
                                           _handleIdentifierNext(),
@@ -651,6 +654,7 @@ class _StaffLoginPageState extends State<StaffLoginPage>
             ),
           ),
         ],
+      ),
       ),
     );
   }

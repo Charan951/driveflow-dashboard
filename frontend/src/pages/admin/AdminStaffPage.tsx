@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
-import { isStrongPassword, isValidEmail, isValidPhone10, isValidName, isEmailTooLong, isNameTooLong, isPasswordTooLong } from '@/lib/formValidation';
+import { isStrongPassword, isValidEmail, isValidPhone10, isValidName, isNameTooLong, isPasswordTooLong } from '@/lib/formValidation';
 
 const AdminStaffPage: React.FC = () => {
   const navigate = useNavigate();
@@ -115,10 +115,6 @@ const AdminStaffPage: React.FC = () => {
     }
     if (!isValidName(newStaff.name)) {
       toast.error('Please enter valid data');
-      return;
-    }
-    if (isEmailTooLong(newStaff.email)) {
-      toast.error('Too long data: Please enter a maximum of 30 characters');
       return;
     }
     if (!isValidEmail(newStaff.email).valid) {
@@ -329,13 +325,12 @@ const AdminStaffPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email Address (max 30 characters)</label>
+                <label className="block text-sm font-medium mb-1">Email Address</label>
                 <input
                   type="email"
                   required
                   value={newStaff.email}
                   onChange={e => setNewStaff({...newStaff, email: e.target.value})}
-                  maxLength={30}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>

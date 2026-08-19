@@ -18,6 +18,7 @@ import 'pages/login_page.dart';
 import 'pages/order_detail_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/splash_page.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/merchant/merchant_dashboard.dart';
 import 'pages/merchant/merchant_orders_page.dart';
 import 'pages/merchant/merchant_order_detail_page.dart';
@@ -269,6 +270,11 @@ class StaffApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashPage(),
+        '/onboarding': (context) => OnboardingPage(
+          onComplete: () {
+            rootNavigatorKey.currentState?.pushReplacementNamed('/login');
+          },
+        ),
         '/login': (context) => const StaffLoginPage(),
         '/home': (context) => const StaffHomePage(),
         '/merchant-dashboard': (context) => const MerchantDashboardPage(),

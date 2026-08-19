@@ -39,6 +39,7 @@ import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
 import 'core/app_colors.dart';
 import 'core/env.dart';
+import 'utils/location_helper.dart';
 import 'widgets/connectivity_gate.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -213,6 +214,7 @@ Future<void> _bootstrapApp({
       );
       if (authProvider.isAuthenticated) {
         await notificationService.requestPermissions();
+        await LocationHelper.requestPermissionAfterLogin();
       }
       await notificationService.syncToken();
     } catch (e) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/auth_provider.dart';
+import 'location_helper.dart';
 
 /// Returns true if the user is already signed in, or signs in from the
 /// login screen that this helper opens.
@@ -13,9 +14,14 @@ Future<bool> ensureLoggedIn(BuildContext context) async {
   return context.read<AuthProvider>().isAuthenticated;
 }
 
-/// After a successful login/signup: pop back into the current session when
-/// login was pushed on top of the app, otherwise go to the role home.
-void completeAuthNavigation(BuildContext context, String homeRoute) {
+/// After a successful login/signup: ask for location, then pop back into the
+/// current session when login was pushed on top of the app, otherwise go home.
+Future<void> completeAuthNavigation(
+  BuildContext context,
+  String homeRoute,
+) async {
+  await LocationHelper.requestPermissionAfterLogin();
+  if (!context.mounted) return;
   if (Navigator.of(context).canPop()) {
     Navigator.of(context).pop(true);
     return;

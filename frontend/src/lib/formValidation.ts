@@ -113,11 +113,6 @@ export const isValidEmail = (value: string): { valid: boolean; error?: string } 
     return { valid: false, error: 'Email is required.' };
   }
 
-  // Check max length (254 per RFC)
-  if (trimmed.length > 254) {
-    return { valid: false, error: 'Email cannot be longer than 254 characters.' };
-  }
-
   // Check for spaces
   if (/\s/.test(trimmed)) {
     return { valid: false, error: 'Email cannot contain spaces.' };
@@ -193,8 +188,8 @@ export const isValidEmail = (value: string): { valid: boolean; error?: string } 
 // Helper for compatibility with existing code
 export const isEmailValid = (value: string): boolean => isValidEmail(value).valid;
 
-export const isEmailTooLong = (value: string): boolean => {
-  return value.length > MAX_EMAIL_LENGTH;
+export const isEmailTooLong = (_value: string): boolean => {
+  return false;
 };
 
 export const hasLeadingTrailingSpaces = (value: string): boolean => {
