@@ -173,14 +173,45 @@ class _CarzziDashboardState extends State<CarzziDashboard>
         return;
       }
 
+      // Each call is independently fault-tolerant (falls back to empty
+      // rather than rejecting) — a single flaky endpoint (e.g. a brief
+      // hiccup right after login) shouldn't blank the whole dashboard.
+      // A real 401 still propagates so the outer catch can sign the user
+      // out, since staying "logged in" against a dead token is worse.
+      Future<T> resilient<T>(Future<T> future, T fallback, String label) {
+        return future.catchError((Object e) {
+          if (e is ApiException && e.statusCode == 401) throw e;
+          debugPrint('Dashboard: $label load failed, showing empty: $e');
+          return fallback;
+        });
+      }
+
       final results = await Future.wait<dynamic>([
-        _vehicleService.listMyVehicles(forceRefresh: isInitial),
-        _bookingService.listMyBookings(forceRefresh: true),
-        _catalogService.listServices(isQuickService: true),
-        _reviewService.getMyReviews(),
-        _couponService.getCoupons(),
-        _notificationService.listMyNotifications().catchError(
-          (_) => <NotificationItem>[],
+        resilient(
+          _vehicleService.listMyVehicles(forceRefresh: isInitial),
+          <Vehicle>[],
+          'vehicles',
+        ),
+        resilient(
+          _bookingService.listMyBookings(forceRefresh: true),
+          <Booking>[],
+          'bookings',
+        ),
+        resilient(
+          _catalogService.listServices(isQuickService: true),
+          <ServiceItem>[],
+          'services',
+        ),
+        resilient(
+          _reviewService.getMyReviews(),
+          <Map<String, dynamic>>[],
+          'reviews',
+        ),
+        resilient(_couponService.getCoupons(), <dynamic>[], 'coupons'),
+        resilient(
+          _notificationService.listMyNotifications(),
+          <NotificationItem>[],
+          'notifications',
         ),
       ]);
 

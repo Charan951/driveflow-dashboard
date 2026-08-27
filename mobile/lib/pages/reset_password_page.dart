@@ -234,7 +234,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                                   ),
                                   const SizedBox(height: 32),
                                   _GlassField(
-                                    key: const Key('reset_token_field'),
+                                    key: const Key('reset_otp_field'),
                                     controller: _otpController,
                                     hintText: '6-digit OTP',
                                     prefixIcon: Icons.vpn_key_outlined,

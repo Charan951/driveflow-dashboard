@@ -144,6 +144,10 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
   Booking? _booking;
   String? _bookingId;
   Map<String, dynamic>? _vehicleRef;
+  // Admin-configurable per-category invoice toggle; null until loaded, in
+  // which case invoice-eligibility checks fall back to the pre-toggle
+  // defaults (see Booking.canShowInvoiceDownload).
+  Map<String, dynamic>? _invoiceSettings;
 
   late SocketService _socketService;
   bool _nearAlertShown = false;
@@ -181,6 +185,13 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
     if (!kIsWeb) {
       _cashfreeGateway.setCallback(_handlePaymentSuccess, _handlePaymentError);
     }
+
+    _service
+        .getInvoiceSettings()
+        .then((settings) {
+          if (mounted) setState(() => _invoiceSettings = settings);
+        })
+        .catchError((_) {});
   }
 
   void _handlePaymentSuccess(String orderId) async {
@@ -1432,7 +1443,8 @@ class _TrackBookingPageState extends State<TrackBookingPage> {
             booking.status == 'SERVICE_STARTED' ||
             booking.status == 'SERVICE_COMPLETED' ||
             booking.status == 'OUT_FOR_DELIVERY');
-    final canDownloadInvoice = booking?.canShowInvoiceDownload ?? false;
+    final canDownloadInvoice =
+        booking?.canShowInvoiceDownload(_invoiceSettings) ?? false;
     final isBookedStatus = booking?.status.toUpperCase() == 'BOOKED';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;

@@ -8,6 +8,9 @@ import {
   prepareSignup,
   sendSignupOtp,
   verifySignupOtp,
+  sendPhoneSignupOtp,
+  completeSignup,
+  checkEmailExists,
   prepareLogin,
   sendLoginOtp,
   verifyLoginOtp,
@@ -34,6 +37,9 @@ const router = express.Router();
 router.post('/signup/prepare', signupPrepareLimiter, rejectPrivilegedAuthFields, prepareSignup);
 router.post('/signup/send-otp', signupOtpLimiter, rejectPrivilegedAuthFields, sendSignupOtp);
 router.post('/signup/verify-otp', signupOtpLimiter, rejectPrivilegedAuthFields, verifySignupOtp);
+router.post('/signup/phone/send-otp', signupOtpLimiter, rejectPrivilegedAuthFields, sendPhoneSignupOtp);
+router.post('/signup/complete', signupOtpLimiter, rejectPrivilegedAuthFields, completeSignup);
+router.post('/login/check-email', loginPrepareLimiter, rejectPrivilegedAuthFields, checkEmailExists);
 router.post('/login/prepare', loginPrepareLimiter, rejectPrivilegedAuthFields, prepareLogin);
 router.post('/login/send-otp', loginOtpLimiter, rejectPrivilegedAuthFields, sendLoginOtp);
 router.post('/login/verify-otp', loginOtpLimiter, rejectPrivilegedAuthFields, verifyLoginOtp);

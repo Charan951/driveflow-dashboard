@@ -211,7 +211,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                     keyboardType: TextInputType.emailAddress,
                                     textInputAction: TextInputAction.done,
                                     prefixIcon: Icons.mail_outline,
-                                    maxLength: FormValidation.maxEmailLength,
                                     onChanged: (_) => _clearError(),
                                     onSubmitted: (_) => _handleSubmit(),
                                   ),
@@ -287,7 +286,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                   SizedBox(
                                     height: 56,
                                     child: ElevatedButton(
-                                      key: const Key('send_reset_link_button'),
+                                      key: const Key('send_otp_button'),
                                       onPressed: _submitting ? null : _handleSubmit,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
@@ -319,7 +318,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                                   ),
                                             )
                                           : const Text(
-                                              'Send Reset Link',
+                                              'Send OTP',
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
@@ -327,28 +326,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                                               ),
                                             ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Wrap(
-                                    alignment: WrapAlignment.center,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      TextButton(
-                                        key: const Key('enter_token_button'),
-                                        onPressed: () =>
-                                            Navigator.pushNamed(
-                                              context,
-                                              '/reset-password',
-                                            ),
-                                        child: const Text(
-                                          'Have a reset token?',
-                                          style: TextStyle(
-                                            color: AppColors.cinematicOrange,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                   const SizedBox(height: 12),
                                   Wrap(

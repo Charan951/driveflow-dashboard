@@ -41,6 +41,30 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const otpSentRef = useRef(false);
 
+  const RESEND_COOLDOWN_SECONDS = 30;
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+  const resendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startResendCountdown = () => {
+    if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
+    resendIntervalRef.current = setInterval(() => {
+      setResendSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    };
+  }, []);
+
   // Locked in once the user moves past the identifier step, so a stray
   // re-render doesn't reclassify "email" vs "phone" mid-flow.
   const [identifierKind, setIdentifierKind] = useState<IdentifierKind>(null);
@@ -88,9 +112,27 @@ const LoginPage: React.FC = () => {
         toast.error('Enter a valid email address');
         return;
       }
-      setIdentifierKind('email');
-      setPassword('');
-      setStep('password');
+      setIsLoading(true);
+      try {
+        const { exists } = await authService.checkEmailExists({ email: trimmed });
+        if (!exists) {
+          // No account with this email yet — go straight to signup with it
+          // prefilled instead of asking for a password that can't work.
+          navigate('/register', {
+            replace: false,
+            state: { ...locationState, prefilledEmail: trimmed },
+          });
+          return;
+        }
+        setIdentifierKind('email');
+        setPassword('');
+        setStep('password');
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } } };
+        toast.error(err.response?.data?.message || 'Something went wrong. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -102,6 +144,7 @@ const LoginPage: React.FC = () => {
       setMaskedPhone(result.mobile || '');
       setOtp('');
       setStep('phoneOtp');
+      startResendCountdown();
       const channels: string[] = result.channels || [];
       const label =
         channels.includes('whatsapp') && channels.includes('sms')
@@ -111,7 +154,30 @@ const LoginPage: React.FC = () => {
             : 'WhatsApp';
       toast.success(`OTP sent to your ${label}`);
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
+      const err = error as { response?: { status?: number; data?: { message?: string } } };
+      if (err.response?.status === 404) {
+        // No account with this number yet — send the signup OTP for it
+        // right away and take them to Create Account with the OTP field
+        // already showing, instead of a dead-end error.
+        try {
+          const signupResult = await authService.sendPhoneSignupOtp({ phone: trimmed });
+          navigate('/register', {
+            replace: false,
+            state: {
+              ...locationState,
+              prefilledPhone: trimmed,
+              prefilledMaskedPhone: signupResult.mobile,
+              otpAlreadySent: true,
+            },
+          });
+        } catch {
+          navigate('/register', {
+            replace: false,
+            state: { ...locationState, prefilledPhone: trimmed },
+          });
+        }
+        return;
+      }
       toast.error(err.response?.data?.message || 'Failed to send OTP');
     } finally {
       setIsLoading(false);
@@ -164,6 +230,7 @@ const LoginPage: React.FC = () => {
         const result = await authService.sendLoginOtp({ email: identifier });
         otpSentRef.current = true;
         setMaskedPhone(result.mobile || maskedPhone);
+        startResendCountdown();
         const channels: string[] = result.channels || [];
         const label =
           channels.includes('whatsapp') && channels.includes('sms')
@@ -207,6 +274,7 @@ const LoginPage: React.FC = () => {
     try {
       const result = await authService.sendLoginOtp({ email: identifier });
       setOtp('');
+      startResendCountdown();
       const channels: string[] = result.channels || [];
       const label =
         channels.includes('whatsapp') && channels.includes('sms')
@@ -247,6 +315,7 @@ const LoginPage: React.FC = () => {
     try {
       const result = await authService.sendPhoneLoginOtp({ phone: identifier.trim() });
       setOtp('');
+      startResendCountdown();
       const channels: string[] = result.channels || [];
       const label =
         channels.includes('whatsapp') && channels.includes('sms')
@@ -315,6 +384,8 @@ const LoginPage: React.FC = () => {
     setPassword('');
     setOtp('');
     otpSentRef.current = false;
+    if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    setResendSecondsLeft(0);
   };
 
   const stepTitle =
@@ -473,14 +544,20 @@ const LoginPage: React.FC = () => {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Back
               </button>
-              <button
-                type="button"
-                onClick={step === 'emailOtp' ? handleResendEmailOtp : handleResendPhoneOtp}
-                disabled={isLoading}
-                className="text-primary font-medium hover:underline disabled:opacity-50"
-              >
-                Resend OTP
-              </button>
+              {resendSecondsLeft > 0 ? (
+                <span className="text-muted-foreground">
+                  Resend OTP in {resendSecondsLeft}s
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={step === 'emailOtp' ? handleResendEmailOtp : handleResendPhoneOtp}
+                  disabled={isLoading}
+                  className="text-primary font-medium hover:underline disabled:opacity-50"
+                >
+                  Resend OTP
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -512,12 +589,6 @@ const LoginPage: React.FC = () => {
           </>
         )}
 
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{' '}
-          <Link to="/register" state={locationState} className="text-primary font-medium hover:underline">
-            Sign up
-          </Link>
-        </p>
       </div>
     </motion.div>
   );

@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import PendingSignup from '../models/PendingSignup.js';
 import PendingLogin from '../models/PendingLogin.js';
 import PendingPhoneLogin from '../models/PendingPhoneLogin.js';
+import PendingPhoneSignup from '../models/PendingPhoneSignup.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendEmail } from '../utils/emailService.js';
@@ -337,6 +338,32 @@ export const registerUser = async (req, res) => {
   }
 };
 
+/**
+ * Email-first login step — lets the client decide whether to show a
+ * password field (account exists) or route to signup (it doesn't),
+ * without leaking anything beyond existence itself.
+ */
+export const checkEmailExists = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    if (!email?.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailValidation = isValidEmail(normalizedEmail);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email id' });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select('_id');
+    res.json({ exists: !!user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 /** Step 1 — verify email/password, prepare OTP session (no OTP yet). */
 export const prepareLogin = async (req, res) => {
   const { email, password } = req.body;
@@ -644,6 +671,164 @@ export const verifyPhoneLoginOtp = async (req, res) => {
     console.error('verifyPhoneLoginOtp error:', error.message);
     const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
     res.status(status).json({ message: error.message || 'OTP verification failed' });
+  }
+};
+
+/**
+ * Phone-first signup verification — step 1: OTP-verify the mobile number
+ * on its own, before name/email/password exist. Lets the client (e.g. the
+ * login screen, on detecting an unregistered number) send the OTP
+ * immediately and only ask for the rest of the signup details afterward,
+ * with the OTP field already showing.
+ */
+export const sendPhoneSignupOtp = async (req, res) => {
+  const { phone } = req.body;
+
+  try {
+    if (!phone?.trim()) {
+      return res.status(400).json({ message: 'Mobile number is required' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
+    const phoneTaken = await User.findOne({
+      $or: [{ phone }, { phone: mobile }, { phone: mobile.slice(2) }],
+    });
+    if (phoneTaken) {
+      return res.status(400).json({ message: 'Phone number is already registered' });
+    }
+
+    const pending = await PendingPhoneSignup.findOne({ mobile });
+    if (
+      pending?.lastOtpSentAt &&
+      Date.now() - pending.lastOtpSentAt.getTime() < OTP_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(429).json({ message: 'Please wait before requesting another OTP.' });
+    }
+
+    const isDummyTestSignup = mobile === DUMMY_TEST_MOBILE;
+    const sendResult = isDummyTestSignup
+      ? { otpHash: null, channels: ['sms'] }
+      : await msg91SendAuthOtp(mobile);
+
+    await PendingPhoneSignup.findOneAndUpdate(
+      { mobile },
+      {
+        mobile,
+        otpHash: sendResult.otpHash || null,
+        verified: false,
+        expiresAt: new Date(Date.now() + OTP_PENDING_TTL_MS),
+        lastOtpSentAt: new Date(),
+        otpVerifyAttempts: 0,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const channels = sendResult.channels || ['whatsapp'];
+    res.json({
+      message: isDummyTestSignup
+        ? `Use test OTP ${DUMMY_TEST_OTP} to continue.`
+        : isTestingEnv()
+        ? 'OTP generated for testing (WhatsApp/SMS disabled). Check server logs.'
+        : `OTP sent to your ${formatChannelLabel(channels)}`,
+      mobile: `******${mobile.slice(-4)}`,
+      channels,
+    });
+  } catch (error) {
+    console.error('sendPhoneSignupOtp error:', error.message);
+    res.status(500).json({ message: error.message || 'Failed to send OTP. Please try again.' });
+  }
+};
+
+/**
+ * Phone-first signup — step 2: verifies the OTP and creates the account in
+ * one call, using the name/email/password collected on the same screen.
+ * Requires a verified (or freshly-OTP-matching) PendingPhoneSignup for the
+ * phone — i.e. sendPhoneSignupOtp must have been called first.
+ */
+export const completeSignup = async (req, res) => {
+  const { name, email, password, phone, otp } = req.body;
+
+  try {
+    if (!name?.trim()) {
+      return res.status(400).json({ message: 'Please enter your full name' });
+    }
+    if (isNameTooLong(name)) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+    if (!isValidName(name)) {
+      return res.status(400).json({ message: 'Please enter a valid full name (must contain letters only with spaces, apostrophes, or hyphens)' });
+    }
+    if (!password || password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: 'Too long data not accept' });
+    }
+
+    const normalizedEmail = (email || '').toLowerCase().trim();
+    const emailValidation = isValidEmail(normalizedEmail);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email id' });
+    }
+
+    const mobile = normalizeIndianMobile(phone);
+    if (!mobile) {
+      return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number' });
+    }
+    if (!isTestingEnv() && !otp) {
+      return res.status(400).json({ message: 'Please verify your mobile number first' });
+    }
+
+    const pending = await PendingPhoneSignup.findOne({ mobile });
+    if (!pending) {
+      return res.status(400).json({ message: 'Please verify your mobile number first' });
+    }
+    if (pending.expiresAt < new Date()) {
+      await PendingPhoneSignup.deleteOne({ mobile });
+      return res.status(400).json({ message: 'OTP session expired. Please verify your mobile number again.' });
+    }
+
+    const isDummyTestSignup = mobile === DUMMY_TEST_MOBILE && otp === DUMMY_TEST_OTP;
+
+    if (!pending.verified && !isTestingEnv() && !isDummyTestSignup) {
+      pending.otpVerifyAttempts = (pending.otpVerifyAttempts || 0) + 1;
+      if (pending.otpVerifyAttempts > MAX_OTP_VERIFY_ATTEMPTS) {
+        await PendingPhoneSignup.deleteOne({ mobile });
+        return res.status(429).json({ message: 'Too many OTP attempts. Please verify your mobile number again.' });
+      }
+      await pending.save();
+      await msg91VerifySignupOtp(mobile, otp, pending);
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    const phoneTaken = await User.findOne({
+      $or: [{ phone }, { phone: mobile }, { phone: mobile.slice(2) }],
+    });
+    if (phoneTaken) {
+      await PendingPhoneSignup.deleteOne({ mobile });
+      return res.status(400).json({ message: 'Phone number is already registered' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password,
+      role: 'customer',
+      phone: mobile.slice(2),
+      isApproved: true,
+    });
+
+    await PendingPhoneSignup.deleteOne({ mobile });
+
+    return sendAuthResponse(req, res, user, {}, 201);
+  } catch (error) {
+    console.error('completeSignup error:', error.message);
+    const status = error.message?.includes('Invalid') || error.message?.includes('expired') ? 400 : 500;
+    res.status(status).json({ message: error.message || 'Could not create account' });
   }
 };
 

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/storage.dart';
 
 class ThemeProvider extends ChangeNotifier {
-  ThemeMode _mode = ThemeMode.dark;
+  ThemeMode _mode = ThemeMode.system;
   bool _isLoaded = false;
 
   ThemeMode get mode => _mode;
@@ -19,8 +19,8 @@ class ThemeProvider extends ChangeNotifier {
     } else if (stored == 'system') {
       _mode = ThemeMode.system;
     } else {
-      // First launch: Carzzi is a dark-first product.
-      _mode = ThemeMode.dark;
+      // First launch: follow the device's theme setting.
+      _mode = ThemeMode.system;
     }
     _isLoaded = true;
     notifyListeners();

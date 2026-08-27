@@ -54,4 +54,15 @@ class NavigationProvider with ChangeNotifier {
     _shouldRefreshDashboard = true;
     notifyListeners();
   }
+
+  /// Flags the dashboard to refetch next time it's visible, without
+  /// forcing a tab switch. Needed after login/signup: MainNavigationPage
+  /// (and the CarzziDashboard inside it) is a single long-lived instance —
+  /// if it was already mounted while browsing as a guest, logging in
+  /// updates it in place rather than remounting it, so its one-time
+  /// initState fetch (made while unauthenticated) never reruns on its own.
+  void requestDashboardRefresh() {
+    _shouldRefreshDashboard = true;
+    notifyListeners();
+  }
 }

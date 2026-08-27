@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Save, Plus, Trash2, Home, Car, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { isValidName, hasExcessiveRepeatedChars, isValidEmail, isValidPhone10, MAX_NAME_LENGTH, isNameTooLong } from '@/lib/formValidation';
 import { logoutUser } from '@/lib/logout';
+import { authService } from '@/services/authService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +40,8 @@ const ProfilePage: React.FC = () => {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
   // Address Form State
   const [newAddress, setNewAddress] = useState({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
 
@@ -374,21 +376,28 @@ const ProfilePage: React.FC = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Account?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete your account? This will sign you out.
-                To permanently delete your data, please submit a deletion request from our{' '}
-                <Link to="/account-deletion" className="text-primary underline">
-                  Account Deletion
-                </Link>{' '}
-                page.
+                This will permanently delete your profile, vehicles, and notifications.
+                This cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={async () => {
-                  await logoutUser();
-                  navigate('/login', { replace: true });
+                disabled={isDeletingAccount}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  setIsDeletingAccount(true);
+                  try {
+                    await authService.deleteAccount();
+                    useAuthStore.getState().logout();
+                    navigate('/login', { replace: true });
+                  } catch (error: unknown) {
+                    const err = error as { response?: { data?: { message?: string } } };
+                    toast.error(err.response?.data?.message || 'Failed to delete account');
+                  } finally {
+                    setIsDeletingAccount(false);
+                  }
                 }}
               >
                 Delete Account

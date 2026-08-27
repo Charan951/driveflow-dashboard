@@ -615,10 +615,53 @@ class Booking {
     });
   }
 
+  /// Battery / tire bookings (dedicated flag or by service category).
+  bool get isBatteryTireBooking {
+    if (batteryTire?.isBatteryTireService == true) return true;
+    return services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('battery') || cat.contains('tyre') || cat.contains('tire');
+    });
+  }
+
+  /// Tire-specific bookings (by service category).
+  bool get isTireBooking {
+    return services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('tyre') || cat.contains('tire');
+    });
+  }
+
+  /// Battery-specific bookings (by service category).
+  bool get isBatteryBooking {
+    return services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('battery');
+    });
+  }
+
   /// Track page app bar: general → after DELIVERED; others → after payment.
-  bool get canShowInvoiceDownload {
+  ///
+  /// [invoiceSettings] is the admin-configurable per-category toggle from
+  /// `BookingService.getInvoiceSettings()` (keys: general, carWash, tyres,
+  /// battery). Pass null while it hasn't loaded yet — this falls back to
+  /// the pre-toggle defaults (general/tyres/battery blocked, everything
+  /// else allowed) rather than assuming a category is enabled.
+  bool canShowInvoiceDownload([Map<String, dynamic>? invoiceSettings]) {
+    bool flag(String key, bool fallback) {
+      final v = invoiceSettings?[key];
+      return v is bool ? v : fallback;
+    }
+
+    if (isTireBooking) return flag('tyres', false);
+    if (isBatteryBooking) return flag('battery', false);
     final st = status.toUpperCase();
-    if (isGeneralWorkshopService) return st == 'DELIVERED';
+    if (isGeneralWorkshopService) {
+      return st == 'DELIVERED' && flag('general', true);
+    }
+    if (carWash?.isCarWashService == true) {
+      return (paymentStatus ?? '').toLowerCase() == 'paid' && flag('carWash', true);
+    }
     return (paymentStatus ?? '').toLowerCase() == 'paid';
   }
 

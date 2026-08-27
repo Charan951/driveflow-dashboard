@@ -59,6 +59,47 @@ class AuthService {
     return AuthResult(token: token, user: user);
   }
 
+  /// Phone-first signup step 1 — OTP-verifies the mobile number on its
+  /// own, before name/email/password exist.
+  Future<Map<String, dynamic>> sendPhoneSignupOtp(String phone) async {
+    return _api.postJson(
+      ApiEndpoints.authSignupPhoneSendOtp,
+      body: {'phone': phone},
+    );
+  }
+
+  /// Phone-first signup step 2 — verifies the OTP and creates the account
+  /// in one call, using the details collected on the same screen.
+  Future<AuthResult> completeSignup({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String otp,
+  }) async {
+    final res = await _api.postJson(
+      ApiEndpoints.authSignupComplete,
+      body: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'otp': otp,
+      },
+    );
+    final token = (res['accessToken'] ?? res['token'])?.toString();
+    final user = _userFromAuthResponse(res);
+
+    if (token != null && token.isNotEmpty) {
+      await AppStorage().setToken(token);
+    }
+    if (user != null) {
+      await AppStorage().setUserJson(jsonEncode(user.toJson()));
+    }
+
+    return AuthResult(token: token, user: user);
+  }
+
   Future<AuthResult> register(
     String name,
     String email,
@@ -87,6 +128,16 @@ class AuthService {
     }
 
     return AuthResult(token: token, user: user);
+  }
+
+  /// Email-first login step: whether an account exists for this email, so
+  /// the caller can show a password field or route to signup.
+  Future<bool> checkEmailExists(String email) async {
+    final res = await _api.postJson(
+      ApiEndpoints.authLoginCheckEmail,
+      body: {'email': email},
+    );
+    return res['exists'] == true;
   }
 
   Future<Map<String, dynamic>> prepareLogin({
@@ -212,6 +263,19 @@ class AuthService {
     } catch (_) {
       // Ignore — local logout must still proceed.
     }
+    await AppStorage().clearToken();
+    await AppStorage().clearUser();
+  }
+
+  /// Permanently deletes the account (profile, vehicles, notifications) —
+  /// bookings/payments are kept server-side for admin audits, but a new
+  /// signup with the same email/phone starts fresh since it gets a new
+  /// user id. Local storage is only cleared once the server confirms the
+  /// deletion — if the request fails, the caller should see the error and
+  /// let the user retry rather than have the app act "logged out" while
+  /// the account still exists.
+  Future<void> deleteAccount() async {
+    await _api.deleteAny(ApiEndpoints.usersMe);
     await AppStorage().clearToken();
     await AppStorage().clearUser();
   }

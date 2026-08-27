@@ -1,4 +1,6 @@
 import User from '../models/User.js';
+import Vehicle from '../models/Vehicle.js';
+import Notification from '../models/Notification.js';
 import { sendEmail } from '../utils/emailService.js';
 import { getIO } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
@@ -96,6 +98,31 @@ export const deleteUser = async (req, res) => {
     } else {
       res.status(404).json({ message: 'User not found' });
     }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Self-service account deletion. Permanently removes the user's
+//          profile, vehicles, and notifications. Bookings and payments are
+//          deliberately kept as-is (orphaned, still pointing at this now-
+//          deleted user id) — admin needs them for audits, and since a new
+//          signup with the same email/phone gets a fresh user id, none of
+//          this old history is reachable from — or attributable to — the
+//          "new" account.
+// @route   DELETE /api/users/me
+// @access  Private
+export const deleteMyAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    await Vehicle.deleteMany({ user: userId });
+    await Notification.deleteMany({ userId });
+    await User.deleteOne({ _id: userId });
+
+    emitEntitySync('user', 'deleted', { _id: userId });
+
+    res.json({ message: 'Account deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

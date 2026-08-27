@@ -39,6 +39,7 @@ import 'state/theme_provider.dart';
 import 'state/tracking_provider.dart';
 import 'core/app_colors.dart';
 import 'core/env.dart';
+import 'core/storage.dart';
 import 'utils/location_helper.dart';
 import 'widgets/connectivity_gate.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -194,6 +195,7 @@ Future<void> _bootstrapApp({
   }
 
   try {
+    await AppStorage().ensureStorageMatchesInstall();
     await Future.wait([
       authProvider.loadMe().timeout(const Duration(seconds: 15)),
       themeProvider.loadThemeMode().timeout(const Duration(seconds: 10)),
@@ -374,7 +376,14 @@ class MyApp extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
             ),
             builder: (context, child) {
-              return ConnectivityGate(child: child ?? const SizedBox.shrink());
+              return GestureDetector(
+                onTap: () =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
+                behavior: HitTestBehavior.opaque,
+                child: ConnectivityGate(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              );
             },
             theme: ThemeData(
               useMaterial3: true,
@@ -543,7 +552,17 @@ class MyApp extends StatelessWidget {
                 },
               ),
               '/login': (_) => const LoginPage(),
-              '/register': (_) => const RegisterPage(),
+              '/register': (context) {
+                final args =
+                    ModalRoute.of(context)?.settings.arguments
+                        as Map<String, dynamic>?;
+                return RegisterPage(
+                  initialEmail: args?['email'] as String?,
+                  initialPhone: args?['phone'] as String?,
+                  initialMaskedPhone: args?['maskedPhone'] as String?,
+                  otpAlreadySent: args?['otpAlreadySent'] as bool? ?? false,
+                );
+              },
               '/terms': (_) => const LegalWebViewPage(
                 title: 'Terms & Conditions',
                 url: 'https://carzzi.com/terms',

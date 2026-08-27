@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,7 @@ import '../core/socket_sync.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../utils/location_helper.dart';
 import '../services/vehicle_service.dart';
+import '../core/places_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -35,6 +37,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Color get _accentPurple => const Color(0xFF3B82F6);
 
   int? _vehicleCount;
+  bool _isAddAddressSheetOpen = false;
 
   @override
   void initState() {
@@ -157,82 +160,80 @@ class _ProfilePageState extends State<ProfilePage> {
                       'Log in to manage your account, addresses, and preferences.',
                 )
               : SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      RepaintBoundary(
-                        child: _buildProfileHeader(context, user, isDark),
-                      ),
-                      const SizedBox(height: 28),
-                      RepaintBoundary(
-                        child: _buildStatsRow(context, user, isDark),
-                      ),
-                      const SizedBox(height: 32),
-                      if (user.addresses.isNotEmpty) ...[
-                        _SectionHeader(
-                          title: 'Saved Addresses',
-                          icon: Icons.map_rounded,
-                          onAdd: () => _addAddress(context, user),
+                  physics: const BouncingScrollPhysics(),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
                         ),
-                        const SizedBox(height: 12),
-                        RepaintBoundary(
-                          child: Column(
-                            children: [
-                              ...user.addresses.map(
-                                (a) => _AddressCard(
-                                  address: a,
-                                  onDelete: () =>
-                                      _deleteAddress(context, user, a),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            RepaintBoundary(
+                              child: _buildProfileHeader(context, user, isDark),
+                            ),
+                            const SizedBox(height: 28),
+                            RepaintBoundary(
+                              child: _buildStatsRow(context, user, isDark),
+                            ),
+                            const SizedBox(height: 32),
+                            if (user.addresses.isNotEmpty) ...[
+                              _SectionHeader(
+                                title: 'Saved Addresses',
+                                icon: Icons.map_rounded,
+                                onAdd: () => _addAddress(context, user),
+                              ),
+                              const SizedBox(height: 12),
+                              RepaintBoundary(
+                                child: Column(
+                                  children: [
+                                    ...user.addresses.map(
+                                      (a) => _AddressCard(
+                                        address: a,
+                                        onDelete: () =>
+                                            _deleteAddress(context, user, a),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ] else
-                        RepaintBoundary(
-                          child: _AddAddressCard(
-                            isDark: isDark,
-                            onTap: () => _addAddress(context, user),
-                          ),
-                        ),
+                            ] else
+                              RepaintBoundary(
+                                child: _AddAddressCard(
+                                  isDark: isDark,
+                                  onTap: () => _addAddress(context, user),
+                                ),
+                              ),
 
-                      const SizedBox(height: 32),
-                      Text(
-                        'Settings & Preferences',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: isDark ? Colors.white70 : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                            const SizedBox(height: 32),
+                            Text(
+                              'Settings & Preferences',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            RepaintBoundary(
+                              child: _buildAppearanceSettingsItem(
+                                context: context,
+                                isDark: isDark,
+                                themeProvider: themeProvider,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            _buildDeleteAccountButton(context, isDark),
+                            const SizedBox(height: 40),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      RepaintBoundary(
-                        child: _buildAppearanceSettingsItem(
-                          context: context,
-                          isDark: isDark,
-                          themeProvider: themeProvider,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildLogoutButton(context, isDark),
-                      const SizedBox(height: 12),
-                      _buildDeleteAccountButton(context, isDark),
-                      const SizedBox(height: 40),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -518,27 +519,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context, bool isDark) {
-    return FilledButton.icon(
-      onPressed: () => _showLogoutConfirmation(context, isDark),
-      icon: const Icon(Icons.logout_rounded, size: 22),
-      label: const Text(
-        'Logout Account',
-        style: TextStyle(
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.8,
-          fontSize: 15,
-        ),
-      ),
-      style: FilledButton.styleFrom(
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 64),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      ),
-    );
-  }
-
   Widget _buildDeleteAccountButton(BuildContext context, bool isDark) {
     return OutlinedButton.icon(
       onPressed: () => _showDeleteAccountConfirmation(context),
@@ -563,37 +543,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _showLogoutConfirmation(
-    BuildContext context,
-    bool isDark,
-  ) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout?'),
-        content: const Text(
-          'Are you sure you want to logout from your account?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && context.mounted) {
-      await _performLogout(context);
-    }
-  }
-
   Future<void> _showDeleteAccountConfirmation(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
@@ -601,8 +550,8 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Account?'),
         content: const Text(
-          'Are you sure you want to delete your account? This will sign you out. '
-          'To permanently delete your data, please submit a deletion request from our website.',
+          'This will permanently delete your profile, vehicles, and '
+          'notifications. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -618,15 +567,22 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
 
-    if (result == true && context.mounted) {
-      await _performLogout(context);
-    }
-  }
+    if (result != true || !context.mounted) return;
 
-  Future<void> _performLogout(BuildContext context) async {
-    await context.read<AuthProvider>().logout();
+    final messenger = ScaffoldMessenger.of(context);
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.deleteAccount();
     if (!context.mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+
+    if (ok) {
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(auth.lastError ?? 'Failed to delete account'),
+        ),
+      );
+    }
   }
 
   Future<void> _editProfile(BuildContext context, User? user) async {
@@ -719,247 +675,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _addAddress(BuildContext context, User? user) async {
     if (user == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final mapController = MapController();
-
-    String label = 'Home';
-    LatLng? selectedLatLng;
-    String? selectedAddress;
-    var resolvingAddress = false;
-    var locating = false;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          Future<void> setSelectedLocation(LatLng next) async {
-            setModalState(() {
-              selectedLatLng = next;
-              selectedAddress = null;
-              resolvingAddress = true;
-            });
-            try {
-              final zoom = mapController.camera.zoom;
-              mapController.move(next, zoom);
-
-              final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
-                'format': 'jsonv2',
-                'lat': next.latitude.toString(),
-                'lon': next.longitude.toString(),
-              });
-              final res = await http.get(
-                uri,
-                headers: const {'User-Agent': 'CarzziMobile/1.0'},
-              );
-              if (res.statusCode == 200) {
-                final decoded = jsonDecode(res.body);
-                if (decoded is Map && decoded['display_name'] is String) {
-                  setModalState(() {
-                    selectedAddress = decoded['display_name'];
-                    resolvingAddress = false;
-                  });
-                }
-              }
-            } catch (_) {
-              setModalState(() => resolvingAddress = false);
-            }
-          }
-
-          Future<void> useCurrentLocation() async {
-            if (locating) return;
-            setModalState(() => locating = true);
-            try {
-              final granted = await LocationHelper.ensureLocationAccess(
-                context,
-              );
-              if (!granted) {
-                return;
-              }
-
-              // Check for precise location (Android 12+)
-              if (!kIsWeb && Platform.isAndroid) {
-                final accuracy = await Geolocator.getLocationAccuracy();
-                if (accuracy == LocationAccuracyStatus.reduced) {
-                  debugPrint(
-                    'MobileApp: Reduced accuracy granted, requesting precise location',
-                  );
-                  final permission = await Geolocator.requestPermission();
-                  if (permission == LocationPermission.denied ||
-                      permission == LocationPermission.deniedForever) {
-                    return;
-                  }
-                }
-              }
-
-              final pos = await Geolocator.getCurrentPosition(
-                desiredAccuracy: LocationAccuracy.best,
-                timeLimit: const Duration(seconds: 15),
-              );
-              await setSelectedLocation(LatLng(pos.latitude, pos.longitude));
-              mapController.move(LatLng(pos.latitude, pos.longitude), 18);
-            } catch (e) {
-              messenger.showSnackBar(SnackBar(content: Text(e.toString())));
-            } finally {
-              if (context.mounted) {
-                setModalState(() => locating = false);
-              }
-            }
-          }
-
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              top: 20,
-              left: 20,
-              right: 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Address',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  initialValue: label,
-                  decoration: const InputDecoration(
-                    labelText: 'Label',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: ['Home', 'Work', 'Other']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (v) => setModalState(() => label = v!),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Select location on map',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 250,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? Colors.white10 : Colors.grey[300]!,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: FlutterMap(
-                      mapController: mapController,
-                      options: MapOptions(
-                        initialCenter: const LatLng(12.9716, 77.5946),
-                        initialZoom: 14,
-                        onTap: (_, latLng) => setSelectedLocation(latLng),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: Env.userAgent,
-                          tileProvider: CancellableNetworkTileProvider(),
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            if (selectedLatLng != null)
-                              Marker(
-                                point: selectedLatLng!,
-                                width: 40,
-                                height: 40,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  size: 40,
-                                  color: Colors.red,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (selectedAddress != null || resolvingAddress) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    resolvingAddress
-                        ? 'Resolving address...'
-                        : selectedAddress!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: locating ? null : useCurrentLocation,
-                  icon: const Icon(Icons.my_location),
-                  label: Text(locating ? 'Locating...' : 'Use my location'),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: (selectedLatLng == null || resolvingAddress)
-                      ? null
-                      : () async {
-                          final newList = List<SavedAddress>.from(
-                            user.addresses,
-                          );
-                          newList.add(
-                            SavedAddress(
-                              label: label,
-                              address: selectedAddress ?? '',
-                              lat: selectedLatLng!.latitude,
-                              lng: selectedLatLng!.longitude,
-                              isDefault: user.addresses.isEmpty,
-                            ),
-                          );
-                          try {
-                            await context.read<AuthProvider>().updateProfile(
-                              addresses: newList,
-                            );
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              final msg = e is ApiException
-                                  ? e.message
-                                  : e.toString().replaceFirst(
-                                      'Exception: ',
-                                      '',
-                                    );
-                              messenger.showSnackBar(
-                                SnackBar(content: Text(msg)),
-                              );
-                            }
-                          }
-                        },
-                  child: const Text('Add Address'),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    // Guard against a double-tap opening two overlapping bottom sheets.
+    if (_isAddAddressSheetOpen) return;
+    _isAddAddressSheetOpen = true;
+    try {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _AddAddressSheet(user: user),
+      );
+    } finally {
+      _isAddAddressSheetOpen = false;
+    }
   }
 
   Future<void> _deleteAddress(
@@ -1333,6 +1061,410 @@ class _AddAddressCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Add Address bottom sheet content. A dedicated StatefulWidget (rather
+/// than an inline StatefulBuilder closure) so it has its own clean Element
+/// lifecycle — `mounted`/dispose are unambiguous and every field is real
+/// instance state, avoiding the class of reconciliation bugs that ad-hoc
+/// closures over mutable locals inside `showModalBottomSheet` are prone to.
+class _AddAddressSheet extends StatefulWidget {
+  final User user;
+
+  const _AddAddressSheet({required this.user});
+
+  @override
+  State<_AddAddressSheet> createState() => _AddAddressSheetState();
+}
+
+class _AddAddressSheetState extends State<_AddAddressSheet> {
+  final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  String _label = 'Home';
+  LatLng? _selectedLatLng;
+  String? _selectedAddress;
+  bool _resolvingAddress = false;
+  bool _locating = false;
+  bool _searching = false;
+  List<PlacePrediction> _searchResults = [];
+  String _placesSessionToken = PlacesService.newSessionToken();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _useCurrentLocation(silent: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _runSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      if (mounted) setState(() => _searchResults = []);
+      return;
+    }
+    if (mounted) setState(() => _searching = true);
+    try {
+      final results = await PlacesService.autocomplete(
+        q,
+        sessionToken: _placesSessionToken,
+        near: _selectedLatLng,
+      );
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+        _searching = false;
+      });
+    } on PlacesApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _searching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Place search failed: ${e.status}')),
+      );
+    } catch (e) {
+      debugPrint('[Places] search error: $e');
+      if (!mounted) return;
+      setState(() => _searching = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Place search failed: $e')));
+    }
+  }
+
+  Future<void> _selectPrediction(PlacePrediction prediction) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _searchController.text = prediction.description;
+    setState(() => _searchResults = []);
+    final details = await PlacesService.getPlaceDetails(
+      prediction.placeId,
+      sessionToken: _placesSessionToken,
+    );
+    // Start a fresh session token now that this search-and-select is done.
+    _placesSessionToken = PlacesService.newSessionToken();
+    if (details == null) return;
+    setState(() {
+      _selectedLatLng = details.location;
+      _selectedAddress = details.formattedAddress.isNotEmpty
+          ? details.formattedAddress
+          : prediction.description;
+      _resolvingAddress = false;
+    });
+    _moveMap(details.location, 17);
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => _runSearch(query),
+    );
+  }
+
+  void _moveMap(LatLng point, [double? zoom]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _mapController.move(point, zoom ?? _mapController.camera.zoom);
+      } catch (_) {
+        // Controller not attached yet (e.g. sheet still animating in).
+      }
+    });
+  }
+
+  Future<void> _setSelectedLocation(LatLng next, {double? zoom}) async {
+    setState(() {
+      _selectedLatLng = next;
+      _selectedAddress = null;
+      _resolvingAddress = true;
+    });
+    _moveMap(next, zoom);
+    try {
+      final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+        'format': 'jsonv2',
+        'lat': next.latitude.toString(),
+        'lon': next.longitude.toString(),
+      });
+      final res = await http.get(
+        uri,
+        headers: const {'User-Agent': 'CarzziMobile/1.0'},
+      );
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map && decoded['display_name'] is String) {
+          setState(() {
+            _selectedAddress = decoded['display_name'];
+            _resolvingAddress = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _resolvingAddress = false);
+    }
+  }
+
+  Future<void> _useCurrentLocation({bool silent = false}) async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final granted = silent
+          ? await Geolocator.checkPermission().then(
+              (p) =>
+                  p == LocationPermission.always ||
+                  p == LocationPermission.whileInUse,
+            )
+          : await LocationHelper.ensureLocationAccess(context);
+      if (!granted) return;
+
+      // Check for precise location (Android 12+)
+      if (!kIsWeb && Platform.isAndroid) {
+        final accuracy = await Geolocator.getLocationAccuracy();
+        if (accuracy == LocationAccuracyStatus.reduced) {
+          debugPrint(
+            'MobileApp: Reduced accuracy granted, requesting precise location',
+          );
+          final permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) {
+            return;
+          }
+        }
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 15),
+      );
+      await _setSelectedLocation(LatLng(pos.latitude, pos.longitude), zoom: 18);
+    } catch (e) {
+      if (!silent && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    final newList = List<SavedAddress>.from(widget.user.addresses);
+    newList.add(
+      SavedAddress(
+        label: _label,
+        address: _selectedAddress ?? '',
+        lat: _selectedLatLng!.latitude,
+        lng: _selectedLatLng!.longitude,
+        isDefault: widget.user.addresses.isEmpty,
+      ),
+    );
+    try {
+      await context.read<AuthProvider>().updateProfile(addresses: newList);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        final msg = e is ApiException
+            ? e.message
+            : e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Add Address', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 20),
+            DropdownButtonFormField<String>(
+              initialValue: _label,
+              decoration: const InputDecoration(
+                labelText: 'Label',
+                border: OutlineInputBorder(),
+              ),
+              items: ['Home', 'Work', 'Other']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (v) => setState(() => _label = v!),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                labelText: 'Search for a place',
+                hintText: 'e.g. Star Hills Enclave',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searching
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : (_searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchDebounce?.cancel();
+                                setState(() => _searchResults = []);
+                              },
+                            )
+                          : null),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            if (_searchResults.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 220),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey[300]!,
+                  ),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _searchResults.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: isDark ? Colors.white10 : Colors.grey[300],
+                  ),
+                  itemBuilder: (context, i) {
+                    final prediction = _searchResults[i];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.place_outlined),
+                      title: Text(
+                        prediction.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => _selectPrediction(prediction),
+                    );
+                  },
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(
+              'Select location on map',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 250,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white10 : Colors.grey[300]!,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: const LatLng(12.9716, 77.5946),
+                    initialZoom: 14,
+                    onTap: (_, latLng) => _setSelectedLocation(latLng),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: Env.userAgent,
+                      tileProvider: CancellableNetworkTileProvider(),
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        if (_selectedLatLng != null)
+                          Marker(
+                            point: _selectedLatLng!,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_on,
+                              size: 40,
+                              color: Colors.red,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_selectedAddress != null || _resolvingAddress) ...[
+              const SizedBox(height: 12),
+              Text(
+                _resolvingAddress ? 'Resolving address...' : _selectedAddress!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _locating ? null : _useCurrentLocation,
+              icon: const Icon(Icons.my_location),
+              label: Text(_locating ? 'Locating...' : 'Use my location'),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: (_selectedLatLng == null || _resolvingAddress)
+                  ? null
+                  : _submit,
+              child: const Text('Add Address'),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

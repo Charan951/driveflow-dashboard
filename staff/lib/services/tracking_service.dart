@@ -178,15 +178,13 @@ class StaffTrackingService {
       return false;
     }
 
-    // Check for precise location (Android 12+)
+    // Precise location (Android 12+) — Approximate is not enough for job routing.
     if (!kIsWeb && Platform.isAndroid) {
       final accuracy = await Geolocator.getLocationAccuracy();
       if (accuracy == LocationAccuracyStatus.reduced) {
         debugPrint(
           'TrackingService: Reduced accuracy granted, requesting precise location',
         );
-        // On Android 12+, we can't programmatically upgrade from Approximate to Precise
-        // without showing the dialog again. requestPermission() will do that.
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied ||
             permission == LocationPermission.deniedForever) {
@@ -195,20 +193,11 @@ class StaffTrackingService {
       }
     }
 
-    // Request "Always" permission for background tracking on Android and iOS
-    if (permission == LocationPermission.whileInUse) {
-      if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
-        debugPrint(
-          'TrackingService: Requesting Always permission for background tracking',
-        );
-        final next = await Geolocator.requestPermission();
-        if (next == LocationPermission.always) {
-          permission = next;
-        }
-      }
-    }
-
-    return true;
+    // While-in-use is enough: Android keeps GPS alive via a location FGS while
+    // the staff is on an active job (Navigate). Do not request Always —
+    // ACCESS_BACKGROUND_LOCATION is not declared (Play / App Store policy).
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
   }
 
   Future<void> _ensureSocket() async {
@@ -305,9 +294,11 @@ class StaffTrackingService {
       lastUpdate: now,
     );
 
-    debugPrint(
-      'TrackingService: Position update: ${position.latitude}, ${position.longitude} (Accuracy: ${position.accuracy}m)',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        'TrackingService: Position update accuracy=${position.accuracy}m',
+      );
+    }
 
     final socket = _socket;
     // Live tracking via socket - every 1 second for real-time accuracy

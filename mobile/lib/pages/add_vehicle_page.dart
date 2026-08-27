@@ -532,93 +532,131 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     bool required = false,
     bool enabled = true,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
+    return _SearchableDropdownField(
       key: key,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          required ? '$label *' : label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Autocomplete<String>(
-          initialValue: TextEditingValue(text: selectedValue ?? ''),
-          optionsBuilder: (TextEditingValue textEditingValue) {
-            // Only show suggestions once the user has typed something —
-            // tapping into an empty field shouldn't dump the full list.
-            if (!enabled || textEditingValue.text.isEmpty) {
-              return const Iterable<String>.empty();
-            }
-            final q = textEditingValue.text.toLowerCase();
-            return options.where((o) => o.toLowerCase().contains(q));
-          },
-          onSelected: onSelected,
-          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-            return TextField(
-              controller: controller,
-              focusNode: focusNode,
-              enabled: enabled,
-              style: TextStyle(
-                color: isDark ? AppColors.textPrimary : Colors.black87,
-              ),
-              onChanged: (v) {
-                if (v.trim().isEmpty && selectedValue != null) {
-                  onSelected(null);
-                }
-                // Auto-accept an exact (case-insensitive) match without
-                // forcing the user to tap the suggestion.
-                final match = _matchOption(v, options);
-                if (match != null && match != selectedValue) {
-                  onSelected(match);
-                }
-              },
-              decoration: InputDecoration(
-                hintText: enabled ? (hint ?? 'Type to search') : hint,
-                hintStyle: TextStyle(
-                  color: isDark
-                      ? AppColors.textMuted
-                      : AppColors.textMutedLight,
-                ),
-                filled: true,
-                fillColor: isDark
-                    ? AppColors.backgroundSecondary
-                    : AppColors.backgroundSecondaryLight,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark
-                        ? AppColors.borderColor
-                        : AppColors.borderColorLight,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark
-                        ? AppColors.borderColor
-                        : AppColors.borderColorLight,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppColors.primaryBlue,
-                    width: 2,
-                  ),
-                ),
-              ),
-            );
-          },
-          optionsViewBuilder: (context, onSelectedOption, optionsList) {
-            // A fresh controller per build is fine here — this view is
-            // short-lived (rebuilt on every keystroke) and Scrollbar with
-            // thumbVisibility requires an explicit controller rather than
-            // relying on the PrimaryScrollController.
-            final scrollController = ScrollController();
-            return Align(
+      label: label,
+      options: options,
+      selectedValue: selectedValue,
+      onSelected: onSelected,
+      hint: hint,
+      required: required,
+      enabled: enabled,
+      matchOption: _matchOption,
+    );
+  }
+}
+
+/// A text field that shows a filterable dropdown of [options] as soon as
+/// it's focused (not just once the user has typed something) — the full
+/// list on focus, narrowing as they type. Built on a self-owned
+/// FocusNode + OverlayEntry rather than [Autocomplete], since Autocomplete
+/// only recomputes its options list on a text *change* event, so it never
+/// has anything to show on the very first focus of an empty field.
+class _SearchableDropdownField extends StatefulWidget {
+  final String label;
+  final List<String> options;
+  final String? selectedValue;
+  final ValueChanged<String?> onSelected;
+  final String? hint;
+  final bool required;
+  final bool enabled;
+  final String? Function(String? raw, List<String> options) matchOption;
+
+  const _SearchableDropdownField({
+    super.key,
+    required this.label,
+    required this.options,
+    required this.selectedValue,
+    required this.onSelected,
+    required this.matchOption,
+    this.hint,
+    this.required = false,
+    this.enabled = true,
+  });
+
+  @override
+  State<_SearchableDropdownField> createState() =>
+      _SearchableDropdownFieldState();
+}
+
+class _SearchableDropdownFieldState extends State<_SearchableDropdownField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+  final LayerLink _layerLink = LayerLink();
+  final GlobalKey _fieldKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+  List<String> _filtered = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.selectedValue ?? '');
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      _updateFilteredAndShow(_controller.text);
+    } else {
+      _removeOverlay();
+    }
+  }
+
+  void _updateFilteredAndShow(String query) {
+    if (!widget.enabled) return;
+    final q = query.trim().toLowerCase();
+    _filtered = q.isEmpty
+        ? widget.options
+        : widget.options.where((o) => o.toLowerCase().startsWith(q)).toList();
+    if (_filtered.isEmpty) {
+      _removeOverlay();
+      return;
+    }
+    if (_overlayEntry == null) {
+      _overlayEntry = _buildOverlayEntry();
+      Overlay.of(context).insert(_overlayEntry!);
+    } else {
+      _overlayEntry!.markNeedsBuild();
+    }
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _selectOption(String option) {
+    _controller.text = option;
+    _controller.selection = TextSelection.collapsed(offset: option.length);
+    widget.onSelected(option);
+    _removeOverlay();
+    _focusNode.unfocus();
+  }
+
+  OverlayEntry _buildOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final renderBox =
+            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final width = renderBox?.size.width ?? 280;
+        return Positioned(
+          width: width,
+          child: CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 56),
+            child: Align(
               alignment: Alignment.topLeft,
               child: Material(
                 elevation: 4,
@@ -627,44 +665,131 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                     ? AppColors.backgroundSurface
                     : AppColors.backgroundSurfaceLight,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxHeight: 280,
-                    minWidth: 280,
-                  ),
-                  child: Scrollbar(
-                    controller: scrollController,
-                    thumbVisibility: true,
-                    child: ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      shrinkWrap: true,
-                      itemCount: optionsList.length,
-                      itemBuilder: (context, index) {
-                        final option = optionsList.elementAt(index);
-                        return InkWell(
-                          onTap: () => onSelectedOption(option),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            child: Text(
-                              option,
-                              style: TextStyle(
-                                color: isDark
-                                    ? AppColors.textPrimary
-                                    : Colors.black87,
-                              ),
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    shrinkWrap: true,
+                    itemCount: _filtered.length,
+                    itemBuilder: (context, index) {
+                      final option = _filtered[index];
+                      return InkWell(
+                        onTap: () => _selectOption(option),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            option,
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : Colors.black87,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchableDropdownField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedValue != oldWidget.selectedValue &&
+        widget.selectedValue != _controller.text) {
+      _controller.text = widget.selectedValue ?? '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.required ? '${widget.label} *' : widget.label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        CompositedTransformTarget(
+          key: _fieldKey,
+          link: _layerLink,
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            enabled: widget.enabled,
+            style: TextStyle(
+              color: isDark ? AppColors.textPrimary : Colors.black87,
+            ),
+            onChanged: (v) {
+              if (v.trim().isEmpty && widget.selectedValue != null) {
+                widget.onSelected(null);
+              }
+              // Auto-accept an exact (case-insensitive) match without
+              // forcing the user to tap the suggestion.
+              final match = widget.matchOption(v, widget.options);
+              if (match != null && match != widget.selectedValue) {
+                widget.onSelected(match);
+              }
+              _updateFilteredAndShow(v);
+            },
+            decoration: InputDecoration(
+              hintText: widget.enabled
+                  ? (widget.hint ?? 'Type to search')
+                  : widget.hint,
+              hintStyle: TextStyle(
+                color: isDark ? AppColors.textMuted : AppColors.textMutedLight,
+              ),
+              suffixIcon: Icon(
+                Icons.keyboard_arrow_down,
+                color: widget.enabled
+                    ? (isDark
+                          ? AppColors.textMuted
+                          : AppColors.textMutedLight)
+                    : (isDark
+                          ? AppColors.textMuted.withValues(alpha: 0.4)
+                          : AppColors.textMutedLight.withValues(alpha: 0.4)),
+              ),
+              filled: true,
+              fillColor: isDark
+                  ? AppColors.backgroundSecondary
+                  : AppColors.backgroundSecondaryLight,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? AppColors.borderColor
+                      : AppColors.borderColorLight,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark
+                      ? AppColors.borderColor
+                      : AppColors.borderColorLight,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.primaryBlue,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

@@ -2,7 +2,6 @@
 class FormValidation {
   FormValidation._();
 
-  static const maxEmailLength = 30;
   static const maxPasswordLength = 15;
   static const maxNameLength = 30;
   static const maxDescriptionLength = 500;
@@ -84,7 +83,6 @@ class FormValidation {
     if (rawInput != null && rawInput != rawInput.trim()) {
       return 'Invalid email id';
     }
-    if (trimmed.length > maxEmailLength) return 'Too long data not accept';
     if (RegExp(r'\s').hasMatch(trimmed)) return 'Email cannot contain spaces';
     if (!RegExp(r'^[a-zA-Z]').hasMatch(trimmed)) {
       return 'Email must start with a letter';

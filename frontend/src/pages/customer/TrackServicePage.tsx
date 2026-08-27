@@ -159,15 +159,37 @@ const TrackServicePage: React.FC = () => {
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
   const [isMapMaximized, setIsMapMaximized] = useState(false);
   const [vehicleRef, setVehicleRef] = useState<Record<string, unknown> | null>(null);
+  // Admin-configurable per-category invoice toggle (AdminBookingsPage). Null
+  // while unloaded/unavailable — callers fall back to the pre-toggle
+  // defaults (general/tyre-battery blocked, everything else allowed) so
+  // this never widens access ahead of a confirmed settings fetch.
+  const [invoiceSettings, setInvoiceSettings] = useState<{ general: boolean; carWash: boolean; tyres: boolean; battery: boolean } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    bookingService.getInvoiceSettings()
+      .then((settings) => { if (!cancelled) setInvoiceSettings(settings); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const isCarWashService = order?.carWash?.isCarWashService || false;
 
-  const isBatteryOrTire = Array.isArray(order?.services) && 
+  const isTireService = Array.isArray(order?.services) &&
     order.services.some(service => {
       if (typeof (service as any) !== 'object' || !(service as any).category) return false;
       const cat = (service as any).category.toLowerCase();
-      return cat.includes('battery') || cat.includes('tire') || cat.includes('tyre');
+      return cat.includes('tire') || cat.includes('tyre');
     });
+
+  const isBatteryService = Array.isArray(order?.services) &&
+    order.services.some(service => {
+      if (typeof (service as any) !== 'object' || !(service as any).category) return false;
+      const cat = (service as any).category.toLowerCase();
+      return cat.includes('battery');
+    });
+
+  const isBatteryOrTire = isTireService || isBatteryService;
 
   const isEssentials = Array.isArray(order?.services) && 
     order.services.some(service => {
@@ -183,7 +205,20 @@ const TrackServicePage: React.FC = () => {
       const name = (service as any).name?.toLowerCase() || '';
       return cat === 'Periodic' || cat === 'Services' || name.includes('general service');
     });
-  
+
+  // Whether a generated PDF invoice is currently offered for this booking's
+  // category, per admin toggle. Defaults match the pre-toggle behavior
+  // (general/tyres/battery blocked) until the setting is confirmed loaded.
+  const canDownloadGeneratedInvoice = isGeneralService
+    ? (invoiceSettings?.general ?? false)
+    : isTireService
+    ? (invoiceSettings?.tyres ?? false)
+    : isBatteryService
+    ? (invoiceSettings?.battery ?? false)
+    : isCarWashService
+    ? (invoiceSettings?.carWash ?? true)
+    : true;
+
   const activeStatusFlow: readonly BookingStatus[] = getFlowForService(Array.isArray(order?.services) ? order.services : []);
 
   // Live Tracking State
@@ -1452,7 +1487,7 @@ const TrackServicePage: React.FC = () => {
                   </div>
                 )}
 
-                {order.paymentStatus === 'paid' && !isGeneralService && (
+                {order.paymentStatus === 'paid' && canDownloadGeneratedInvoice && (
                   <div className="flex justify-end">
                     <button
                       onClick={handleDownloadMerchantInvoice}

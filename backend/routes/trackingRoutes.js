@@ -6,6 +6,8 @@ import {
   getETA,
   reverseGeocode,
   searchGeocode,
+  placesAutocomplete,
+  placeDetails,
 } from '../controllers/trackingController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -29,5 +31,12 @@ router.route('/reverse')
   .get(protect, reverseGeocode);
 router.route('/search')
   .get(protect, searchGeocode);
+
+// Google Places proxy — key stays server-side (backend/.env), never shipped
+// to the browser bundle.
+router.route('/places-autocomplete')
+  .get(protect, placesAutocomplete);
+router.route('/place-details')
+  .get(protect, placeDetails);
 
 export default router;

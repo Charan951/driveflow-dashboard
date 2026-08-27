@@ -230,6 +230,11 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
     }
 
     let total = 0;
+    // Services where a brand was selected (or inferred) but the matched
+    // vehicle reference row has no valid (numeric, >0) price for that
+    // brand — e.g. marked "Not Available" in admin. Booking these should
+    // be rejected rather than silently falling back to the generic price.
+    const unavailableBrandServices = [];
     services.forEach(service => {
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
       const isBattery =
@@ -291,6 +296,7 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
             servicePrice = priceNum;
           } else {
             console.log('Invalid battery brand price, falling back to service.price', service.price);
+            unavailableBrandServices.push({ serviceId: service._id.toString(), serviceName: service.name, brand: selectedBrand });
           }
         } else {
           console.log('No battery brand selected or matched, falling back to service.price', service.price);
@@ -307,6 +313,7 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
             servicePrice = priceNum;
           } else {
             console.log('Invalid brand price, falling back to service.price', service.price);
+            unavailableBrandServices.push({ serviceId: service._id.toString(), serviceName: service.name, brand: selectedBrand });
           }
         } else {
           console.log('No brand selected, falling back to service.price', service.price);
@@ -316,7 +323,7 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
       total += (servicePrice * qty);
     });
 
-    return { total, refMatch, services };
+    return { total, refMatch, services, unavailableBrandServices };
   } catch (err) {
     console.error('Error in calculateServicesTotal:', err);
     // Fallback to basic calculation
@@ -668,10 +675,17 @@ export const createBooking = async (req, res) => {
 
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
-    const { total: servicesTotal, refMatch, services } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands, serviceQuantities);
+    const { total: servicesTotal, refMatch, services, unavailableBrandServices } = await calculateServicesTotal(serviceIds, vehicleId, selectedBrands, serviceQuantities);
 
     if (!services || services.length === 0) {
       return res.status(400).json({ message: 'At least one valid service is required to create a booking' });
+    }
+
+    if (unavailableBrandServices && unavailableBrandServices.length > 0) {
+      const { serviceName, brand } = unavailableBrandServices[0];
+      return res.status(400).json({
+        message: `${brand} is not available for this vehicle${serviceName ? ` (${serviceName})` : ''}. Please choose another brand.`,
+      });
     }
 
     // Determine booking categories for slot availability check

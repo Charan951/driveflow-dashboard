@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import VehicleCard from '@/components/VehicleCard';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
@@ -56,7 +56,7 @@ const AutocompleteField: React.FC<{
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return options.filter((o) => o.toLowerCase().includes(q));
+    return options.filter((o) => o.toLowerCase().startsWith(q));
   }, [query, options]);
 
   return (
@@ -64,22 +64,29 @@ const AutocompleteField: React.FC<{
       <label className="block text-sm font-medium text-foreground mb-2">
         {label} {required && <span className="text-destructive">*</span>}
       </label>
-      <input
-        type="text"
-        value={query}
-        disabled={disabled}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setIsOpen(true);
-          // Auto-accept an exact (case-insensitive) match without forcing
-          // the user to click the suggestion.
-          const exact = options.find((o) => o.toLowerCase() === e.target.value.trim().toLowerCase());
-          onSelect(exact ?? '');
-        }}
-        onFocus={() => setIsOpen(query.trim().length > 0)}
-        placeholder={disabled ? placeholder : placeholder || 'Type to search'}
-        className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          disabled={disabled}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+            // Auto-accept an exact (case-insensitive) match without forcing
+            // the user to click the suggestion.
+            const exact = options.find((o) => o.toLowerCase() === e.target.value.trim().toLowerCase());
+            onSelect(exact ?? '');
+          }}
+          onFocus={() => setIsOpen(query.trim().length > 0)}
+          placeholder={disabled ? placeholder : placeholder || 'Type to search'}
+          className="w-full px-4 py-3 pr-10 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+        />
+        <ChevronDown
+          className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
+            disabled ? 'text-muted-foreground/40' : 'text-muted-foreground'
+          }`}
+        />
+      </div>
       {isOpen && !disabled && filtered.length > 0 && (
         <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-popover border border-border rounded-xl shadow-lg">
           {filtered.map((option) => (

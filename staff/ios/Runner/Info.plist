@@ -26,12 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is used to photograph the vehicle and job progress for workshop records.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is used to attach vehicle and job photos to workshop records.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Photo library access is used when saving job photos to your device.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Location access is required to provide live staff tracking.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Always location access is required for background live staff tracking.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Always location access is required for background live staff tracking.</string>
+	<string>Location is used while you Navigate on an active job so dispatch and the customer can see your live position.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

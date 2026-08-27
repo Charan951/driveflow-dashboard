@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -115,7 +115,9 @@ class NotificationService {
     // Foreground message listener - show local notification
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Got a message whilst in the foreground!');
-      debugPrint('Message data: ${message.data}');
+      if (kDebugMode) {
+        debugPrint('Message data keys: ${message.data.keys.toList()}');
+      }
 
       _showLocalNotification(message);
     });

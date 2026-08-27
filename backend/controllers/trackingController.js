@@ -400,3 +400,98 @@ export const searchGeocode = async (req, res) => {
   }
 };
 
+/** Server-side only — never sent to the browser. Set in backend/.env. */
+const resolveGooglePlacesApiKey = () => {
+  const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
+  if (!key) {
+    throw new Error(
+      'GOOGLE_PLACES_API_KEY is not set in backend/.env — get a key at ' +
+        'https://console.cloud.google.com/apis/credentials with the Places API enabled.'
+    );
+  }
+  return key;
+};
+
+// @desc    Place search predictions via Google Places Autocomplete (proxied
+//          so the API key stays server-side, out of the browser bundle).
+// @route   GET /api/tracking/places-autocomplete?q=&sessiontoken=
+// @access  Private
+export const placesAutocomplete = async (req, res) => {
+  try {
+    const input = (req.query.q || '').toString().trim();
+    if (!input) return res.status(400).json({ message: 'Missing query' });
+    const sessiontoken = (req.query.sessiontoken || '').toString();
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const hasNear = Number.isFinite(lat) && Number.isFinite(lng);
+
+    const { data } = await axios.get(
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+      {
+        params: {
+          input,
+          key: resolveGooglePlacesApiKey(),
+          sessiontoken: sessiontoken || undefined,
+          location: hasNear ? `${lat},${lng}` : undefined,
+          radius: hasNear ? 50000 : undefined,
+        },
+        timeout: 8000,
+      }
+    );
+
+    if (data?.status && data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.warn('[Places] autocomplete status=%s message=%s', data.status, data.error_message);
+      return res.status(502).json({ message: data.error_message || data.status });
+    }
+
+    return res.json({ predictions: data?.predictions || [] });
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    return res.status(status).json({ message: error.message || 'Place search failed' });
+  }
+};
+
+// @desc    Resolve a place_id (from placesAutocomplete) to lat/lng +
+//          formatted address via Google Place Details.
+// @route   GET /api/tracking/place-details?place_id=&sessiontoken=
+// @access  Private
+export const placeDetails = async (req, res) => {
+  try {
+    const placeId = (req.query.place_id || '').toString().trim();
+    if (!placeId) return res.status(400).json({ message: 'Missing place_id' });
+    const sessiontoken = (req.query.sessiontoken || '').toString();
+
+    const { data } = await axios.get(
+      'https://maps.googleapis.com/maps/api/place/details/json',
+      {
+        params: {
+          place_id: placeId,
+          key: resolveGooglePlacesApiKey(),
+          sessiontoken: sessiontoken || undefined,
+          fields: 'geometry,formatted_address,name',
+        },
+        timeout: 8000,
+      }
+    );
+
+    if (data?.status !== 'OK') {
+      console.warn('[Places] details status=%s message=%s', data?.status, data?.error_message);
+      return res.status(502).json({ message: data?.error_message || data?.status });
+    }
+
+    const result = data.result || {};
+    const location = result.geometry?.location;
+    if (!location) return res.status(502).json({ message: 'No location in place details' });
+
+    const name = result.name;
+    const formatted = result.formatted_address;
+    const address =
+      name && formatted && !formatted.startsWith(name) ? `${name}, ${formatted}` : formatted || name || '';
+
+    return res.json({ lat: location.lat, lng: location.lng, address });
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    return res.status(status).json({ message: error.message || 'Place details failed' });
+  }
+};
+

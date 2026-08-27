@@ -251,6 +251,12 @@ export const bookingService = {
     return response.data;
   },
 
+  /** Admin-configurable, per-category invoice availability (see AdminBookingsPage). */
+  getInvoiceSettings: async (): Promise<{ general: boolean; carWash: boolean; tyres: boolean; battery: boolean }> => {
+    const response = await api.get('/bookings/invoice-settings');
+    return response.data;
+  },
+
   getBookingById: async (id: string) => {
     const response = await api.get(`/bookings/${id}`);
     return response.data;

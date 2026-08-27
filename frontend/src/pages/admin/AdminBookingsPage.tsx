@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { bookingService, Booking } from '@/services/bookingService';
 import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
+import InvoiceSettingsCard from '@/components/admin/InvoiceSettingsCard';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -181,6 +182,8 @@ const AdminBookingsPage: React.FC = () => {
           <p className="text-sm text-muted-foreground">Manage service requests and order flow.</p>
         </div>
       </div>
+
+      <InvoiceSettingsCard />
 
       {/* Filters & Search */}
       <div className="flex flex-col gap-4 justify-between items-stretch bg-card p-3 lg:p-4 rounded-xl border border-border min-w-0 overflow-hidden">

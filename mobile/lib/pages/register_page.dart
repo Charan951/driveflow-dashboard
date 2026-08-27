@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +12,23 @@ import '../state/auth_provider.dart';
 import '../utils/auth_gate.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  /// Prefilled when arriving from the login page after it determined this
+  /// email/phone has no account yet — saves retyping.
+  final String? initialEmail;
+  final String? initialPhone;
+  /// When the login page already sent the signup OTP for [initialPhone]
+  /// (phone-first verification), this carries the masked number so the
+  /// OTP field can show immediately instead of requiring a fresh send.
+  final String? initialMaskedPhone;
+  final bool otpAlreadySent;
+
+  const RegisterPage({
+    super.key,
+    this.initialEmail,
+    this.initialPhone,
+    this.initialMaskedPhone,
+    this.otpAlreadySent = false,
+  });
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -27,6 +45,9 @@ class _RegisterPageState extends State<RegisterPage>
   bool _submitting = false;
   bool _showOtpStep = false;
   String? _maskedPhone;
+  static const _resendCooldownSeconds = 30;
+  int _resendSecondsLeft = 0;
+  Timer? _resendTimer;
   String? _error;
   bool _showPassword = false;
   late final AnimationController _animationController;
@@ -39,11 +60,14 @@ class _RegisterPageState extends State<RegisterPage>
   void initState() {
     super.initState();
     _nameController = TextEditingController();
-    _emailController = TextEditingController();
+    _emailController = TextEditingController(text: widget.initialEmail ?? '');
     _passwordController = TextEditingController();
     _confirmController = TextEditingController();
-    _phoneController = TextEditingController();
+    _phoneController = TextEditingController(text: widget.initialPhone ?? '');
     _otpController = TextEditingController();
+    _showOtpStep = widget.otpAlreadySent;
+    _maskedPhone = widget.initialMaskedPhone;
+    if (_showOtpStep) _startResendCountdown();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -68,6 +92,7 @@ class _RegisterPageState extends State<RegisterPage>
     _confirmController.dispose();
     _phoneController.dispose();
     _otpController.dispose();
+    _resendTimer?.cancel();
     _animationController.dispose();
     _termsRecognizer.dispose();
     _privacyRecognizer.dispose();
@@ -78,12 +103,71 @@ class _RegisterPageState extends State<RegisterPage>
     if (_error != null) setState(() => _error = null);
   }
 
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSecondsLeft = _resendCooldownSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() => _resendSecondsLeft = 0);
+      } else {
+        setState(() => _resendSecondsLeft -= 1);
+      }
+    });
+  }
+
+  /// Sends the OTP for whatever's currently in the phone field — validates
+  /// only the phone number, independent of Name/Email/Password, so it can
+  /// fire the moment a valid number is known (including automatically,
+  /// when arriving here with one already prefilled from login).
+  Future<void> _handleSendPhoneOtp() async {
+    if (_submitting) return;
+
+    HapticFeedback.mediumImpact();
+    FocusScope.of(context).unfocus();
+    final phone = FormValidation.digitsOnly(_phoneController.text.trim());
+    final phoneError = FormValidation.validatePhone(phone);
+    if (phoneError != null) {
+      setState(() => _error = phoneError);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final masked = await auth.sendPhoneSignupOtp(phone);
+      if (!mounted) return;
+      if (masked != null) {
+        setState(() {
+          _showOtpStep = true;
+          _maskedPhone = masked;
+          _otpController.clear();
+        });
+        _startResendCountdown();
+      } else {
+        setState(() => _error = auth.lastError ?? 'Failed to send OTP');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Send phone OTP error: $e\n$stackTrace');
+      if (mounted) setState(() => _error = 'An unexpected error occurred');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   bool _validateSignupForm({
     required String name,
     required String email,
     required String pass,
     required String confirm,
-    required String phone,
   }) {
     final nameError = FormValidation.validateName(name);
     if (nameError != null) {
@@ -103,11 +187,6 @@ class _RegisterPageState extends State<RegisterPage>
       setState(() => _error = passwordError);
       return false;
     }
-    final phoneError = FormValidation.validatePhone(phone);
-    if (phoneError != null) {
-      setState(() => _error = phoneError);
-      return false;
-    }
     if (pass != confirm) {
       setState(() => _error = 'Passwords do not match');
       return false;
@@ -115,7 +194,9 @@ class _RegisterPageState extends State<RegisterPage>
     return true;
   }
 
-  Future<void> _handleSendOtp() async {
+  /// Final submit — validates Name/Email/Password/Confirm + the OTP
+  /// already sent for the phone, and creates the account in one call.
+  Future<void> _handleCompleteSignup() async {
     if (_submitting) return;
 
     HapticFeedback.mediumImpact();
@@ -125,58 +206,16 @@ class _RegisterPageState extends State<RegisterPage>
     final pass = _passwordController.text;
     final confirm = _confirmController.text;
     final phone = FormValidation.digitsOnly(_phoneController.text.trim());
+    final otp = _otpController.text.trim();
 
     if (!_validateSignupForm(
       name: name,
       email: email,
       pass: pass,
       confirm: confirm,
-      phone: phone,
     )) {
       return;
     }
-
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-
-    try {
-      final auth = context.read<AuthProvider>();
-      final masked = await auth.sendSignupOtp(
-        name: name,
-        email: email,
-        password: pass,
-        phone: phone,
-      );
-      if (!mounted) return;
-      if (masked != null) {
-        setState(() {
-          _showOtpStep = true;
-          _maskedPhone = masked;
-          _otpController.clear();
-        });
-      } else if (auth.isAuthenticated) {
-        if (!mounted) return;
-        NotificationService().requestPermissions();
-        await completeAuthNavigation(context, auth.homeRoute);
-      } else {
-        setState(() => _error = auth.lastError ?? 'Failed to send OTP');
-      }
-    } catch (e, stackTrace) {
-      debugPrint('Send OTP error: $e\n$stackTrace');
-      if (mounted) setState(() => _error = 'An unexpected error occurred');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _handleVerifyOtp() async {
-    if (_submitting) return;
-
-    final otp = _otpController.text.trim();
-    final phone = FormValidation.digitsOnly(_phoneController.text.trim());
-
     final otpError = FormValidation.validateOtp(otp);
     if (otpError != null) {
       setState(() => _error = otpError);
@@ -190,16 +229,22 @@ class _RegisterPageState extends State<RegisterPage>
 
     try {
       final auth = context.read<AuthProvider>();
-      final ok = await auth.verifySignupOtp(phone: phone, otp: otp);
+      final ok = await auth.completeSignup(
+        name: name,
+        email: email,
+        password: pass,
+        phone: phone,
+        otp: otp,
+      );
       if (!mounted) return;
       if (ok) {
         NotificationService().requestPermissions();
         await completeAuthNavigation(context, auth.homeRoute);
       } else {
-        setState(() => _error = auth.lastError ?? 'OTP verification failed');
+        setState(() => _error = auth.lastError ?? 'Could not create account');
       }
     } catch (e, stackTrace) {
-      debugPrint('Verify OTP error: $e\n$stackTrace');
+      debugPrint('Complete signup error: $e\n$stackTrace');
       if (mounted) setState(() => _error = 'An unexpected error occurred');
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -208,7 +253,7 @@ class _RegisterPageState extends State<RegisterPage>
 
   Future<void> _handleResendOtp() async {
     _otpController.clear();
-    await _handleSendOtp();
+    await _handleSendPhoneOtp();
   }
 
   void _openPrivacyPolicy() {
@@ -243,13 +288,14 @@ class _RegisterPageState extends State<RegisterPage>
               opacity: _fadeAnimation,
               child: SlideTransition(
                 position: _slideAnimation,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: SingleChildScrollView(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
-                      vertical: 16,
+                      vertical: 8,
                     ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 420),
@@ -262,17 +308,15 @@ class _RegisterPageState extends State<RegisterPage>
                             color: Colors.white,
                             fit: BoxFit.contain,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 8),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 32, 8, 24),
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  _showOtpStep
-                                      ? 'Verify WhatsApp OTP'
-                                      : 'Create Account',
+                                  'Create Account',
                                   key: const Key('register_title'),
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.headlineSmall
@@ -282,92 +326,111 @@ class _RegisterPageState extends State<RegisterPage>
                                         letterSpacing: 0.5,
                                       ),
                                 ),
+                                const SizedBox(height: 32),
+                                _GlassField(
+                                  controller: _nameController,
+                                  hintText: 'Full Name',
+                                  textInputAction: TextInputAction.next,
+                                  prefixIcon: Icons.person_outline,
+                                  maxLength: FormValidation.maxNameLength,
+                                  onChanged: (_) => _clearError(),
+                                ),
+                                const SizedBox(height: 16),
+                                _GlassField(
+                                  controller: _emailController,
+                                  hintText: 'Email',
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  prefixIcon: Icons.mail_outline,
+                                  onChanged: (_) => _clearError(),
+                                ),
+                                const SizedBox(height: 16),
+                                _GlassField(
+                                  controller: _passwordController,
+                                  hintText: 'Password',
+                                  textInputAction: TextInputAction.next,
+                                  prefixIcon: Icons.lock_outline,
+                                  obscureText: !_showPassword,
+                                  maxLength: 15,
+                                  suffix: IconButton(
+                                    onPressed: () => setState(
+                                      () => _showPassword = !_showPassword,
+                                    ),
+                                    icon: Icon(
+                                      _showPassword
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
+                                      color: Colors.white38,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onChanged: (_) => _clearError(),
+                                ),
+                                const SizedBox(height: 16),
+                                _GlassField(
+                                  controller: _confirmController,
+                                  hintText: 'Confirm Password',
+                                  textInputAction: TextInputAction.next,
+                                  prefixIcon: Icons.lock_outline,
+                                  obscureText: !_showPassword,
+                                  maxLength: 15,
+                                  suffix: IconButton(
+                                    onPressed: () => setState(
+                                      () => _showPassword = !_showPassword,
+                                    ),
+                                    icon: Icon(
+                                      _showPassword
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
+                                      color: Colors.white38,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onChanged: (_) => _clearError(),
+                                ),
+                                const SizedBox(height: 16),
+                                _GlassField(
+                                  controller: _phoneController,
+                                  hintText: 'Mobile number',
+                                  keyboardType: TextInputType.phone,
+                                  textInputAction: TextInputAction.done,
+                                  prefixIcon: Icons.phone_outlined,
+                                  enabled: !_showOtpStep,
+                                  suffix: _showOtpStep
+                                      ? const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.greenAccent,
+                                          size: 20,
+                                        )
+                                      : TextButton(
+                                          onPressed: _submitting
+                                              ? null
+                                              : _handleSendPhoneOtp,
+                                          child: const Text(
+                                            'Send OTP',
+                                            style: TextStyle(
+                                              color:
+                                                  AppColors.cinematicOrange,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                  onChanged: (_) => _clearError(),
+                                  onSubmitted: (_) => _showOtpStep
+                                      ? null
+                                      : _handleSendPhoneOtp(),
+                                ),
                                 if (_showOtpStep) ...[
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 16),
                                   Text(
                                     'Code sent to ${_maskedPhone ?? 'your WhatsApp'}',
-                                    textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Colors.white60,
                                       fontSize: 13,
                                     ),
                                   ),
-                                ],
-                                const SizedBox(height: 32),
-                                if (!_showOtpStep) ...[
-                                  _GlassField(
-                                    controller: _nameController,
-                                    hintText: 'Full Name',
-                                    textInputAction: TextInputAction.next,
-                                    prefixIcon: Icons.person_outline,
-                                    maxLength: FormValidation.maxNameLength,
-                                    onChanged: (_) => _clearError(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _GlassField(
-                                    controller: _emailController,
-                                    hintText: 'Email',
-                                    keyboardType: TextInputType.emailAddress,
-                                    textInputAction: TextInputAction.next,
-                                    prefixIcon: Icons.mail_outline,
-                                    maxLength: FormValidation.maxEmailLength,
-                                    onChanged: (_) => _clearError(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _GlassField(
-                                    controller: _passwordController,
-                                    hintText: 'Password',
-                                    textInputAction: TextInputAction.next,
-                                    prefixIcon: Icons.lock_outline,
-                                    obscureText: !_showPassword,
-                                    maxLength: 15,
-                                    suffix: IconButton(
-                                      onPressed: () => setState(
-                                        () => _showPassword = !_showPassword,
-                                      ),
-                                      icon: Icon(
-                                        _showPassword
-                                            ? Icons.visibility
-                                            : Icons.visibility_off,
-                                        color: Colors.white38,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    onChanged: (_) => _clearError(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _GlassField(
-                                    controller: _confirmController,
-                                    hintText: 'Confirm Password',
-                                    textInputAction: TextInputAction.next,
-                                    prefixIcon: Icons.lock_outline,
-                                    obscureText: !_showPassword,
-                                    maxLength: 15,
-                                    suffix: IconButton(
-                                      onPressed: () => setState(
-                                        () => _showPassword = !_showPassword,
-                                      ),
-                                      icon: Icon(
-                                        _showPassword
-                                            ? Icons.visibility
-                                            : Icons.visibility_off,
-                                        color: Colors.white38,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    onChanged: (_) => _clearError(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _GlassField(
-                                    controller: _phoneController,
-                                    hintText: 'Mobile number',
-                                    keyboardType: TextInputType.phone,
-                                    textInputAction: TextInputAction.done,
-                                    prefixIcon: Icons.phone_outlined,
-                                    onChanged: (_) => _clearError(),
-                                    onSubmitted: (_) => _handleSendOtp(),
-                                  ),
-                                ] else ...[
+                                  const SizedBox(height: 8),
                                   _GlassField(
                                     controller: _otpController,
                                     hintText: '6-digit OTP',
@@ -375,7 +438,35 @@ class _RegisterPageState extends State<RegisterPage>
                                     textInputAction: TextInputAction.done,
                                     prefixIcon: Icons.sms_outlined,
                                     onChanged: (_) => _clearError(),
-                                    onSubmitted: (_) => _handleVerifyOtp(),
+                                    onSubmitted: (_) =>
+                                        _handleCompleteSignup(),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: _resendSecondsLeft > 0
+                                        ? Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              'Resend OTP in ${_resendSecondsLeft}s',
+                                              style: const TextStyle(
+                                                color: Colors.white38,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          )
+                                        : TextButton(
+                                            onPressed: _submitting
+                                                ? null
+                                                : _handleResendOtp,
+                                            child: const Text(
+                                              'Resend OTP',
+                                              style: TextStyle(
+                                                color:
+                                                    AppColors.cinematicOrange,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
                                   ),
                                 ],
                                 if (_error != null) ...[
@@ -419,8 +510,8 @@ class _RegisterPageState extends State<RegisterPage>
                                     onPressed: _submitting
                                         ? null
                                         : (_showOtpStep
-                                              ? _handleVerifyOtp
-                                              : _handleSendOtp),
+                                              ? _handleCompleteSignup
+                                              : _handleSendPhoneOtp),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor:
                                           AppColors.cinematicOrange,
@@ -451,7 +542,7 @@ class _RegisterPageState extends State<RegisterPage>
                                         : Text(
                                             _showOtpStep
                                                 ? 'Verify & Register'
-                                                : 'Verify',
+                                                : 'Send OTP',
                                             style: const TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -460,68 +551,7 @@ class _RegisterPageState extends State<RegisterPage>
                                           ),
                                   ),
                                 ),
-                                if (_showOtpStep) ...[
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      TextButton(
-                                        onPressed: _submitting
-                                            ? null
-                                            : () => setState(() {
-                                                _showOtpStep = false;
-                                                _otpController.clear();
-                                              }),
-                                        child: const Text(
-                                          'Back',
-                                          style: TextStyle(
-                                            color: Colors.white60,
-                                          ),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: _submitting
-                                            ? null
-                                            : _handleResendOtp,
-                                        child: const Text(
-                                          'Resend OTP',
-                                          style: TextStyle(
-                                            color: AppColors.cinematicOrange,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
                                 const SizedBox(height: 24),
-                                Wrap(
-                                  alignment: WrapAlignment.center,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "Already have an account? ",
-                                      style: TextStyle(color: Colors.white60),
-                                    ),
-                                    TextButton(
-                                      key: const Key('register_to_login'),
-                                      onPressed: () =>
-                                          Navigator.pushReplacementNamed(
-                                            context,
-                                            '/login',
-                                          ),
-                                      child: const Text(
-                                        'Login',
-                                        style: TextStyle(
-                                          color: AppColors.cinematicOrange,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
                                 RichText(
                                   textAlign: TextAlign.center,
                                   text: TextSpan(
@@ -582,6 +612,7 @@ class _GlassField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final Widget? suffix;
   final int? maxLength;
+  final bool enabled;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -594,6 +625,7 @@ class _GlassField extends StatelessWidget {
     this.textInputAction,
     this.suffix,
     this.maxLength,
+    this.enabled = true,
     this.onChanged,
     this.onSubmitted,
   });
@@ -606,6 +638,7 @@ class _GlassField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       maxLength: maxLength,
+      enabled: enabled,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       style: const TextStyle(color: Colors.white),

@@ -34,11 +34,15 @@ interface LocationPickerProps {
 }
 
 interface Suggestion {
-  place_id: number;
+  place_id: string;
   display_name: string;
-  lat: string;
-  lon: string;
 }
+
+/** Groups one search-and-select flow into a single Google billing session. */
+const newSessionToken = () => {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length: 24 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+};
 
 // Component to handle map clicks and zoom
 const MapEventsHandler = ({ setPosition, setZoom, fetchAddress }: { 
@@ -77,6 +81,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
   const [isLoading, setIsLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const sessionTokenRef = useRef(newSessionToken());
   const markerRef = useRef<L.Marker>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -163,57 +168,52 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     }
   };
 
+  // Auto-locate once on mount if there's no initial address — but never
+  // again after that, otherwise clearing the field to type a new search
+  // just gets immediately overwritten with the current location.
+  const hasAutoLocatedRef = useRef(false);
   useEffect(() => {
+    if (hasAutoLocatedRef.current) return;
+    hasAutoLocatedRef.current = true;
     if (!value || (typeof value === 'string' && !value) || (typeof value === 'object' && !value.address)) {
       handleGetCurrentLocation();
     }
-  }, [value, handleGetCurrentLocation]);
-
-  // Helper function for searching
-  const searchNominatim = useCallback(async (q: string) => {
-    try {
-      const response = await api.get('/tracking/search', { params: { q, limit: 5, countrycodes: 'in' } });
-      return response.data || [];
-    } catch (e) {
-      console.error('Nominatim search error:', e);
-      return [];
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Google Places Autocomplete, proxied through the backend so the API key
+  // never reaches the browser bundle. Surfaces named places (businesses,
+  // landmarks) the way Google Maps labels them, not just street addresses.
+  const searchPlaces = useCallback(
+    async (q: string): Promise<Suggestion[]> => {
+      try {
+        const response = await api.get('/tracking/places-autocomplete', {
+          params: {
+            q,
+            sessiontoken: sessionTokenRef.current,
+            lat: position[0],
+            lng: position[1],
+          },
+        });
+        const predictions = response.data?.predictions || [];
+        return predictions.map((p: { place_id: string; description: string }) => ({
+          place_id: p.place_id,
+          display_name: p.description,
+        }));
+      } catch (e) {
+        console.error('Place search error:', e);
+        return [];
+      }
+    },
+    [position]
+  );
 
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (query && isTyping && query.length > 2) {
         setIsLoading(true);
         try {
-          // Attempt 1: Full query
-          let results = await searchNominatim(query);
-          
-          // Attempt 2: If no results and has commas, try removing first part (often house number/name)
-          if (results.length === 0 && query.includes(',')) {
-             const parts = query.split(',');
-             if (parts.length > 1) {
-                 const broaderQuery = parts.slice(1).join(',').trim();
-                 if (broaderQuery.length > 3) {
-                     // Small delay to be nice to the API
-                     await new Promise(resolve => setTimeout(resolve, 500));
-                     results = await searchNominatim(broaderQuery);
-                 }
-             }
-          }
-          
-           // Attempt 3: If still no results, try last 2 parts (likely city/state) as a catch-all
-          if (results.length === 0 && query.includes(',')) {
-             const parts = query.split(',');
-             if (parts.length > 2) {
-                 const broaderQuery = parts.slice(-2).join(',').trim();
-                 // Avoid repeating Attempt 2 if it was the same
-                 if (broaderQuery.length > 3 && broaderQuery !== parts.slice(1).join(',').trim()) {
-                     await new Promise(resolve => setTimeout(resolve, 500));
-                     results = await searchNominatim(broaderQuery);
-                 }
-             }
-          }
-
+          const results = await searchPlaces(query);
           setSuggestions(results);
           setShowSuggestions(true);
         } catch (error) {
@@ -225,10 +225,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
         setSuggestions([]);
         setShowSuggestions(false);
       }
-    }, 500); // Reduced debounce time for faster search response
+    }, 400); // Debounce so we don't fire a request on every keystroke
 
     return () => clearTimeout(timer);
-  }, [query, isTyping, searchNominatim]);
+  }, [query, isTyping, searchPlaces]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -254,15 +254,31 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
     }
   }, [value]);
 
-  const handleSuggestionClick = (suggestion: Suggestion) => {
-    const lat = parseFloat(suggestion.lat);
-    const lon = parseFloat(suggestion.lon);
+  const handleSuggestionClick = async (suggestion: Suggestion) => {
     setIsTyping(false);
-    setPosition([lat, lon]);
-    setZoom(16); // Zoom in on suggestion
     setQuery(suggestion.display_name);
-    onChange({ address: suggestion.display_name, lat, lng: lon });
     setShowSuggestions(false);
+    setIsLoading(true);
+    try {
+      const response = await api.get('/tracking/place-details', {
+        params: { place_id: suggestion.place_id, sessiontoken: sessionTokenRef.current },
+      });
+      const { lat, lng, address } = response.data || {};
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        setPosition([lat, lng]);
+        setZoom(16); // Zoom in on suggestion
+        const finalAddress = address || suggestion.display_name;
+        setQuery(finalAddress);
+        onChange({ address: finalAddress, lat, lng });
+      }
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+      toast.error('Could not load that place. Please try another result.');
+    } finally {
+      setIsLoading(false);
+      // Start a fresh session token now that this search-and-select is done.
+      sessionTokenRef.current = newSessionToken();
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

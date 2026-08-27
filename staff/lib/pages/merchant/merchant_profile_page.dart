@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/socket_sync.dart';
 import '../../services/auth_service.dart';
@@ -482,7 +483,40 @@ class _MerchantProfilePageState extends State<MerchantProfilePage> {
                     ),
                     const SizedBox(height: 16),
                     const AppearanceSettingsCard(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () async {
+                        await launchUrl(
+                          Uri.parse('https://carzzi.com/privacy'),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                      child: Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await launchUrl(
+                          Uri.parse('https://carzzi.com/terms'),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      },
+                      child: Text(
+                        'Terms of Service',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(

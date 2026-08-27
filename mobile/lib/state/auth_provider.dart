@@ -16,6 +16,10 @@ class AuthProvider extends ChangeNotifier {
   bool loading = false;
   bool _isInitialized = false;
   String? lastError;
+  /// HTTP status of the most recent failed auth call, when available —
+  /// lets callers distinguish e.g. "account not found" (404) from other
+  /// failures without parsing [lastError] text.
+  int? lastErrorStatusCode;
 
   AuthProvider() {
     SocketService().addListener(_onSocketEvent);
@@ -197,13 +201,17 @@ class AuthProvider extends ChangeNotifier {
       }
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
+        debugPrint(
+          '[AuthProvider] Background /users/me returned 401 — '
+          'clearing session.',
+        );
         await AppStorage().clearToken();
         await AppStorage().clearUser();
         user = null;
         notifyListeners();
       }
     } catch (e) {
-      // Silent catch
+      debugPrint('[AuthProvider] Background refresh failed: $e');
     }
   }
 
@@ -222,6 +230,25 @@ class AuthProvider extends ChangeNotifier {
     await SessionCache.clearForNewSession();
     SocketService().init(user);
     NotificationService().syncToken();
+  }
+
+  /// Email-first login step — null on network/server error (caller should
+  /// show a generic error and not navigate anywhere), true/false otherwise.
+  Future<bool?> checkEmailExists(String email) async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final exists = await _auth.checkEmailExists(email);
+      loading = false;
+      notifyListeners();
+      return exists;
+    } catch (e) {
+      lastError = _messageFromError(e);
+      loading = false;
+      notifyListeners();
+      return null;
+    }
   }
 
   Future<String?> prepareLogin(String email, String password) async {
@@ -323,6 +350,7 @@ class AuthProvider extends ChangeNotifier {
 
     loading = true;
     lastError = null;
+    lastErrorStatusCode = null;
     notifyListeners();
     try {
       final res = await _auth.sendPhoneLoginOtp(phone: phone);
@@ -331,6 +359,7 @@ class AuthProvider extends ChangeNotifier {
       return (res['mobile'] as String?) ?? '';
     } catch (e) {
       lastError = _messageFromError(e);
+      lastErrorStatusCode = e is ApiException ? e.statusCode : null;
       loading = false;
       notifyListeners();
       return null;
@@ -464,6 +493,75 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Phone-first signup step 1 — sends an OTP to verify the mobile number
+  /// on its own, before name/email/password exist. Returns the masked
+  /// mobile on success.
+  Future<String?> sendPhoneSignupOtp(String phone) async {
+    loading = true;
+    lastError = null;
+    lastErrorStatusCode = null;
+    notifyListeners();
+    try {
+      final res = await _auth.sendPhoneSignupOtp(phone);
+      loading = false;
+      notifyListeners();
+      return (res['mobile'] as String?) ?? '';
+    } catch (e) {
+      lastError = _messageFromError(e);
+      lastErrorStatusCode = e is ApiException ? e.statusCode : null;
+      loading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Phone-first signup step 2 — verifies the OTP and creates the account
+  /// in one call.
+  Future<bool> completeSignup({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    required String otp,
+  }) async {
+    await logout();
+
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      final res = await _auth.completeSignup(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+        otp: otp,
+      );
+      if (res.token != null && res.token!.isNotEmpty) {
+        user = res.user;
+        if (user == null) {
+          user = await _auth.me();
+          if (user != null) {
+            await AppStorage().setUserJson(jsonEncode(user!.toJson()));
+          }
+        }
+        await AppStorage().clearHasSeenNoVehicleModal();
+        await SessionCache.clearForNewSession();
+        SocketService().init(user);
+        NotificationService().syncToken();
+        loading = false;
+        notifyListeners();
+        return true;
+      }
+      lastError = 'Could not create account';
+    } catch (e) {
+      lastError = _messageFromError(e);
+    }
+    loading = false;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> register(
     String name,
     String email,
@@ -521,6 +619,31 @@ class AuthProvider extends ChangeNotifier {
       // 3. Reset local state
       user = null;
       lastError = null;
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Permanently deletes the account. Returns false (with [lastError] set)
+  /// if the server call fails — the caller should keep the user signed in
+  /// and let them retry, rather than acting as if deletion succeeded.
+  Future<bool> deleteAccount() async {
+    loading = true;
+    lastError = null;
+    notifyListeners();
+    try {
+      await _auth.deleteAccount();
+
+      SocketService().trackingProvider?.clear();
+      SocketService().disconnect();
+      await SessionCache.clearForNewSession();
+
+      user = null;
+      return true;
+    } catch (e) {
+      lastError = _messageFromError(e);
+      return false;
     } finally {
       loading = false;
       notifyListeners();

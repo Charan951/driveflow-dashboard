@@ -176,6 +176,13 @@ class BookingService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
+  /// Admin-configurable, per-category invoice availability (toggled in the
+  /// web admin's Booking Management page). Keys: general, carWash, tyres,
+  /// battery.
+  Future<Map<String, dynamic>> getInvoiceSettings() async {
+    return _api.getJson('${ApiEndpoints.bookings}/invoice-settings');
+  }
+
   Future<Map<String, dynamic>> generateDeliveryOtp(String id) async {
     return await _api.postJson(
       '${ApiEndpoints.bookings}/$id/generate-otp',

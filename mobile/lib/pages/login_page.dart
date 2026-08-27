@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +29,9 @@ class _LoginPageState extends State<LoginPage>
   String? _maskedPhone;
   String? _error;
   bool _showPassword = false;
+  static const _resendCooldownSeconds = 30;
+  int _resendSecondsLeft = 0;
+  Timer? _resendTimer;
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
@@ -56,6 +61,7 @@ class _LoginPageState extends State<LoginPage>
     _identifierController.dispose();
     _passwordController.dispose();
     _otpController.dispose();
+    _resendTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -64,12 +70,31 @@ class _LoginPageState extends State<LoginPage>
     if (_error != null) setState(() => _error = null);
   }
 
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSecondsLeft = _resendCooldownSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() => _resendSecondsLeft = 0);
+      } else {
+        setState(() => _resendSecondsLeft -= 1);
+      }
+    });
+  }
+
   void _goToIdentifierStep() {
+    _resendTimer?.cancel();
     setState(() {
       _step = _LoginStep.identifier;
       _passwordController.clear();
       _otpController.clear();
       _error = null;
+      _resendSecondsLeft = 0;
     });
   }
 
@@ -97,10 +122,28 @@ class _LoginPageState extends State<LoginPage>
       if (!mounted) return;
 
       if (masked == null) {
-        setState(() {
-          _submitting = false;
-          _error = auth.lastError ?? 'Failed to send OTP';
-        });
+        if (auth.lastErrorStatusCode == 404) {
+          // No account with this number yet — send the signup OTP for it
+          // right away and take them to Create Account with the OTP field
+          // already showing, instead of a dead-end error.
+          final signupMasked = await auth.sendPhoneSignupOtp(digits);
+          if (!mounted) return;
+          setState(() => _submitting = false);
+          Navigator.pushReplacementNamed(
+            context,
+            '/register',
+            arguments: {
+              'phone': digits,
+              'maskedPhone': signupMasked,
+              'otpAlreadySent': signupMasked != null,
+            },
+          );
+        } else {
+          setState(() {
+            _submitting = false;
+            _error = auth.lastError ?? 'Failed to send OTP';
+          });
+        }
         return;
       }
 
@@ -110,6 +153,7 @@ class _LoginPageState extends State<LoginPage>
         _otpController.clear();
         _step = _LoginStep.phoneOtp;
       });
+      _startResendCountdown();
       return;
     }
 
@@ -121,6 +165,36 @@ class _LoginPageState extends State<LoginPage>
     }
 
     setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final auth = context.read<AuthProvider>();
+    final exists = await auth.checkEmailExists(identifier);
+    if (!mounted) return;
+
+    if (exists == null) {
+      setState(() {
+        _submitting = false;
+        _error = auth.lastError ?? 'Something went wrong. Please try again.';
+      });
+      return;
+    }
+
+    if (!exists) {
+      setState(() => _submitting = false);
+      // No account with this email yet — go straight to signup with it
+      // prefilled instead of asking for a password that can't work.
+      Navigator.pushReplacementNamed(
+        context,
+        '/register',
+        arguments: {'email': identifier},
+      );
+      return;
+    }
+
+    setState(() {
+      _submitting = false;
       _passwordController.clear();
       _step = _LoginStep.password;
       _error = null;
@@ -174,6 +248,7 @@ class _LoginPageState extends State<LoginPage>
 
       if (sentMasked != null) {
         setState(() => _maskedPhone = sentMasked);
+        _startResendCountdown();
       } else {
         setState(() {
           _step = _LoginStep.password;
@@ -251,6 +326,7 @@ class _LoginPageState extends State<LoginPage>
       if (!mounted) return;
       if (masked != null) {
         setState(() => _maskedPhone = masked);
+        _startResendCountdown();
       } else {
         setState(() => _error = auth.lastError ?? 'Failed to resend OTP');
       }
@@ -497,8 +573,6 @@ class _LoginPageState extends State<LoginPage>
                                               TextInputType.emailAddress,
                                           textInputAction: TextInputAction.done,
                                           prefixIcon: Icons.person_outline,
-                                          maxLength:
-                                              FormValidation.maxEmailLength,
                                           onChanged: (_) => _clearError(),
                                           onSubmitted: (_) =>
                                               _handleIdentifierNext(),
@@ -665,52 +739,39 @@ class _LoginPageState extends State<LoginPage>
                                               ),
                                             ),
                                             if (isOtpStep)
-                                              TextButton(
-                                                onPressed: _submitting
-                                                    ? null
-                                                    : _handleResendOtp,
-                                                child: const Text(
-                                                  'Resend OTP',
-                                                  style: TextStyle(
-                                                    color: AppColors
-                                                        .cinematicOrange,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
+                                              _resendSecondsLeft > 0
+                                                  ? Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            8,
+                                                          ),
+                                                      child: Text(
+                                                        'Resend OTP in ${_resendSecondsLeft}s',
+                                                        style: const TextStyle(
+                                                          color:
+                                                              Colors.white38,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : TextButton(
+                                                      onPressed: _submitting
+                                                          ? null
+                                                          : _handleResendOtp,
+                                                      child: const Text(
+                                                        'Resend OTP',
+                                                        style: TextStyle(
+                                                          color: AppColors
+                                                              .cinematicOrange,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
                                           ],
                                         ),
                                       ],
-                                      const SizedBox(height: 5),
-                                      Wrap(
-                                        alignment: WrapAlignment.center,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          const Text(
-                                            "Don't have an account? ",
-                                            style: TextStyle(
-                                              color: Colors.white60,
-                                            ),
-                                          ),
-                                          TextButton(
-                                            key: const Key('login_to_register'),
-                                            onPressed: () =>
-                                                Navigator.pushReplacementNamed(
-                                                  context,
-                                                  '/register',
-                                                ),
-                                            child: const Text(
-                                              'Sign Up',
-                                              style: TextStyle(
-                                                color:
-                                                    AppColors.cinematicOrange,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ],
                                   ),
                                 ),

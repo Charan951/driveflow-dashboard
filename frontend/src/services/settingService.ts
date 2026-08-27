@@ -2,7 +2,7 @@ import api from './api';
 
 export interface Setting {
   key: string;
-  value: string | number;
+  value: string | number | boolean;
   group?: string;
   description?: string;
 }

@@ -841,10 +841,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_bridgestone">Bridgestone</Label>
                 <Input
                   id="tyre_price_bridgestone"
-                  type="number"
                   value={formData.tyre_price_bridgestone}
                   onChange={(e) => setFormData({ ...formData, tyre_price_bridgestone: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -853,10 +851,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_yokohama">Yokohama</Label>
                 <Input
                   id="tyre_price_yokohama"
-                  type="number"
                   value={formData.tyre_price_yokohama}
                   onChange={(e) => setFormData({ ...formData, tyre_price_yokohama: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -865,10 +861,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_apollo">Apollo</Label>
                 <Input
                   id="tyre_price_apollo"
-                  type="number"
                   value={formData.tyre_price_apollo}
                   onChange={(e) => setFormData({ ...formData, tyre_price_apollo: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -877,10 +871,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_michelin">Michelin</Label>
                 <Input
                   id="tyre_price_michelin"
-                  type="number"
                   value={formData.tyre_price_michelin}
                   onChange={(e) => setFormData({ ...formData, tyre_price_michelin: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -889,10 +881,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_dummy">Tyre Price - Dummy</Label>
                 <Input
                   id="tyre_price_dummy"
-                  type="number"
                   value={formData.tyre_price_dummy}
                   onChange={(e) => setFormData({ ...formData, tyre_price_dummy: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -901,10 +891,8 @@ const AdminVehicleDataPage = () => {
                 <Label htmlFor="tyre_price_dummy2">Tyre Price - Dummy 2</Label>
                 <Input
                   id="tyre_price_dummy2"
-                  type="number"
                   value={formData.tyre_price_dummy2}
                   onChange={(e) => setFormData({ ...formData, tyre_price_dummy2: e.target.value })}
-                  min="0"
                 />
               </div>
               )}
@@ -913,10 +901,8 @@ const AdminVehicleDataPage = () => {
                   <Label htmlFor={col.fieldName}>{col.label}</Label>
                   <Input
                     id={col.fieldName}
-                    type="number"
                     value={dynamicFormData[col.fieldName] ?? ''}
                     onChange={(e) => setDynamicFormData({ ...dynamicFormData, [col.fieldName]: e.target.value })}
-                    min="0"
                   />
                 </div>
               ))}
@@ -931,10 +917,8 @@ const AdminVehicleDataPage = () => {
                   <Label htmlFor="battery_price_amaron">Amaron</Label>
                   <Input
                     id="battery_price_amaron"
-                    type="number"
                     value={formData.battery_price_amaron}
                     onChange={(e) => setFormData({ ...formData, battery_price_amaron: e.target.value })}
-                    min="0"
                   />
                 </div>
                 )}
@@ -943,10 +927,8 @@ const AdminVehicleDataPage = () => {
                   <Label htmlFor="battery_price_exide">Exide</Label>
                   <Input
                     id="battery_price_exide"
-                    type="number"
                     value={formData.battery_price_exide}
                     onChange={(e) => setFormData({ ...formData, battery_price_exide: e.target.value })}
-                    min="0"
                   />
                 </div>
                 )}
@@ -954,61 +936,49 @@ const AdminVehicleDataPage = () => {
                   <Label htmlFor="car_wash_exterior_price">Car wash-Exterior wash</Label>
                   <Input
                     id="car_wash_exterior_price"
-                    type="number"
                     value={formData.car_wash_exterior_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_exterior_price: e.target.value })}
-                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="car_wash_interior_exterior_price">Car wash-Interior + Exterior</Label>
                   <Input
                     id="car_wash_interior_exterior_price"
-                    type="number"
                     value={formData.car_wash_interior_exterior_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_price: e.target.value })}
-                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="car_wash_interior_exterior_underbody_price">Car Wash-Int + Ext + Underbody</Label>
                   <Input
                     id="car_wash_interior_exterior_underbody_price"
-                    type="number"
                     value={formData.car_wash_interior_exterior_underbody_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_interior_exterior_underbody_price: e.target.value })}
-                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="general_service_price">General Service Price</Label>
                   <Input
                     id="general_service_price"
-                    type="number"
                     value={formData.general_service_price}
                     onChange={(e) => setFormData({ ...formData, general_service_price: e.target.value })}
                     placeholder="e.g. 600"
-                    min="0"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pickup_drop_price">Pickup/Drop Price</Label>
                   <Input
                     id="pickup_drop_price"
-                    type="number"
                     value={formData.pickup_drop_price}
                     onChange={(e) => setFormData({ ...formData, pickup_drop_price: e.target.value })}
-                    min="0"
                   />
                 </div>
                 <div className="space-y-2 hidden">
                   <Label htmlFor="car_wash_price">Car Wash Price (Legacy)</Label>
                   <Input
                     id="car_wash_price"
-                    type="number"
                     value={formData.car_wash_price}
                     onChange={(e) => setFormData({ ...formData, car_wash_price: e.target.value })}
-                    min="0"
                   />
                 </div>
                 {columns.filter(c => c.category === 'battery').map((col) => (
@@ -1016,10 +986,8 @@ const AdminVehicleDataPage = () => {
                     <Label htmlFor={col.fieldName}>{col.label}</Label>
                     <Input
                       id={col.fieldName}
-                      type="number"
                       value={dynamicFormData[col.fieldName] ?? ''}
                       onChange={(e) => setDynamicFormData({ ...dynamicFormData, [col.fieldName]: e.target.value })}
-                      min="0"
                     />
                   </div>
                 ))}

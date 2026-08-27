@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ import '../core/app_colors.dart';
 import '../core/app_styles.dart';
 import '../core/env.dart';
 import '../core/order_pricing.dart';
+import '../core/places_service.dart';
 import '../models/vehicle.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -96,7 +98,13 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final _notesController = TextEditingController();
   bool _locating = false;
   bool _resolvingAddress = false;
+  bool _hasAutoLocated = false;
   final MapController _mapController = MapController();
+  final _locationSearchController = TextEditingController();
+  List<PlacePrediction> _locationSearchResults = [];
+  bool _locationSearching = false;
+  Timer? _locationSearchDebounce;
+  String _placesSessionToken = PlacesService.newSessionToken();
   String? _selectedVehicleOEMTire;
   double _pickupDropPrice = 0;
   bool _pickupDropLoading = false;
@@ -525,6 +533,38 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   static const List<String> commonBatteryBrands = ['Amaron', 'Exide'];
 
+  /// Returns a user-facing reason the given brand can't be selected for this
+  /// vehicle (its reference price is missing/non-numeric, e.g. "Not
+  /// Available"), or null if the brand's price is valid.
+  String? _brandUnavailableReason(bool isBattery, String brand) {
+    final ref = _selectedVehicleReference;
+    if (ref == null) return null;
+    final key =
+        '${isBattery ? 'battery_price' : 'tyre_price'}_${brand.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
+    final raw = ref[key];
+    final price = double.tryParse(raw?.toString().trim() ?? '');
+    if (raw == null || raw.toString().trim().isEmpty || price == null || price <= 0) {
+      return '$brand is not available for this vehicle. Please choose another brand.';
+    }
+    return null;
+  }
+
+  /// A high-visibility banner for blocking errors (e.g. an unavailable
+  /// brand), anchored to the TOP of the screen — SnackBars can't be
+  /// repositioned there, so this drops a self-dismissing overlay entry
+  /// instead: icon + bold text on the app's error color, slides down from
+  /// under the status bar.
+  void _showErrorSnackBar(String message) {
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => _TopErrorBanner(
+        message: message,
+        onDismissed: () => entry.remove(),
+      ),
+    );
+    Overlay.of(context).insert(entry);
+  }
+
   double _getServicePrice(ServiceItem service) {
     if (_adjustedPrices.containsKey(service.id)) {
       return _adjustedPrices[service.id]!;
@@ -908,6 +948,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     for (final controller in _tireSizeControllers.values) {
       controller.dispose();
     }
+    _locationSearchDebounce?.cancel();
+    _locationSearchController.dispose();
     super.dispose();
   }
 
@@ -1721,6 +1763,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       return;
     }
 
+    if (_currentStep == 1) {
+      if (_selectedServiceIds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one service')),
+        );
+        return;
+      }
+    }
     if (_currentStep == 2) {
       if (_selectedTimeSlot == null || _selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2010,10 +2060,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ),
           ),
 
-        // Category-specific tabs for Tyre & Battery
-        if (widget.initialCategory == 'Tyres' ||
-            widget.initialCategory == 'Battery' ||
-            widget.initialCategory == 'Tyre & Battery')
+        // Category-specific tabs — only shown for the combined "Tyre &
+        // Battery" entry point. Dedicated "Book a Tyre" / "Book a Battery"
+        // flows already know their category, so there's nothing to choose.
+        if (widget.initialCategory == 'Tyre & Battery')
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
@@ -2078,9 +2128,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           ),
 
         if (_activeSubCategory == null &&
-            (widget.initialCategory == 'Tyres' ||
-                widget.initialCategory == 'Battery' ||
-                widget.initialCategory == 'Tyre & Battery'))
+            widget.initialCategory == 'Tyre & Battery')
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(32),
@@ -2505,6 +2553,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                 ),
                                                 selected: isSelected,
                                                 onSelected: (val) {
+                                                  if (val) {
+                                                    final reason =
+                                                        _brandUnavailableReason(
+                                                          isBatteryService,
+                                                          brand,
+                                                        );
+                                                    if (reason != null) {
+                                                      _showErrorSnackBar(
+                                                        reason,
+                                                      );
+                                                      return;
+                                                    }
+                                                  }
                                                   setState(() {
                                                     if (val) {
                                                       _selectedTireBrands[service
@@ -2908,6 +2969,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                               ),
                                               selected: isSelected,
                                               onSelected: (val) {
+                                                if (val) {
+                                                  final reason =
+                                                      _brandUnavailableReason(
+                                                        isBatteryService,
+                                                        brand,
+                                                      );
+                                                  if (reason != null) {
+                                                    _showErrorSnackBar(reason);
+                                                    return;
+                                                  }
+                                                }
                                                 setState(() {
                                                   if (val) {
                                                     _selectedTireBrands[service
@@ -3296,6 +3368,81 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               ),
             ),
         ] else ...[
+          Builder(
+            builder: (context) {
+              if (!_hasAutoLocated && _selectedLatLng == null) {
+                _hasAutoLocated = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _useCurrentLocation(silent: true);
+                });
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          TextField(
+            controller: _locationSearchController,
+            onChanged: _onLocationSearchChanged,
+            decoration: InputDecoration(
+              labelText: 'Search for a place',
+              hintText: 'e.g. Star Hills Enclave',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _locationSearching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : (_locationSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _locationSearchController.clear();
+                              _locationSearchDebounce?.cancel();
+                              setState(() => _locationSearchResults = []);
+                            },
+                          )
+                        : null),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          if (_locationSearchResults.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 220),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white10 : Colors.grey[300]!,
+                ),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _locationSearchResults.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  color: isDark ? Colors.white10 : Colors.grey[300],
+                ),
+                itemBuilder: (context, i) {
+                  final prediction = _locationSearchResults[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.place_outlined),
+                    title: Text(
+                      prediction.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => _selectLocationPrediction(prediction),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           Container(
             height: 200,
             decoration: BoxDecoration(
@@ -3930,11 +4077,90 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
   }
 
-  Future<void> _setSelectedLocation(LatLng latLng) async {
+  Future<void> _runLocationSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      if (mounted) setState(() => _locationSearchResults = []);
+      return;
+    }
+    if (mounted) setState(() => _locationSearching = true);
+    try {
+      final results = await PlacesService.autocomplete(
+        q,
+        sessionToken: _placesSessionToken,
+        near: _selectedLatLng,
+      );
+      if (!mounted) return;
+      setState(() {
+        _locationSearchResults = results;
+        _locationSearching = false;
+      });
+    } on PlacesApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _locationSearching = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Place search failed: ${e.status}')),
+      );
+    } catch (e) {
+      debugPrint('[Places] search error: $e');
+      if (!mounted) return;
+      setState(() => _locationSearching = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Place search failed: $e')));
+    }
+  }
+
+  Future<void> _selectLocationPrediction(PlacePrediction prediction) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _locationSearchController.text = prediction.description;
+    setState(() => _locationSearchResults = []);
+    final details = await PlacesService.getPlaceDetails(
+      prediction.placeId,
+      sessionToken: _placesSessionToken,
+    );
+    // Start a fresh session token now that this search-and-select is done.
+    _placesSessionToken = PlacesService.newSessionToken();
+    if (details == null) return;
+    setState(() {
+      _selectedLatLng = details.location;
+      _selectedAddress = details.formattedAddress.isNotEmpty
+          ? details.formattedAddress
+          : prediction.description;
+    });
+    _moveLocationMap(details.location, 17);
+    final pin = await _reverseGeocodePincode(details.location);
+    if (pin != null) {
+      _savedAddressPincodes['map::${details.location.latitude}::${details.location.longitude}'] =
+          pin;
+    }
+  }
+
+  void _onLocationSearchChanged(String query) {
+    _locationSearchDebounce?.cancel();
+    _locationSearchDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => _runLocationSearch(query),
+    );
+  }
+
+  void _moveLocationMap(LatLng point, [double? zoom]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _mapController.move(point, zoom ?? _mapController.camera.zoom);
+      } catch (_) {
+        // Controller not attached yet (e.g. still animating in).
+      }
+    });
+  }
+
+  Future<void> _setSelectedLocation(LatLng latLng, {double? zoom}) async {
     setState(() {
       _selectedLatLng = latLng;
       _resolvingAddress = true;
     });
+    _moveLocationMap(latLng, zoom);
     try {
       final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
         'format': 'jsonv2',
@@ -3966,10 +4192,17 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
   }
 
-  Future<void> _useCurrentLocation() async {
+  Future<void> _useCurrentLocation({bool silent = false}) async {
+    if (_locating) return;
     setState(() => _locating = true);
     try {
-      final granted = await LocationHelper.ensureLocationAccess(context);
+      final granted = silent
+          ? await Geolocator.checkPermission().then(
+              (p) =>
+                  p == LocationPermission.always ||
+                  p == LocationPermission.whileInUse,
+            )
+          : await LocationHelper.ensureLocationAccess(context);
       if (!granted) {
         return;
       }
@@ -3994,8 +4227,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         timeLimit: const Duration(seconds: 15),
       );
       final latLng = LatLng(pos.latitude, pos.longitude);
-      _mapController.move(latLng, 15);
-      _setSelectedLocation(latLng);
+      _setSelectedLocation(latLng, zoom: 15);
     } catch (e) {
       debugPrint('Error getting current location: $e');
     } finally {
@@ -4477,4 +4709,108 @@ class DashedLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+/// Self-dismissing error banner anchored to the top of the screen (under
+/// the status bar), inserted directly into the [Overlay] so it isn't
+/// constrained by Scaffold/SnackBar's bottom-only positioning.
+class _TopErrorBanner extends StatefulWidget {
+  final String message;
+  final VoidCallback onDismissed;
+
+  const _TopErrorBanner({required this.message, required this.onDismissed});
+
+  @override
+  State<_TopErrorBanner> createState() => _TopErrorBannerState();
+}
+
+class _TopErrorBannerState extends State<_TopErrorBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+  Timer? _autoDismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+    _autoDismissTimer = Timer(const Duration(seconds: 4), _dismiss);
+  }
+
+  Future<void> _dismiss() async {
+    if (!mounted) return;
+    _autoDismissTimer?.cancel();
+    await _controller.reverse();
+    widget.onDismissed();
+  }
+
+  @override
+  void dispose() {
+    _autoDismissTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      top: topInset + 8,
+      left: 16,
+      right: 16,
+      child: SlideTransition(
+        position: _slide,
+        child: SafeArea(
+          bottom: false,
+          child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              onTap: _dismiss,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -14,6 +14,9 @@ class AppStorage {
   static const _hasSeenNoVehicleModalKey = 'has_seen_no_vehicle_modal';
   static const _hasSeenOnboardingKey = 'has_seen_onboarding';
 
+  /// Cleared on app uninstall; used to wipe Keychain leftovers on fresh install.
+  static const _installMarkerKey = 'install_marker';
+
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
@@ -195,6 +198,24 @@ class AppStorage {
       await _secureStorage.deleteAll();
       final prefs = await _getPrefs();
       await prefs.clear();
+    } catch (e) {
+      // Silent catch
+    }
+  }
+
+  /// iOS Keychain (and, on Android, a backed-up EncryptedSharedPreferences
+  /// file) can survive an uninstall. On first launch after a fresh install,
+  /// clear any stale secure credentials so a reinstall doesn't silently
+  /// auto-login with the previous user's session.
+  Future<void> ensureStorageMatchesInstall() async {
+    try {
+      final prefs = await _getPrefs();
+      if (prefs.containsKey(_installMarkerKey)) return;
+      await clearAll();
+      await prefs.setString(
+        _installMarkerKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
     } catch (e) {
       // Silent catch
     }

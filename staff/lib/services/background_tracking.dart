@@ -16,11 +16,29 @@ import '../core/storage.dart';
 Future<void> _onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  service.on('stopService').listen((event) async {
+    await service.stopSelf();
+  });
+
   final storage = AppStorage();
   final token = await storage.getToken();
   if (token == null || token.isEmpty) {
+    // Never promote to a location FGS without a logged-in session.
     await service.stopSelf();
     return;
+  }
+
+  // Promote only after we know this is an intentional tracking session.
+  // configure() keeps isForegroundMode=false so cold-start / leftovers use
+  // startService() instead of startForegroundService().
+  if (service is AndroidServiceInstance) {
+    try {
+      await service.setAsForegroundService();
+    } catch (e) {
+      debugPrint('BackgroundTracking: setAsForegroundService failed: $e');
+      await service.stopSelf();
+      return;
+    }
   }
 
   final api = ApiClient();
@@ -32,13 +50,13 @@ Future<void> _onStart(ServiceInstance service) async {
   });
 
   Future<void> initSocket() async {
-    final token = await storage.getToken();
+    final latestToken = await storage.getToken();
     socket = io.io(
       Env.baseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .enableForceNew()
-          .setAuth(token != null ? {'token': token} : {})
+          .setAuth(latestToken != null ? {'token': latestToken} : {})
           .build(),
     );
     socket?.connect();
@@ -48,12 +66,10 @@ Future<void> _onStart(ServiceInstance service) async {
 
   Future<void> updateOnlineStatus(bool isOnline) async {
     try {
-      debugPrint('BackgroundTracking: Updating online status to $isOnline');
       await api.putAny(
         ApiEndpoints.usersOnlineStatus,
         body: {'isOnline': isOnline},
       );
-      debugPrint('BackgroundTracking: Status updated successfully');
     } catch (e) {
       debugPrint('BackgroundTracking: Failed to update online status: $e');
     }
@@ -61,23 +77,14 @@ Future<void> _onStart(ServiceInstance service) async {
 
   await updateOnlineStatus(true);
 
-  service.on('stopService').listen((event) async {
-    await updateOnlineStatus(false);
-    service.stopSelf();
-  });
-
-  // Keep track of last sync times to avoid flooding the backend
   int lastSocketMs = 0;
   int lastRestMs = 0;
 
-  // Listen to position updates for continuous tracking
   final locationSettings = Platform.isAndroid
       ? AndroidSettings(
           accuracy: LocationAccuracy.best,
           distanceFilter: 0,
-          intervalDuration: const Duration(
-            seconds: 3,
-          ), // Match StaffTrackingService (3s)
+          intervalDuration: const Duration(seconds: 3),
         )
       : Platform.isIOS || Platform.isMacOS
       ? AppleSettings(
@@ -103,30 +110,21 @@ Future<void> _onStart(ServiceInstance service) async {
       'timestamp': now.toIso8601String(),
     };
 
-    debugPrint(
-      'BackgroundTracking: Position update: ${pos.latitude}, ${pos.longitude} (Accuracy: ${pos.accuracy}m)',
-    );
-
     if (bookingId != null && bookingId!.isNotEmpty) {
       payload['bookingId'] = bookingId;
     }
 
-    // 1. Live update via Socket (Throttle to 1 second for real-time responsiveness)
     if (nowMs - lastSocketMs > 1000) {
       if (socket != null) {
         if (socket!.connected) {
           socket!.emit('location', payload);
           lastSocketMs = nowMs;
         } else {
-          debugPrint(
-            'BackgroundTracking: Socket not connected, attempting to reconnect',
-          );
           socket!.connect();
         }
       }
     }
 
-    // 2. Persistent update via REST (Throttle to 1 second as a fallback)
     if (nowMs - lastRestMs > 1000) {
       final latestToken = await storage.getToken();
       if (latestToken == null || latestToken.isEmpty) {
@@ -143,7 +141,6 @@ Future<void> _onStart(ServiceInstance service) async {
           },
         );
         lastRestMs = nowMs;
-        // Also re-assert online status as part of REST sync
         await updateOnlineStatus(true);
       } catch (e) {
         debugPrint('BackgroundTracking: REST update error: $e');
@@ -151,7 +148,6 @@ Future<void> _onStart(ServiceInstance service) async {
     }
   });
 
-  // Keep the service alive with a periodic heartbeat if the stream is idle
   Timer.periodic(const Duration(minutes: 1), (_) async {
     if (socket != null && !socket!.connected) {
       socket!.connect();
@@ -177,15 +173,15 @@ class BackgroundTracking {
     if (Platform.isAndroid) {
       await _ensureAndroidNotificationChannel();
     }
+    // Keep isForegroundMode false at configure-time. That way any accidental
+    // service start uses startService(), not startForegroundService(). We only
+    // promote to a location FGS inside _onStart after a valid session exists.
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
-        // Required for location updates to keep flowing once the app is
-        // backgrounded (e.g. staff switches to Google Maps for turn-by-turn
-        // navigation) — without a real foreground service, Android
-        // suspends/kills background isolates within seconds on most OEMs.
-        isForegroundMode: true,
+        isForegroundMode: false,
         autoStart: false,
+        autoStartOnBoot: false,
         notificationChannelId: _notificationChannelId,
         initialNotificationTitle: 'Carzzi Staff — Tracking active',
         initialNotificationContent:
@@ -224,7 +220,7 @@ class BackgroundTracking {
     }
     if (!status.isGranted) {
       debugPrint(
-        'BackgroundTracking: skipping foreground service (notifications not granted)',
+        'BackgroundTracking: skipping service (notifications not granted)',
       );
       return false;
     }
@@ -237,6 +233,15 @@ class BackgroundTracking {
     try {
       if (Platform.isAndroid && !await _canStartAndroidForegroundService()) {
         return;
+      }
+      if (Platform.isAndroid) {
+        final loc = await Permission.location.status;
+        if (!loc.isGranted) {
+          debugPrint(
+            'BackgroundTracking: skipping service (location permission not granted)',
+          );
+          return;
+        }
       }
       final service = FlutterBackgroundService();
       final running = await service.isRunning();
@@ -254,7 +259,10 @@ class BackgroundTracking {
   static Future<void> stop() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     try {
-      FlutterBackgroundService().invoke('stopService');
+      final service = FlutterBackgroundService();
+      if (await service.isRunning()) {
+        service.invoke('stopService');
+      }
     } catch (_) {}
     try {
       await _nativeStop.invokeMethod('forceStop');

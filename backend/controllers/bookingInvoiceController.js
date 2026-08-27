@@ -3,6 +3,7 @@ import Booking from '../models/Booking.js';
 import Payment from '../models/Payment.js';
 import Service from '../models/Service.js';
 import Vehicle from '../models/Vehicle.js';
+import Setting from '../models/Setting.js';
 import { getVehicleDataFromS3 } from '../utils/s3Storage.js';
 import path from 'path';
 import fs from 'fs';
@@ -68,6 +69,86 @@ const isGeneralServiceBooking = async (booking) => {
     }
   } catch {
     return false;
+  }
+};
+
+const resolveBookingServices = async (booking) => {
+  if (!booking || !booking.services || !Array.isArray(booking.services)) {
+    return [];
+  }
+  const isPopulated = booking.services.length > 0 && typeof booking.services[0] === 'object';
+  return isPopulated ? booking.services : await Service.find({ _id: { $in: booking.services } });
+};
+
+const isTyreBooking = async (booking) => {
+  try {
+    const services = await resolveBookingServices(booking);
+    return services.some(
+      (service) => service && (service.category === 'Tyres' || service.category === 'Tyre & Battery')
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isBatteryBooking = async (booking) => {
+  try {
+    const services = await resolveBookingServices(booking);
+    return services.some(
+      (service) => service && (service.category === 'Battery' || service.category === 'Tyre & Battery')
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isCarWashBooking = async (booking) => {
+  try {
+    if (!booking || !booking.services || !Array.isArray(booking.services)) {
+      return false;
+    }
+    const isPopulated = booking.services.length > 0 && typeof booking.services[0] === 'object';
+    const services = isPopulated
+      ? booking.services
+      : await Service.find({ _id: { $in: booking.services } });
+    return services.some(
+      (service) =>
+        service && (service.category === 'Car Wash' || service.category === 'Wash')
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** Admin-configurable per-category invoice toggles (Setting keys). Missing
+ * keys default to the pre-toggle behavior: General/Car Wash enabled,
+ * Tyres/Battery disabled. */
+const INVOICE_SETTING_KEYS = {
+  general: 'invoice_enabled_general',
+  carWash: 'invoice_enabled_car_wash',
+  tyres: 'invoice_enabled_tyres',
+  battery: 'invoice_enabled_battery',
+};
+const INVOICE_SETTING_DEFAULTS = {
+  general: true,
+  carWash: true,
+  tyres: false,
+  battery: false,
+};
+
+const getInvoiceCategoryToggles = async () => {
+  try {
+    const keys = Object.values(INVOICE_SETTING_KEYS);
+    const rows = await Setting.find({ key: { $in: keys } }).lean();
+    const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const result = {};
+    for (const [category, key] of Object.entries(INVOICE_SETTING_KEYS)) {
+      const stored = byKey[key];
+      result[category] = typeof stored === 'boolean' ? stored : INVOICE_SETTING_DEFAULTS[category];
+    }
+    return result;
+  } catch {
+    return { ...INVOICE_SETTING_DEFAULTS };
   }
 };
 
@@ -195,6 +276,21 @@ const sealPdfBuffer = async (pdfBuffer) => {
 // @desc    Get booking invoice PDF
 // @route   GET /api/bookings/:id/invoice
 // @access  Private
+// @desc    Get which service categories currently generate a downloadable
+//          invoice (admin-configurable via Settings). Any authenticated
+//          user can read this — it's just three booleans, used by clients
+//          to decide whether to show a "Download Invoice" button at all.
+// @route   GET /api/bookings/invoice-settings
+// @access  Private
+export const getInvoiceSettings = async (req, res) => {
+  try {
+    const toggles = await getInvoiceCategoryToggles();
+    res.json(toggles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getBookingInvoice = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
@@ -218,9 +314,25 @@ export const getBookingInvoice = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
-    const isGeneralService = await isGeneralServiceBooking(booking);
-    if (isGeneralService) {
+    const [isGeneralService, isTyre, isBattery, isCarWash, invoiceToggles] = await Promise.all([
+      isGeneralServiceBooking(booking),
+      isTyreBooking(booking),
+      isBatteryBooking(booking),
+      isCarWashBooking(booking),
+      getInvoiceCategoryToggles(),
+    ]);
+
+    if (isGeneralService && !invoiceToggles.general) {
       return res.status(400).json({ message: 'Invoice not available for general service bookings' });
+    }
+    if (isTyre && !invoiceToggles.tyres) {
+      return res.status(400).json({ message: 'Invoice not available for tyre bookings' });
+    }
+    if (isBattery && !invoiceToggles.battery) {
+      return res.status(400).json({ message: 'Invoice not available for battery bookings' });
+    }
+    if (isCarWash && !invoiceToggles.carWash) {
+      return res.status(400).json({ message: 'Invoice not available for car wash bookings' });
     }
 
     if (booking.billing && booking.billing.fileUrl) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/auth_provider.dart';
+import '../state/navigation_provider.dart';
 import 'location_helper.dart';
 
 /// Returns true if the user is already signed in, or signs in from the
@@ -20,6 +21,11 @@ Future<void> completeAuthNavigation(
   BuildContext context,
   String homeRoute,
 ) async {
+  // MainNavigationPage/CarzziDashboard is a single long-lived instance; if
+  // it already mounted while browsing as a guest, logging in updates it in
+  // place rather than remounting it, so it needs an explicit nudge to
+  // refetch now that we're authenticated.
+  context.read<NavigationProvider>().requestDashboardRefresh();
   await LocationHelper.requestPermissionAfterLogin();
   if (!context.mounted) return;
   if (Navigator.of(context).canPop()) {

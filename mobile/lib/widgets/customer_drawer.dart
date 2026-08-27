@@ -37,6 +37,43 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     '/profile',
   };
 
+  Future<void> _showLogoutConfirmation(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout?'),
+        content: const Text(
+          'Are you sure you want to logout from your account?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      await _performLogout(context);
+    }
+  }
+
+  Future<void> _performLogout(BuildContext context) async {
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+    await context.read<AuthProvider>().logout();
+    if (!context.mounted) return;
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil('/', (route) => false);
+  }
+
   Future<void> _navigate(
     BuildContext context, {
     required String routeName,
@@ -210,6 +247,15 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
                           arguments: item.arguments,
                         ),
                       ),
+                    if (!isGuest)
+                      _DrawerTile(
+                        icon: Icons.logout_rounded,
+                        label: 'Logout',
+                        active: false,
+                        isDark: isDark,
+                        color: Colors.red.shade400,
+                        onTap: () => _showLogoutConfirmation(context),
+                      ),
                   ],
                 ),
               ),
@@ -278,6 +324,9 @@ class _DrawerTile extends StatelessWidget {
   final bool active;
   final bool isDark;
   final VoidCallback onTap;
+  /// Overrides the icon/label color (e.g. red for a destructive action
+  /// like Logout), leaving the active/inactive background styling as-is.
+  final Color? color;
 
   const _DrawerTile({
     required this.icon,
@@ -285,6 +334,7 @@ class _DrawerTile extends StatelessWidget {
     required this.active,
     required this.isDark,
     required this.onTap,
+    this.color,
   });
 
   @override
@@ -322,9 +372,12 @@ class _DrawerTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 22,
-                  color: active
-                      ? AppColors.textPrimary
-                      : (isDark ? AppColors.textSecondary : Colors.black54),
+                  color: color ??
+                      (active
+                          ? AppColors.textPrimary
+                          : (isDark
+                                ? AppColors.textSecondary
+                                : Colors.black54)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -333,9 +386,12 @@ class _DrawerTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                      color: active
-                          ? AppColors.textPrimary
-                          : (isDark ? AppColors.textSecondary : Colors.black87),
+                      color: color ??
+                          (active
+                              ? AppColors.textPrimary
+                              : (isDark
+                                    ? AppColors.textSecondary
+                                    : Colors.black87)),
                     ),
                   ),
                 ),

@@ -45,6 +45,14 @@ export interface VerifySignupOtpData {
     otp: string;
 }
 
+export interface CompleteSignupData {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    otp: string;
+}
+
 export interface SendPhoneLoginOtpData {
     phone: string;
 }
@@ -85,6 +93,10 @@ export const authService = {
         const response = await api.post('/auth/signup/send-otp', data);
         return response.data;
     },
+    checkEmailExists: async (data: { email: string }): Promise<{ exists: boolean }> => {
+        const response = await api.post('/auth/login/check-email', data);
+        return response.data;
+    },
     prepareLogin: async (data: PrepareLoginData) => {
         const response = await api.post('/auth/login/prepare', data);
         storeAuthToken(response.data);
@@ -110,6 +122,17 @@ export const authService = {
     },
     verifySignupOtp: async (data: VerifySignupOtpData) => {
         const response = await api.post('/auth/signup/verify-otp', data);
+        storeAuthToken(response.data);
+        return response.data;
+    },
+    /** Phone-first signup step 1 — OTP-verifies the number on its own, before name/email/password exist. */
+    sendPhoneSignupOtp: async (data: SendSignupOtpData) => {
+        const response = await api.post('/auth/signup/phone/send-otp', data);
+        return response.data;
+    },
+    /** Phone-first signup step 2 — verifies the OTP and creates the account in one call. */
+    completeSignup: async (data: CompleteSignupData) => {
+        const response = await api.post('/auth/signup/complete', data);
         storeAuthToken(response.data);
         return response.data;
     },
@@ -159,6 +182,16 @@ export const authService = {
         } catch {
             // Cookie may already be cleared or session expired
         }
+        clearMemoryAccessToken();
+    },
+    /** Permanently deletes the account (profile, vehicles, notifications) —
+     * bookings/payments are kept server-side for admin audits, but a new
+     * signup with the same email/phone starts fresh since it gets a new
+     * user id. Only clears the local session once the server confirms the
+     * deletion, so a failed request doesn't leave the app thinking it
+     * succeeded. */
+    deleteAccount: async () => {
+        await api.delete('/users/me');
         clearMemoryAccessToken();
     },
 };

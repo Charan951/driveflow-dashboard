@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -63,6 +64,8 @@ class _OnboardingPageState extends State<OnboardingPage>
   late final AnimationController _enter;
   int _index = 0;
   bool _completing = false;
+  Timer? _autoplayTimer;
+  static const _autoplayInterval = Duration(seconds: 3);
 
   @override
   void initState() {
@@ -76,6 +79,16 @@ class _OnboardingPageState extends State<OnboardingPage>
       vsync: this,
       duration: const Duration(milliseconds: 520),
     )..forward();
+    _scheduleAutoplay();
+  }
+
+  void _scheduleAutoplay() {
+    _autoplayTimer?.cancel();
+    if (_isLast) return;
+    _autoplayTimer = Timer(_autoplayInterval, () {
+      if (!mounted) return;
+      _goTo(_index + 1);
+    });
   }
 
   @override
@@ -92,6 +105,7 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   @override
   void dispose() {
+    _autoplayTimer?.cancel();
     _pageController.dispose();
     _ambient.dispose();
     _enter.dispose();
@@ -109,6 +123,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   Future<void> _finish() async {
     if (_completing) return;
     _completing = true;
+    _autoplayTimer?.cancel();
     HapticFeedback.mediumImpact();
     if (!mounted) return;
     widget.onComplete();
@@ -123,13 +138,9 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
-  void _onContinue() {
+  void _onGetStarted() {
     HapticFeedback.selectionClick();
-    if (_isLast) {
-      _finish();
-      return;
-    }
-    _goTo(_index + 1);
+    _finish();
   }
 
   @override
@@ -192,6 +203,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                           HapticFeedback.selectionClick();
                           setState(() => _index = i);
                           _replayEnter();
+                          _scheduleAutoplay();
                         },
                         itemBuilder: (context, index) {
                           final delta = pageValue - index;
@@ -285,7 +297,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                             width: double.infinity,
                             height: 56,
                             child: ElevatedButton(
-                              onPressed: _onContinue,
+                              onPressed: _onGetStarted,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.cinematicOrange,
                                 foregroundColor: Colors.white,
@@ -296,16 +308,12 @@ class _OnboardingPageState extends State<OnboardingPage>
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
-                                child: Text(
-                                  _isLast ? 'Get Started' : 'Continue',
-                                  key: ValueKey(_isLast),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 16,
-                                    letterSpacing: 0.2,
-                                  ),
+                              child: const Text(
+                                'Get Started',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ),

@@ -52,11 +52,19 @@ class _ConnectivityGateState extends State<ConnectivityGate> {
 
   @override
   Widget build(BuildContext context) {
+    // Both children always occupy the same slots in this Stack — toggling
+    // via Offstage rather than conditionally inserting/removing a child
+    // avoids a list-shape change here racing a structural change elsewhere
+    // in the tree (e.g. a ModalRoute being pushed) in the same frame.
     return Stack(
       children: [
         widget.child,
-        if (!_hasConnection)
-          Positioned.fill(child: NoInternetScreen(onRetry: _checkInitial)),
+        Positioned.fill(
+          child: Offstage(
+            offstage: _hasConnection,
+            child: NoInternetScreen(onRetry: _checkInitial),
+          ),
+        ),
       ],
     );
   }
