@@ -88,6 +88,9 @@ if (!allowedOrigins.includes('https://api.carzzi.com')) {
 if (!allowedOrigins.includes('https://carzzi.com')) {
   allowedOrigins.push('https://carzzi.com');
 }
+if (!allowedOrigins.includes('https://www.carzzi.com')) {
+  allowedOrigins.push('https://www.carzzi.com');
+}
 
 
 const corsOptions = {
