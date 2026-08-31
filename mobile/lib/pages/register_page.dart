@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
-import '../services/notification_service.dart';
+import '../core/phone_input_formatter.dart';
 import '../state/auth_provider.dart';
 import '../utils/auth_gate.dart';
 
@@ -238,7 +238,6 @@ class _RegisterPageState extends State<RegisterPage>
       );
       if (!mounted) return;
       if (ok) {
-        NotificationService().requestPermissions();
         await completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'Could not create account');
@@ -645,8 +644,12 @@ class _GlassField extends StatelessWidget {
       inputFormatters: [
         if (keyboardType == TextInputType.emailAddress)
           FilteringTextInputFormatter.deny(RegExp(r'\s')),
-        if (keyboardType == TextInputType.phone ||
-            keyboardType == TextInputType.number)
+        // Strips spaces/dashes/parens/country-code prefix and keeps only
+        // the last 10 digits — handles pasting a number copied with +91
+        // and formatting, not just typing.
+        if (keyboardType == TextInputType.phone)
+          IndianPhoneOrEmailInputFormatter(),
+        if (keyboardType == TextInputType.number)
           FilteringTextInputFormatter.digitsOnly,
         if (keyboardType == TextInputType.number)
           LengthLimitingTextInputFormatter(6),

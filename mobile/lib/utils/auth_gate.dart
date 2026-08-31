@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import 'location_helper.dart';
@@ -15,8 +16,10 @@ Future<bool> ensureLoggedIn(BuildContext context) async {
   return context.read<AuthProvider>().isAuthenticated;
 }
 
-/// After a successful login/signup: ask for location, then pop back into the
-/// current session when login was pushed on top of the app, otherwise go home.
+/// After a successful login/signup: navigate to the home screen first, then
+/// ask for location/notification permissions — never before, so the OS
+/// permission dialogs appear over the home screen instead of stacking on
+/// top of the login/register screen mid-transition.
 Future<void> completeAuthNavigation(
   BuildContext context,
   String homeRoute,
@@ -26,13 +29,15 @@ Future<void> completeAuthNavigation(
   // place rather than remounting it, so it needs an explicit nudge to
   // refetch now that we're authenticated.
   context.read<NavigationProvider>().requestDashboardRefresh();
-  await LocationHelper.requestPermissionAfterLogin();
-  if (!context.mounted) return;
   if (Navigator.of(context).canPop()) {
     Navigator.of(context).pop(true);
-    return;
+  } else {
+    Navigator.of(context).pushReplacementNamed(homeRoute);
   }
-  Navigator.of(context).pushReplacementNamed(homeRoute);
+  // Neither call needs a BuildContext, so it's safe to fire these after the
+  // navigation above even though this screen's context may unmount shortly.
+  await LocationHelper.requestPermissionAfterLogin();
+  await NotificationService().requestPermissions();
 }
 
 /// Leave login/register without creating an account and return to the app.

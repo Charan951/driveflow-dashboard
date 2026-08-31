@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/app_colors.dart';
+import '../core/phone_input_formatter.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
@@ -89,13 +90,11 @@ class _StaffLoginPageState extends State<StaffLoginPage>
     if (!mounted) return;
     final role = user.role.toLowerCase();
     if (role == 'merchant') {
-      await PostLoginPermissions.request();
-      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/merchant-dashboard');
-    } else if (role == 'staff' || role == 'admin') {
       await PostLoginPermissions.request();
-      if (!mounted) return;
+    } else if (role == 'staff' || role == 'admin') {
       Navigator.of(context).pushReplacementNamed('/home');
+      await PostLoginPermissions.request();
     } else {
       _authService.logout();
       setState(() {
@@ -494,6 +493,9 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                       onChanged: _clearError,
                                       onSubmitted: (_) =>
                                           _handleIdentifierNext(),
+                                      extraInputFormatters: [
+                                        IndianPhoneOrEmailInputFormatter(),
+                                      ],
                                     ),
                                   ] else if (_step == _LoginStep.password) ...[
                                     _GlassField(
@@ -675,6 +677,7 @@ class _GlassField extends StatelessWidget {
   final int? maxLength;
   final VoidCallback? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final List<TextInputFormatter> extraInputFormatters;
 
   const _GlassField({
     required this.controller,
@@ -687,6 +690,7 @@ class _GlassField extends StatelessWidget {
     this.maxLength,
     this.onChanged,
     this.onSubmitted,
+    this.extraInputFormatters = const [],
   });
 
   @override
@@ -703,6 +707,7 @@ class _GlassField extends StatelessWidget {
       inputFormatters: [
         if (keyboardType == TextInputType.number)
           FilteringTextInputFormatter.digitsOnly,
+        ...extraInputFormatters,
       ],
       decoration: InputDecoration(
         hintText: hintText,

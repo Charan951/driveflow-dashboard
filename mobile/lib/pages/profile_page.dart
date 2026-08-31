@@ -1220,13 +1220,15 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
     if (_locating) return;
     setState(() => _locating = true);
     try {
-      final granted = silent
-          ? await Geolocator.checkPermission().then(
-              (p) =>
-                  p == LocationPermission.always ||
-                  p == LocationPermission.whileInUse,
-            )
-          : await LocationHelper.ensureLocationAccess(context);
+      bool granted;
+      if (silent) {
+        final p = await Geolocator.checkPermission();
+        granted =
+            p == LocationPermission.always || p == LocationPermission.whileInUse;
+      } else {
+        if (!mounted) return;
+        granted = await LocationHelper.ensureLocationAccess(context);
+      }
       if (!granted) return;
 
       // Check for precise location (Android 12+)

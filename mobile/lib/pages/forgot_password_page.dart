@@ -372,7 +372,6 @@ class _GlassField extends StatelessWidget {
   final IconData prefixIcon;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
-  final int? maxLength;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -383,7 +382,6 @@ class _GlassField extends StatelessWidget {
     required this.prefixIcon,
     this.keyboardType,
     this.textInputAction,
-    this.maxLength,
     this.onChanged,
     this.onSubmitted,
   });
@@ -394,7 +392,6 @@ class _GlassField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
-      maxLength: maxLength,
       style: const TextStyle(color: Colors.white),
       onChanged: onChanged,
       onSubmitted: onSubmitted,

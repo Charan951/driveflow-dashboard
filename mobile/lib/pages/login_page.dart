@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
-import '../services/notification_service.dart';
+import '../core/phone_input_formatter.dart';
 import '../state/auth_provider.dart';
 import '../utils/auth_gate.dart';
 
@@ -231,7 +231,6 @@ class _LoginPageState extends State<LoginPage>
             () => _error = auth.lastError ?? 'Invalid email or password',
           );
         } else {
-          NotificationService().requestPermissions();
           await completeAuthNavigation(context, auth.homeRoute);
         }
         return;
@@ -295,7 +294,6 @@ class _LoginPageState extends State<LoginPage>
       if (ok) {
         await Future.delayed(Duration.zero);
         if (!mounted) return;
-        NotificationService().requestPermissions();
         await completeAuthNavigation(context, auth.homeRoute);
       } else {
         setState(() => _error = auth.lastError ?? 'OTP verification failed');
@@ -576,6 +574,9 @@ class _LoginPageState extends State<LoginPage>
                                           onChanged: (_) => _clearError(),
                                           onSubmitted: (_) =>
                                               _handleIdentifierNext(),
+                                          extraInputFormatters: [
+                                            IndianPhoneOrEmailInputFormatter(),
+                                          ],
                                         ),
                                       ] else if (_step ==
                                           _LoginStep.password) ...[
@@ -803,6 +804,7 @@ class _GlassField extends StatelessWidget {
   final int? maxLength;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final List<TextInputFormatter> extraInputFormatters;
 
   const _GlassField({
     required this.controller,
@@ -815,6 +817,7 @@ class _GlassField extends StatelessWidget {
     this.maxLength,
     this.onChanged,
     this.onSubmitted,
+    this.extraInputFormatters = const [],
   });
 
   @override
@@ -836,6 +839,7 @@ class _GlassField extends StatelessWidget {
       inputFormatters: [
         if (keyboardType == TextInputType.number)
           FilteringTextInputFormatter.digitsOnly,
+        ...extraInputFormatters,
       ],
       decoration: InputDecoration(
         hintText: hintText,
