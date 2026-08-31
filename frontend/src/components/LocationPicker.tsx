@@ -323,7 +323,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, classN
             </button>
           )}
         </div>
-        
+        <p className="mt-1 text-right text-[11px] text-gray-400 dark:text-gray-500">
+          Powered by Google
+        </p>
+
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute z-[1000] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
             {suggestions.map((suggestion) => (

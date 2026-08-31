@@ -1355,6 +1355,16 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Powered by Google',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ),
+            ),
             if (_searchResults.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
