@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   Wrench,
@@ -21,6 +21,11 @@ import {
   Sparkles,
   Wallet,
   Headset,
+  Car,
+  Home,
+  UserCheck,
+  ClipboardCheck,
+  type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { serviceService, Service } from "@/services/serviceService";
@@ -134,6 +139,299 @@ const getHomeHeroImageSources = (imageUrl?: string) => {
   }
 
   return { src: imageUrl, srcSet: undefined as string | undefined };
+};
+
+interface WorkflowStep {
+  icon: LucideIcon;
+  title: string;
+  caption: string;
+  image: string;
+}
+
+interface Workflow {
+  name: string;
+  journeyName: string;
+  steps: WorkflowStep[];
+}
+
+const workflows: Workflow[] = [
+  {
+    name: "General Service",
+    journeyName: "The Carzzi Service Journey",
+    steps: [
+      {
+        icon: CalendarCheck,
+        title: "Service Booking",
+        caption: "Choose your service and schedule it easily through the Carzzi App.",
+        image: "/images/workflows/general/1.jpg",
+      },
+      {
+        icon: UserCheck,
+        title: "Appointing a Driver",
+        caption: "We appoint a verified driver from our trained team who will pick up your vehicle.",
+        image: "/images/workflows/general/2.jpg",
+      },
+      {
+        icon: Car,
+        title: "Vehicle Pickup",
+        caption: "Our verified driver performs a digital inspection and picks up your vehicle from your doorstep.",
+        image: "/images/workflows/general/3.jpg",
+      },
+      {
+        icon: Home,
+        title: "We Deliver",
+        caption: "We deliver your serviced vehicle back to your doorstep.",
+        image: "/images/workflows/general/4.jpg",
+      },
+    ],
+  },
+  {
+    name: "Car Wash",
+    journeyName: "The Carzzi Car Wash Journey",
+    steps: [
+      {
+        icon: CalendarCheck,
+        title: "Service Booking",
+        caption: "Book your car wash service in just a few taps through the Carzzi App.",
+        image: "/images/workflows/wash/1.jpg",
+      },
+      {
+        icon: UserCheck,
+        title: "Assigning a Professional",
+        caption: "We assign a trained and verified car wash technician to provide the service at your location.",
+        image: "/images/workflows/wash/2.jpg",
+      },
+      {
+        icon: Droplets,
+        title: "Car Wash at Your Doorstep",
+        caption: "Enjoy a professional car wash at your doorstep without leaving your home.",
+        image: "/images/workflows/wash/3.jpg",
+      },
+    ],
+  },
+  {
+    name: "Tyre Replacement",
+    journeyName: "The Carzzi Tyre Replacement Journey",
+    steps: [
+      {
+        icon: CalendarCheck,
+        title: "Book Your Service",
+        caption: "Book your tyre replacement in just a few taps through the Carzzi App.",
+        image: "/images/workflows/tyre/1.jpg",
+      },
+      {
+        icon: UserCheck,
+        title: "Assigning a Professional",
+        caption: "We connect you with the professional to handle your tyre replacement process.",
+        image: "/images/workflows/tyre/2.jpg",
+      },
+      {
+        icon: ClipboardCheck,
+        title: "Pickup & Inspection",
+        caption: "You hand over the keys, our professional performs a quick inspection and picks up your vehicle.",
+        image: "/images/workflows/tyre/3.jpg",
+      },
+      {
+        icon: Disc,
+        title: "Delivered Back to You",
+        caption: "New tyres professionally fitted & balanced, delivered safely to your doorstep.",
+        image: "/images/workflows/tyre/4.jpg",
+      },
+    ],
+  },
+  {
+    name: "Battery Replacement",
+    journeyName: "The Carzzi Battery Replacement Journey",
+    steps: [
+      {
+        icon: CalendarCheck,
+        title: "Book Your Service",
+        caption: "Book your battery replacement in just a few taps through the Carzzi App.",
+        image: "/images/workflows/battery/1.jpg",
+      },
+      {
+        icon: UserCheck,
+        title: "Assigning a Professional",
+        caption: "We assign a verified Carzzi technician who comes to you at your preferred time.",
+        image: "/images/workflows/battery/2.jpg",
+      },
+      {
+        icon: ClipboardCheck,
+        title: "Doorstep Inspection",
+        caption: "Our expert checks your battery and electrical system to ensure the right replacement.",
+        image: "/images/workflows/battery/3.jpg",
+      },
+      {
+        icon: Battery,
+        title: "Delivered — Peace of Mind",
+        caption: "New battery professionally fitted & tested, delivered safely to your doorstep.",
+        image: "/images/workflows/battery/4.jpg",
+      },
+    ],
+  },
+];
+
+const WORKFLOW_AUTOPLAY_MS = 5800;
+
+const WorkflowsSection: React.FC = () => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % workflows.length);
+    }, WORKFLOW_AUTOPLAY_MS);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [activeIndex]);
+
+  const active = workflows[activeIndex];
+  const stepCount = active.steps.length;
+
+  return (
+    <section className="py-24 bg-background overflow-hidden">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            How Carzzi Works
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            One simple journey, tailored to every service.
+          </p>
+        </div>
+
+        {/* Tab pills with autoplay progress */}
+        <div className="flex flex-wrap justify-center gap-3 mb-14">
+          {workflows.map((wf, i) => {
+            const isActive = i === activeIndex;
+            return (
+              <button
+                key={wf.name}
+                onClick={() => setActiveIndex(i)}
+                className={`relative overflow-hidden px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70"
+                }`}
+              >
+                {isActive && (
+                  <span
+                    key={activeIndex}
+                    className="absolute inset-0 bg-white/25 origin-left"
+                    style={{
+                      animation: `workflow-progress ${WORKFLOW_AUTOPLAY_MS}ms linear forwards`,
+                    }}
+                  />
+                )}
+                <span className="relative">{wf.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div key={activeIndex} className="max-w-6xl mx-auto">
+          {/* Road header: START — 1 — 2 — 3 ... — END */}
+          <div
+            className="mb-2 text-center opacity-0"
+            style={{ animation: "workflow-fade-up 0.4s ease-out forwards" }}
+          >
+            <span className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary">
+              <span className="h-px w-8 bg-primary/40" />
+              {active.journeyName}
+              <span className="h-px w-8 bg-primary/40" />
+            </span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 mb-6 px-6">
+            <MapPin className="w-6 h-6 text-primary shrink-0" />
+            <div className="relative flex-1 flex items-center justify-between">
+              <div className="absolute left-0 right-0 h-0.5 border-t-2 border-dashed border-primary/40" />
+              {active.steps.map((_, i) => (
+                <span
+                  key={i}
+                  className="relative z-10 flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow shrink-0 opacity-0"
+                  style={{
+                    animation: "workflow-step-in 0.4s ease-out forwards",
+                    animationDelay: `${0.1 + i * 0.15}s`,
+                  }}
+                >
+                  {i + 1}
+                </span>
+              ))}
+            </div>
+            <MapPin className="w-6 h-6 text-primary shrink-0 fill-primary/20" />
+          </div>
+          <div className="hidden sm:flex justify-between px-1 mb-10 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span>Start</span>
+            <span className="text-primary">Delivered</span>
+          </div>
+
+          {/* Step cards */}
+          <div
+            className={`grid gap-5 sm:gap-6 workflow-steps-grid-${stepCount}`}
+            style={{ gridTemplateColumns: `repeat(${Math.min(stepCount, 2)}, minmax(0, 1fr))` }}
+          >
+            <style>{`
+              @media (min-width: 640px) {
+                .workflow-steps-grid-${stepCount} { grid-template-columns: repeat(${stepCount}, minmax(0, 1fr)) !important; }
+              }
+            `}</style>
+            <div className="contents">
+              {active.steps.map((step, i) => (
+                <div
+                  key={step.title}
+                  className="opacity-0"
+                  style={{
+                    animation: "workflow-fade-up 0.5s ease-out forwards",
+                    animationDelay: `${0.15 + i * 0.15}s`,
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
+                      {i + 1}
+                    </span>
+                    <h3 className="font-bold text-sm sm:text-base leading-snug">
+                      {step.title}
+                    </h3>
+                  </div>
+                  <div className="relative rounded-2xl overflow-hidden aspect-[4/3] mb-3 shadow-md bg-muted">
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shadow-lg">
+                      <step.icon className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
+                    {step.caption}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes workflow-progress {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+        @keyframes workflow-fade-up {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes workflow-step-in {
+          from { opacity: 0; transform: scale(0.7); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+    </section>
+  );
 };
 
 const HomePage: React.FC = () => {
@@ -406,6 +704,108 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* App Download Section */}
+      <section className="relative overflow-hidden bg-primary py-20 sm:py-28">
+        <img
+          src="https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&q=80&w=1200"
+          alt="Road texture"
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-overlay"
+        />
+
+        <div className="container relative mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
+            {/* Copy + CTAs */}
+            <div className="text-center lg:text-left order-2 lg:order-1">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-xs font-bold uppercase tracking-wider mb-6">
+                <Sparkles className="w-3.5 h-3.5" />
+                Now on your phone
+              </span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-5 leading-tight">
+                Your car&apos;s new
+                <br className="hidden lg:block" /> best friend, in your pocket
+              </h2>
+              <p className="text-white/80 text-lg mb-8 max-w-md mx-auto lg:mx-0">
+                Book services, track your vehicle live, and manage everything from one app. Faster booking, real-time updates, zero hassle.
+              </p>
+
+              <ul className="flex flex-col gap-3 mb-10 max-w-sm mx-auto lg:mx-0">
+                {[
+                  "Book a service in under a minute",
+                  "Live GPS tracking of your vehicle",
+                  "Digital invoices & service history",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-3 text-white">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/15 shrink-0">
+                      <CalendarCheck className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-sm sm:text-base">{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.carzzi.user&pcampaignid=web_share"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-5 py-3 bg-white text-primary rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-xl hover:-translate-y-0.5 min-w-[200px]"
+                >
+                  <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" fill="currentColor">
+                    <path d="M3.6 2.4C3.2 2.8 3 3.4 3 4.1v15.8c0 .7.2 1.3.6 1.7l.1.1L13 12.5v-.1L3.6 2.4z" />
+                    <path d="M16.2 15.7l-3.2-3.2v-.1l3.2-3.2 3.7 2.1c1 .6 1 1.6 0 2.2l-3.7 2.1z" />
+                    <path d="M16.2 8.3L12.9 12l-9.3-9.6c.3-.2.9-.2 1.5.1l11.1 5.8z" />
+                    <path d="M16.2 15.7L5.1 21.5c-.6.3-1.2.3-1.5.1l9.3-9.5 3.3 3.6z" />
+                  </svg>
+                  <span className="text-left leading-tight">
+                    <span className="block text-[11px] opacity-70">GET IT ON</span>
+                    <span className="block text-base font-bold -mt-0.5">Google Play</span>
+                  </span>
+                </a>
+                <a
+                  href="https://apps.apple.com/us/app/carzzi/id6799390325"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-5 py-3 bg-white text-primary rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-xl hover:-translate-y-0.5 min-w-[200px]"
+                >
+                  <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" fill="currentColor">
+                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.66-2.2.47-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l-.01-.01zM12.03 7.25c-.15-2.23 1.66-4.09 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                  </svg>
+                  <span className="text-left leading-tight">
+                    <span className="block text-[11px] opacity-70">Download on the</span>
+                    <span className="block text-base font-bold -mt-0.5">App Store</span>
+                  </span>
+                </a>
+              </div>
+            </div>
+
+            {/* Phone mockup */}
+            <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
+              <div className="relative w-[240px] sm:w-[280px]">
+                {/* Device frame */}
+                <div className="relative rounded-[2.5rem] bg-black p-2.5 shadow-2xl animate-[float_6s_ease-in-out_infinite]">
+                  <div className="rounded-[2rem] overflow-hidden bg-white aspect-[9/19.5]">
+                    <img
+                      src="/images/app-dashboard-screenshot.png"
+                      alt="Carzzi mobile app customer dashboard"
+                      loading="lazy"
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-16px); }
+          }
+        `}</style>
+      </section>
+
       {/* Services Section */}
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
@@ -470,6 +870,8 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      <WorkflowsSection />
 
       {/* Why Choose Us */}
       <section className="py-24 bg-muted/30">

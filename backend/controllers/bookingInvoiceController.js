@@ -617,7 +617,22 @@ export const getBookingInvoice = async (req, res) => {
       const serviceIdStr = service._id.toString();
       const qty = Number(booking.serviceQuantities?.[serviceIdStr] || booking.serviceQuantities?.[service._id] || 1);
 
-      if (isGeneral && refMatch?.general_service_price) {
+      // Admin-selected pricing column takes priority — matches
+      // calculateServicesTotal in bookingController.js so the invoice
+      // shows the same price that was actually charged at booking time.
+      let pricedFromColumn = false;
+      if (service.vehiclePricingColumn && refMatch) {
+        const columnPrice = refMatch[service.vehiclePricingColumn];
+        const priceNum = Number(columnPrice);
+        if (columnPrice && !isNaN(priceNum) && priceNum > 0) {
+          price = priceNum;
+          pricedFromColumn = true;
+        }
+      }
+
+      if (pricedFromColumn) {
+        // Already priced from the explicit column above.
+      } else if (isGeneral && refMatch?.general_service_price) {
         const generalPrice = Number(refMatch.general_service_price);
         if (!isNaN(generalPrice) && generalPrice > 0) {
           price = generalPrice;

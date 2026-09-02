@@ -135,6 +135,24 @@ const sanitizeAndValidateServiceData = (data, isUpdate = false) => {
     sanitized.isPremiumService = Boolean(data.isPremiumService);
   }
 
+  // Validate vehiclePricingColumn — which VehicleReference price column
+  // (from the admin stock sheet) this service's price is looked up from
+  // per-vehicle at booking time, instead of the flat price above.
+  const validPricingColumns = [
+    '',
+    'car_wash_exterior_price',
+    'car_wash_interior_exterior_price',
+    'car_wash_interior_exterior_underbody_price',
+    'general_service_price',
+  ];
+  if (data.vehiclePricingColumn !== undefined) {
+    const column = String(data.vehiclePricingColumn || '').trim();
+    if (!validPricingColumns.includes(column)) {
+      errors.push('Invalid vehicle pricing column');
+    }
+    sanitized.vehiclePricingColumn = column;
+  }
+
   return { sanitized, errors };
 };
 

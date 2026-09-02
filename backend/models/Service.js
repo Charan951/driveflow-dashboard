@@ -143,6 +143,26 @@ const serviceSchema = mongoose.Schema(
       default: false,
       index: true,
     },
+    /** Which per-vehicle price column (from VehicleReference / the admin
+     * stock sheet) this service's price is looked up from at booking time,
+     * instead of the flat `price` above. Empty string = use the flat
+     * price. Kept as an explicit admin choice rather than inferring it
+     * from the service name, which was brittle (see
+     * calculateServicesTotal in bookingController.js). */
+    vehiclePricingColumn: {
+      type: String,
+      default: '',
+      enum: {
+        values: [
+          '',
+          'car_wash_exterior_price',
+          'car_wash_interior_exterior_price',
+          'car_wash_interior_exterior_underbody_price',
+          'general_service_price',
+        ],
+        message: 'Invalid vehicle pricing column',
+      },
+    },
   },
   {
     timestamps: true,

@@ -27,7 +27,7 @@ android {
         applicationId = "com.carzzi.user"
         // Initial Play Store Release: 1.0.0 (Build 1)
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

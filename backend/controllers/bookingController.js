@@ -253,7 +253,23 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
       const qty = Number(normalizedQuantities[service._id.toString()] || normalizedQuantities[service._id] || 1);
       let servicePrice = service.price;
 
-      if (isGeneral && refMatch) {
+      // Admin-selected pricing column (set in Add/Edit Service) takes
+      // priority over the name-substring heuristics below — explicit and
+      // not dependent on how the service happens to be worded.
+      let pricedFromColumn = false;
+      if (service.vehiclePricingColumn && refMatch) {
+        const columnPrice = refMatch[service.vehiclePricingColumn];
+        const priceNum = Number(columnPrice);
+        if (columnPrice && !isNaN(priceNum) && priceNum > 0) {
+          servicePrice = priceNum;
+          pricedFromColumn = true;
+        }
+      }
+
+      if (pricedFromColumn) {
+        // Already priced from the explicit column above — skip the
+        // name-heuristic branches below.
+      } else if (isGeneral && refMatch) {
         const generalPrice = Number(refMatch.general_service_price);
         if (refMatch.general_service_price && !isNaN(generalPrice) && generalPrice > 0) {
           servicePrice = generalPrice;

@@ -8,6 +8,10 @@ export interface Service {
   duration: number;
   estimationTime?: string;
   category: 'Services' | 'Periodic' | 'Wash' | 'Car Wash' | 'Tyre & Battery' | 'Tyres' | 'Battery' | 'Painting' | 'Denting' | 'Repair' | 'Detailing' | 'AC' | 'Accessories' | 'Essentials' | 'Other';
+  /** Which per-vehicle price column (from Vehicle Reference Data / the
+   * admin stock sheet) this service's price is looked up from at booking
+   * time, instead of the flat `price` above. Empty/undefined = flat price. */
+  vehiclePricingColumn?: '' | 'car_wash_exterior_price' | 'car_wash_interior_exterior_price' | 'car_wash_interior_exterior_underbody_price' | 'general_service_price';
   vehicleType: 'Car';
   image?: string;
   features?: string[];
