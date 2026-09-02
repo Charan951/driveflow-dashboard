@@ -148,7 +148,11 @@ const serviceSchema = mongoose.Schema(
      * instead of the flat `price` above. Empty string = use the flat
      * price. Kept as an explicit admin choice rather than inferring it
      * from the service name, which was brittle (see
-     * calculateServicesTotal in bookingController.js). */
+     * calculateServicesTotal in bookingController.js).
+     * 'tyre_brand'/'battery_brand' are sentinels (not real VehicleReference
+     * fields) — they mark the service as brand-selected pricing, so the
+     * actual column (e.g. tyre_price_bridgestone) is resolved per the
+     * brand the customer picks at booking time. */
     vehiclePricingColumn: {
       type: String,
       default: '',
@@ -159,6 +163,8 @@ const serviceSchema = mongoose.Schema(
           'car_wash_interior_exterior_price',
           'car_wash_interior_exterior_underbody_price',
           'general_service_price',
+          'tyre_brand',
+          'battery_brand',
         ],
         message: 'Invalid vehicle pricing column',
       },

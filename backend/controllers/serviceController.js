@@ -144,6 +144,8 @@ const sanitizeAndValidateServiceData = (data, isUpdate = false) => {
     'car_wash_interior_exterior_price',
     'car_wash_interior_exterior_underbody_price',
     'general_service_price',
+    'tyre_brand',
+    'battery_brand',
   ];
   if (data.vehiclePricingColumn !== undefined) {
     const column = String(data.vehiclePricingColumn || '').trim();

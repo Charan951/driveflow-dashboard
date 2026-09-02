@@ -11,7 +11,7 @@ export interface Service {
   /** Which per-vehicle price column (from Vehicle Reference Data / the
    * admin stock sheet) this service's price is looked up from at booking
    * time, instead of the flat `price` above. Empty/undefined = flat price. */
-  vehiclePricingColumn?: '' | 'car_wash_exterior_price' | 'car_wash_interior_exterior_price' | 'car_wash_interior_exterior_underbody_price' | 'general_service_price';
+  vehiclePricingColumn?: '' | 'car_wash_exterior_price' | 'car_wash_interior_exterior_price' | 'car_wash_interior_exterior_underbody_price' | 'general_service_price' | 'tyre_brand' | 'battery_brand';
   vehicleType: 'Car';
   image?: string;
   features?: string[];

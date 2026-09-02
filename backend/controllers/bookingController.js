@@ -239,11 +239,13 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
       const isWash = service.category === 'Car Wash' || service.category === 'Wash';
       const isBattery =
         service.category === 'Battery' ||
+        service.vehiclePricingColumn === 'battery_brand' ||
         (service.name && service.name.toLowerCase().includes('battery'));
       const isTire =
         !isBattery &&
         (service.category === 'Tyres' ||
           service.category === 'Tyre & Battery' ||
+          service.vehiclePricingColumn === 'tyre_brand' ||
           (service.name && service.name.toLowerCase().includes('tyre')));
       const isGeneral =
         service.category === 'Periodic' ||
@@ -257,7 +259,14 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
       // priority over the name-substring heuristics below — explicit and
       // not dependent on how the service happens to be worded.
       let pricedFromColumn = false;
-      if (service.vehiclePricingColumn && refMatch) {
+      // 'tyre_brand'/'battery_brand' are sentinels, not real VehicleReference
+      // fields — they route into the per-brand isTire/isBattery logic below
+      // instead of a direct column lookup.
+      const isDirectPricingColumn =
+        service.vehiclePricingColumn &&
+        service.vehiclePricingColumn !== 'tyre_brand' &&
+        service.vehiclePricingColumn !== 'battery_brand';
+      if (isDirectPricingColumn && refMatch) {
         const columnPrice = refMatch[service.vehiclePricingColumn];
         const priceNum = Number(columnPrice);
         if (columnPrice && !isNaN(priceNum) && priceNum > 0) {

@@ -941,9 +941,11 @@ const ServiceModal = ({ service, onClose, onSave }) => {
                   <option value="car_wash_interior_exterior_price">Wash (Int+Ext)</option>
                   <option value="car_wash_interior_exterior_underbody_price">Wash (Full)</option>
                   <option value="general_service_price">General Svc</option>
+                  <option value="tyre_brand">Tyres (by brand)</option>
+                  <option value="battery_brand">Battery (by brand)</option>
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  When set, the price is looked up per-vehicle from the matching column in Vehicle Reference Data (Stock page), instead of the flat price.
+                  When set, the price is looked up per-vehicle from the matching column in Vehicle Reference Data (Stock page), instead of the flat price. "Tyres/Battery (by brand)" prices from whichever brand the customer selects at booking (e.g. Bridgestone, Amaron).
                 </p>
               </div>
 

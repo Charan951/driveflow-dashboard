@@ -612,7 +612,16 @@ export const getBookingInvoice = async (req, res) => {
         service.category === 'Periodic' ||
         service.category === 'Services' ||
         (service.name && String(service.name).toLowerCase().includes('general service'));
-      const isTire = service.category === 'Tyres' || service.category === 'Tyre & Battery';
+      const isBatteryLine =
+        service.category === 'Battery' ||
+        service.vehiclePricingColumn === 'battery_brand' ||
+        (service.name && String(service.name).toLowerCase().includes('battery'));
+      const isTire =
+        !isBatteryLine &&
+        (service.category === 'Tyres' ||
+          service.category === 'Tyre & Battery' ||
+          service.vehiclePricingColumn === 'tyre_brand' ||
+          (service.name && String(service.name).toLowerCase().includes('tyre')));
 
       const serviceIdStr = service._id.toString();
       const qty = Number(booking.serviceQuantities?.[serviceIdStr] || booking.serviceQuantities?.[service._id] || 1);
@@ -621,7 +630,11 @@ export const getBookingInvoice = async (req, res) => {
       // calculateServicesTotal in bookingController.js so the invoice
       // shows the same price that was actually charged at booking time.
       let pricedFromColumn = false;
-      if (service.vehiclePricingColumn && refMatch) {
+      const isDirectPricingColumn =
+        service.vehiclePricingColumn &&
+        service.vehiclePricingColumn !== 'tyre_brand' &&
+        service.vehiclePricingColumn !== 'battery_brand';
+      if (isDirectPricingColumn && refMatch) {
         const columnPrice = refMatch[service.vehiclePricingColumn];
         const priceNum = Number(columnPrice);
         if (columnPrice && !isNaN(priceNum) && priceNum > 0) {
@@ -662,6 +675,17 @@ export const getBookingInvoice = async (req, res) => {
         if (selectedBrand) {
           desc = `${desc} (${selectedBrand})`;
           const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
+          const brandPrice = refMatch[brandKey];
+          const priceNum = Number(brandPrice);
+          if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
+            price = priceNum;
+          }
+        }
+      } else if (isBatteryLine && refMatch) {
+        const selectedBrand = booking.selectedBrands?.[serviceIdStr] || booking.selectedBrands?.[service._id];
+        if (selectedBrand) {
+          desc = `${desc} (${selectedBrand})`;
+          const brandKey = `battery_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
           const brandPrice = refMatch[brandKey];
           const priceNum = Number(brandPrice);
           if (brandPrice && !isNaN(priceNum) && priceNum > 0) {

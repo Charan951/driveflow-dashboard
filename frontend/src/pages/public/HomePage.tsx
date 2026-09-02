@@ -162,19 +162,22 @@ const workflows: Workflow[] = [
       {
         icon: CalendarCheck,
         title: "Service Booking",
-        caption: "Choose your service and schedule it easily through the Carzzi App.",
+        caption:
+          "Choose your service and schedule it easily through the Carzzi App.",
         image: "/images/workflows/general/1.jpg",
       },
       {
         icon: UserCheck,
         title: "Appointing a Driver",
-        caption: "We appoint a verified driver from our trained team who will pick up your vehicle.",
+        caption:
+          "We appoint a verified driver from our trained team who will pick up your vehicle.",
         image: "/images/workflows/general/2.jpg",
       },
       {
         icon: Car,
         title: "Vehicle Pickup",
-        caption: "Our verified driver performs a digital inspection and picks up your vehicle from your doorstep.",
+        caption:
+          "Our verified driver performs a digital inspection and picks up your vehicle from your doorstep.",
         image: "/images/workflows/general/3.jpg",
       },
       {
@@ -192,19 +195,22 @@ const workflows: Workflow[] = [
       {
         icon: CalendarCheck,
         title: "Service Booking",
-        caption: "Book your car wash service in just a few taps through the Carzzi App.",
+        caption:
+          "Book your car wash service in just a few taps through the Carzzi App.",
         image: "/images/workflows/wash/1.jpg",
       },
       {
         icon: UserCheck,
         title: "Assigning a Professional",
-        caption: "We assign a trained and verified car wash technician to provide the service at your location.",
+        caption:
+          "We assign a trained and verified car wash technician to provide the service at your location.",
         image: "/images/workflows/wash/2.jpg",
       },
       {
         icon: Droplets,
         title: "Car Wash at Your Doorstep",
-        caption: "Enjoy a professional car wash at your doorstep without leaving your home.",
+        caption:
+          "Enjoy a professional car wash at your doorstep without leaving your home.",
         image: "/images/workflows/wash/3.jpg",
       },
     ],
@@ -216,25 +222,29 @@ const workflows: Workflow[] = [
       {
         icon: CalendarCheck,
         title: "Book Your Service",
-        caption: "Book your tyre replacement in just a few taps through the Carzzi App.",
+        caption:
+          "Book your tyre replacement in just a few taps through the Carzzi App.",
         image: "/images/workflows/tyre/1.jpg",
       },
       {
         icon: UserCheck,
         title: "Assigning a Professional",
-        caption: "We connect you with the professional to handle your tyre replacement process.",
+        caption:
+          "We connect you with the professional to handle your tyre replacement process.",
         image: "/images/workflows/tyre/2.jpg",
       },
       {
         icon: ClipboardCheck,
         title: "Pickup & Inspection",
-        caption: "You hand over the keys, our professional performs a quick inspection and picks up your vehicle.",
+        caption:
+          "You hand over the keys, our professional performs a quick inspection and picks up your vehicle.",
         image: "/images/workflows/tyre/3.jpg",
       },
       {
         icon: Disc,
         title: "Delivered Back to You",
-        caption: "New tyres professionally fitted & balanced, delivered safely to your doorstep.",
+        caption:
+          "New tyres professionally fitted & balanced, delivered safely to your doorstep.",
         image: "/images/workflows/tyre/4.jpg",
       },
     ],
@@ -246,25 +256,29 @@ const workflows: Workflow[] = [
       {
         icon: CalendarCheck,
         title: "Book Your Service",
-        caption: "Book your battery replacement in just a few taps through the Carzzi App.",
+        caption:
+          "Book your battery replacement in just a few taps through the Carzzi App.",
         image: "/images/workflows/battery/1.jpg",
       },
       {
         icon: UserCheck,
         title: "Assigning a Professional",
-        caption: "We assign a verified Carzzi technician who comes to you at your preferred time.",
+        caption:
+          "We assign a verified Carzzi technician who comes to you at your preferred time.",
         image: "/images/workflows/battery/2.jpg",
       },
       {
         icon: ClipboardCheck,
         title: "Doorstep Inspection",
-        caption: "Our expert checks your battery and electrical system to ensure the right replacement.",
+        caption:
+          "Our expert checks your battery and electrical system to ensure the right replacement.",
         image: "/images/workflows/battery/3.jpg",
       },
       {
         icon: Battery,
         title: "Delivered — Peace of Mind",
-        caption: "New battery professionally fitted & tested, delivered safely to your doorstep.",
+        caption:
+          "New battery professionally fitted & tested, delivered safely to your doorstep.",
         image: "/images/workflows/battery/4.jpg",
       },
     ],
@@ -275,16 +289,23 @@ const WORKFLOW_AUTOPLAY_MS = 5800;
 
 const WorkflowsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isAutoplayOn, setIsAutoplayOn] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (!isAutoplayOn) return;
     timerRef.current = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % workflows.length);
     }, WORKFLOW_AUTOPLAY_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [activeIndex]);
+  }, [activeIndex, isAutoplayOn]);
+
+  const handleTabClick = (i: number) => {
+    setIsAutoplayOn(false);
+    setActiveIndex(i);
+  };
 
   const active = workflows[activeIndex];
   const stepCount = active.steps.length;
@@ -308,14 +329,14 @@ const WorkflowsSection: React.FC = () => {
             return (
               <button
                 key={wf.name}
-                onClick={() => setActiveIndex(i)}
+                onClick={() => handleTabClick(i)}
                 className={`relative overflow-hidden px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                     : "bg-muted text-muted-foreground hover:bg-muted/70"
                 }`}
               >
-                {isActive && (
+                {isActive && isAutoplayOn && (
                   <span
                     key={activeIndex}
                     className="absolute inset-0 bg-white/25 origin-left"
@@ -343,40 +364,52 @@ const WorkflowsSection: React.FC = () => {
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 mb-6 px-6">
-            <MapPin className="w-6 h-6 text-primary shrink-0" />
-            <div className="relative flex-1 flex items-center justify-between">
-              <div className="absolute left-0 right-0 h-0.5 border-t-2 border-dashed border-primary/40" />
+          <style>{`
+            @media (min-width: 640px) {
+              .workflow-steps-grid-${stepCount} { grid-template-columns: repeat(${stepCount}, minmax(0, 1fr)) !important; }
+            }
+          `}</style>
+
+          {/* Road: dashed line + numbered dots, columns matching the cards below exactly */}
+          <div className="hidden sm:block relative mb-8">
+            <MapPin className="absolute -left-9 top-1/2 -translate-y-1/2 w-6 h-6 text-primary" />
+            <MapPin className="absolute -right-9 top-1/2 -translate-y-1/2 w-6 h-6 text-primary fill-primary/20" />
+            <span className="absolute -left-9 top-full mt-1 w-14 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Start
+            </span>
+            <span className="absolute -right-9 top-full mt-1 w-20 text-center text-[11px] font-bold uppercase tracking-wider text-primary">
+              Delivered
+            </span>
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 border-t-2 border-dashed border-primary/40" />
+            <div
+              className={`relative grid workflow-steps-grid-${stepCount}`}
+              style={{
+                gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))`,
+              }}
+            >
               {active.steps.map((_, i) => (
-                <span
-                  key={i}
-                  className="relative z-10 flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow shrink-0 opacity-0"
-                  style={{
-                    animation: "workflow-step-in 0.4s ease-out forwards",
-                    animationDelay: `${0.1 + i * 0.15}s`,
-                  }}
-                >
-                  {i + 1}
-                </span>
+                <div key={i} className="flex justify-center">
+                  <span
+                    className="relative z-10 flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow shrink-0 opacity-0"
+                    style={{
+                      animation: "workflow-step-in 0.4s ease-out forwards",
+                      animationDelay: `${0.1 + i * 0.15}s`,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                </div>
               ))}
             </div>
-            <MapPin className="w-6 h-6 text-primary shrink-0 fill-primary/20" />
-          </div>
-          <div className="hidden sm:flex justify-between px-1 mb-10 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            <span>Start</span>
-            <span className="text-primary">Delivered</span>
           </div>
 
           {/* Step cards */}
           <div
             className={`grid gap-5 sm:gap-6 workflow-steps-grid-${stepCount}`}
-            style={{ gridTemplateColumns: `repeat(${Math.min(stepCount, 2)}, minmax(0, 1fr))` }}
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(stepCount, 2)}, minmax(0, 1fr))`,
+            }}
           >
-            <style>{`
-              @media (min-width: 640px) {
-                .workflow-steps-grid-${stepCount} { grid-template-columns: repeat(${stepCount}, minmax(0, 1fr)) !important; }
-              }
-            `}</style>
             <div className="contents">
               {active.steps.map((step, i) => (
                 <div
@@ -387,7 +420,7 @@ const WorkflowsSection: React.FC = () => {
                     animationDelay: `${0.15 + i * 0.15}s`,
                   }}
                 >
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 min-h-[2.75rem] sm:min-h-[3.25rem]">
                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
                       {i + 1}
                     </span>
@@ -726,14 +759,15 @@ const HomePage: React.FC = () => {
                 <br className="hidden lg:block" /> best friend, in your pocket
               </h2>
               <p className="text-white/80 text-lg mb-8 max-w-md mx-auto lg:mx-0">
-                Book services, track your vehicle live, and manage everything from one app. Faster booking, real-time updates, zero hassle.
+                Book services, track your vehicle live, and manage everything
+                from one app. Faster booking, real-time updates, zero hassle.
               </p>
 
               <ul className="flex flex-col gap-3 mb-10 max-w-sm mx-auto lg:mx-0">
                 {[
                   "Book a service in under a minute",
-                  "Live GPS tracking of your vehicle",
-                  "Digital invoices & service history",
+                  "Live tracking of your vehicle",
+                  "service history",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-white">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/15 shrink-0">
@@ -751,15 +785,23 @@ const HomePage: React.FC = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-3 px-5 py-3 bg-white text-primary rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-xl hover:-translate-y-0.5 min-w-[200px]"
                 >
-                  <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" fill="currentColor">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-7 h-7 shrink-0"
+                    fill="currentColor"
+                  >
                     <path d="M3.6 2.4C3.2 2.8 3 3.4 3 4.1v15.8c0 .7.2 1.3.6 1.7l.1.1L13 12.5v-.1L3.6 2.4z" />
                     <path d="M16.2 15.7l-3.2-3.2v-.1l3.2-3.2 3.7 2.1c1 .6 1 1.6 0 2.2l-3.7 2.1z" />
                     <path d="M16.2 8.3L12.9 12l-9.3-9.6c.3-.2.9-.2 1.5.1l11.1 5.8z" />
                     <path d="M16.2 15.7L5.1 21.5c-.6.3-1.2.3-1.5.1l9.3-9.5 3.3 3.6z" />
                   </svg>
                   <span className="text-left leading-tight">
-                    <span className="block text-[11px] opacity-70">GET IT ON</span>
-                    <span className="block text-base font-bold -mt-0.5">Google Play</span>
+                    <span className="block text-[11px] opacity-70">
+                      GET IT ON
+                    </span>
+                    <span className="block text-base font-bold -mt-0.5">
+                      Google Play
+                    </span>
                   </span>
                 </a>
                 <a
@@ -768,12 +810,20 @@ const HomePage: React.FC = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-3 px-5 py-3 bg-white text-primary rounded-xl font-semibold hover:bg-gray-100 transition-all shadow-xl hover:-translate-y-0.5 min-w-[200px]"
                 >
-                  <svg viewBox="0 0 24 24" className="w-7 h-7 shrink-0" fill="currentColor">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-7 h-7 shrink-0"
+                    fill="currentColor"
+                  >
                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.52-3.23 0-1.44.66-2.2.47-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l-.01-.01zM12.03 7.25c-.15-2.23 1.66-4.09 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                   </svg>
                   <span className="text-left leading-tight">
-                    <span className="block text-[11px] opacity-70">Download on the</span>
-                    <span className="block text-base font-bold -mt-0.5">App Store</span>
+                    <span className="block text-[11px] opacity-70">
+                      Download on the
+                    </span>
+                    <span className="block text-base font-bold -mt-0.5">
+                      App Store
+                    </span>
                   </span>
                 </a>
               </div>
