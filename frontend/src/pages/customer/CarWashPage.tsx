@@ -74,6 +74,23 @@ const CarWashPage: React.FC = () => {
   }, [selectedVehicle, selectedVehicleData]);
 
   const getPackagePrice = (pkg: Service) => {
+    // Admin-selected pricing column (Add/Edit Service) takes priority —
+    // matches calculateServicesTotal in backend/controllers/bookingController.js,
+    // and doesn't depend on the service happening to be worded a certain way.
+    if (pkg.vehiclePricingColumn) {
+      const columnPrice =
+        pkg.vehiclePricingColumn === 'car_wash_exterior_price'
+          ? carWashPrices.exterior
+          : pkg.vehiclePricingColumn === 'car_wash_interior_exterior_price'
+          ? carWashPrices.interiorExterior
+          : pkg.vehiclePricingColumn === 'car_wash_interior_exterior_underbody_price'
+          ? carWashPrices.underbody
+          : null;
+      if (columnPrice !== null && columnPrice > 0) {
+        return columnPrice;
+      }
+    }
+
     const sName = pkg.name.toLowerCase();
     let price = null;
 

@@ -143,14 +143,34 @@ const BookServicePage: React.FC = () => {
     const isWash = service.category === 'Car Wash' || service.category === 'Wash';
     const isBattery =
       service.category === 'Battery' ||
+      service.vehiclePricingColumn === 'battery_brand' ||
       service.name.toLowerCase().includes('battery');
     const isTire =
       !isBattery &&
-      (service.category === 'Tyres' || service.category === 'Tyre & Battery' || service.name.toLowerCase().includes('tyre'));
+      (service.category === 'Tyres' ||
+        service.category === 'Tyre & Battery' ||
+        service.vehiclePricingColumn === 'tyre_brand' ||
+        service.name.toLowerCase().includes('tyre'));
     const isGeneral =
       service.category === 'Periodic' ||
       service.category === 'Services' ||
       service.name.toLowerCase().includes('general service');
+
+    // Admin-selected pricing column (Add/Edit Service) takes priority —
+    // matches calculateServicesTotal in backend/controllers/bookingController.js
+    // so the checkout preview shows the same price that'll actually be
+    // charged. 'tyre_brand'/'battery_brand' are sentinels handled by the
+    // isTire/isBattery branches below instead of a direct lookup.
+    const isDirectPricingColumn =
+      service.vehiclePricingColumn &&
+      service.vehiclePricingColumn !== 'tyre_brand' &&
+      service.vehiclePricingColumn !== 'battery_brand';
+    if (isDirectPricingColumn && selectedVehicleReference) {
+      const columnPrice = Number(selectedVehicleReference[service.vehiclePricingColumn as string]);
+      if (!Number.isNaN(columnPrice) && columnPrice > 0) {
+        return columnPrice;
+      }
+    }
 
     if (isGeneral && selectedVehicleReference?.general_service_price != null) {
       const refPrice = Number(selectedVehicleReference.general_service_price);

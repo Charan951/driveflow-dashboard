@@ -571,8 +571,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     final cat = service.category?.toLowerCase() ?? '';
-    final isBattery = cat.contains('battery');
-    final isTire = cat.contains('tyre') || cat.contains('tire');
+    final isBattery =
+        cat.contains('battery') || service.vehiclePricingColumn == 'battery_brand';
+    final isTire =
+        cat.contains('tyre') ||
+        cat.contains('tire') ||
+        service.vehiclePricingColumn == 'tyre_brand';
 
     final isGeneral =
         cat == 'periodic' ||
@@ -781,6 +785,28 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         for (final service in _allServices) {
           final cat = (service.category ?? '').toLowerCase();
           final nameLower = service.name.toLowerCase();
+
+          // Admin-selected pricing column (Add/Edit Service) takes priority
+          // over every heuristic below — matches calculateServicesTotal in
+          // backend/controllers/bookingController.js, and doesn't depend on
+          // how the service happens to be worded. 'tyre_brand'/
+          // 'battery_brand' are sentinels resolved by brand selection
+          // elsewhere, not a direct column here.
+          final column = service.vehiclePricingColumn;
+          final isDirectPricingColumn =
+              column != null &&
+              column != 'tyre_brand' &&
+              column != 'battery_brand';
+          if (isDirectPricingColumn) {
+            final columnPrice = double.tryParse(
+              ref[column]?.toString() ?? '',
+            );
+            if (columnPrice != null && columnPrice > 0) {
+              newAdjustedPrices[service.id] = columnPrice;
+              continue;
+            }
+          }
+
           final isGeneral =
               cat == 'periodic' ||
               cat == 'services' ||

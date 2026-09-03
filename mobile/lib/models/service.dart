@@ -11,6 +11,12 @@ class ServiceItem {
   final String? vehicleType;
   final List<String> features;
   final bool isQuickService;
+  /// Which per-vehicle price column (from Vehicle Reference Data / the
+  /// admin stock sheet) this service's price is looked up from, instead of
+  /// the flat [price] above. Empty/null = use the flat price.
+  /// 'tyre_brand'/'battery_brand' are sentinels resolved per the brand
+  /// selected at booking time.
+  final String? vehiclePricingColumn;
 
   ServiceItem({
     required this.id,
@@ -24,6 +30,7 @@ class ServiceItem {
     this.vehicleType,
     this.features = const [],
     this.isQuickService = false,
+    this.vehiclePricingColumn,
   });
 
   factory ServiceItem.fromJson(Map<String, dynamic> json) {
@@ -45,6 +52,7 @@ class ServiceItem {
           .map((e) => e.toString())
           .toList(),
       isQuickService: json['isQuickService'] == true,
+      vehiclePricingColumn: json['vehiclePricingColumn']?.toString(),
     );
   }
 
@@ -61,6 +69,8 @@ class ServiceItem {
       if (vehicleType != null) 'vehicleType': vehicleType,
       'features': features,
       'isQuickService': isQuickService,
+      if (vehiclePricingColumn != null)
+        'vehiclePricingColumn': vehiclePricingColumn,
     };
   }
 }

@@ -39,8 +39,25 @@ double getServiceUnitPrice(
       cat.contains('car wash') ||
       cat.contains('wash') ||
       cat.contains('detailing');
-  final isTire = cat.contains('tyre') || cat.contains('tire');
-  final isBattery = cat.contains('battery');
+  final isTire =
+      cat.contains('tyre') ||
+      cat.contains('tire') ||
+      service.vehiclePricingColumn == 'tyre_brand';
+  final isBattery =
+      cat.contains('battery') || service.vehiclePricingColumn == 'battery_brand';
+
+  // Admin-selected pricing column (Add/Edit Service) takes priority over
+  // every heuristic below — matches calculateServicesTotal in
+  // backend/controllers/bookingController.js. 'tyre_brand'/'battery_brand'
+  // are sentinels handled by the isTire/isBattery branch instead of a
+  // direct lookup here.
+  final column = service.vehiclePricingColumn;
+  final isDirectPricingColumn =
+      column != null && column != 'tyre_brand' && column != 'battery_brand';
+  if (isDirectPricingColumn && vehicleRef != null) {
+    final columnPrice = double.tryParse(vehicleRef[column]?.toString() ?? '');
+    if (columnPrice != null && columnPrice > 0) return columnPrice;
+  }
 
   if (isGeneral && vehicleRef != null) {
     final refPrice = double.tryParse(

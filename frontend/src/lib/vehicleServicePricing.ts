@@ -17,6 +17,7 @@ function isCarWashService(service: Service): boolean {
 function isBatteryService(service: Service): boolean {
   return (
     service.category === 'Battery' ||
+    service.vehiclePricingColumn === 'battery_brand' ||
     (service.name?.toLowerCase().includes('battery') ?? false)
   );
 }
@@ -26,6 +27,7 @@ function isTireService(service: Service): boolean {
     !isBatteryService(service) &&
     (service.category === 'Tyres' ||
       service.category === 'Tyre & Battery' ||
+      service.vehiclePricingColumn === 'tyre_brand' ||
       (service.name?.toLowerCase().includes('tyre') ?? false))
   );
 }
@@ -58,6 +60,23 @@ export function getServiceUnitPrice(
   const isWash = isCarWashService(service);
   const isBattery = isBatteryService(service);
   const isTire = isTireService(service);
+
+  // Admin-selected pricing column (Add/Edit Service) takes priority over
+  // every heuristic below — matches calculateServicesTotal in
+  // backend/controllers/bookingController.js. 'tyre_brand'/'battery_brand'
+  // are sentinels handled by the isTire/isBattery branches instead of a
+  // direct lookup here.
+  const isDirectPricingColumn =
+    service.vehiclePricingColumn &&
+    service.vehiclePricingColumn !== 'tyre_brand' &&
+    service.vehiclePricingColumn !== 'battery_brand';
+  if (isDirectPricingColumn && vehicleRef) {
+    const columnValue = vehicleRef[service.vehiclePricingColumn as string];
+    if (columnValue != null) {
+      const columnPrice = Number(columnValue);
+      if (!Number.isNaN(columnPrice) && columnPrice > 0) return columnPrice;
+    }
+  }
 
   if (isGeneral && vehicleRef?.general_service_price != null) {
     const refPrice = Number(vehicleRef.general_service_price);
