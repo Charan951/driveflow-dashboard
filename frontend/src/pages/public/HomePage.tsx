@@ -21,10 +21,10 @@ import {
   Sparkles,
   Wallet,
   Headset,
-  Car,
   Home,
   UserCheck,
   ClipboardCheck,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -70,29 +70,6 @@ const staticServices = [
     image:
       "https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=600",
     link: "/services?category=Cars&service=Tyres%20%26%20Battery",
-  },
-];
-
-const howItWorks = [
-  {
-    step: 1,
-    title: "Add Your Vehicle",
-    description: "Register your vehicle details in our system",
-  },
-  {
-    step: 2,
-    title: "Book a Service",
-    description: "Choose from our wide range of services",
-  },
-  {
-    step: 3,
-    title: "Pickup & Service",
-    description: "Our driver picks up your vehicle for service",
-  },
-  {
-    step: 4,
-    title: "Track & Relax",
-    description: "Real-time updates on your service status",
   },
 ];
 
@@ -144,7 +121,8 @@ const getHomeHeroImageSources = (imageUrl?: string) => {
 interface WorkflowStep {
   icon: LucideIcon;
   title: string;
-  caption: string;
+  caption?: string;
+  bullets?: string[];
   image: string;
 }
 
@@ -157,67 +135,41 @@ interface Workflow {
 const workflows: Workflow[] = [
   {
     name: "General Service",
-    journeyName: "The Carzzi Service Journey",
+    journeyName: "How General Service Works",
     steps: [
       {
         icon: CalendarCheck,
-        title: "Service Booking",
+        title: "Book & Assign",
         caption:
-          "Choose your service and schedule it easily through the Carzzi App.",
+          "Choose your service and schedule it easily through the Carzzi App. We appoint a verified driver from our trained team who will pick up your vehicle.",
         image: "/images/workflows/general/1.jpg",
       },
       {
-        icon: UserCheck,
-        title: "Appointing a Driver",
+        icon: Shield,
+        title: "Service at Authorized Partner",
         caption:
-          "We appoint a verified driver from our trained team who will pick up your vehicle.",
+          "Your car is sent to our trusted Authorized Service Partners. Our expert technicians inspect your vehicle and start the general service as per manufacturer standards.",
         image: "/images/workflows/general/2.jpg",
       },
       {
-        icon: Car,
-        title: "Vehicle Pickup",
+        icon: Wallet,
+        title: "Approval & Payment",
         caption:
-          "Our verified driver performs a digital inspection and picks up your vehicle from your doorstep.",
+          "If any additional repairs or replacements are identified, you’ll receive an approval request in the Carzzi app before any work begins. Make secure digital payments only after the service is complete.",
         image: "/images/workflows/general/3.jpg",
       },
       {
         icon: Home,
-        title: "We Deliver",
-        caption: "We deliver your serviced vehicle back to your doorstep.",
+        title: "Updates & Delivery",
+        caption:
+          "Get real-time updates at every step of the service process. We deliver your serviced vehicle back to your doorstep.",
         image: "/images/workflows/general/4.jpg",
       },
     ],
   },
   {
-    name: "Car Wash",
-    journeyName: "The Carzzi Car Wash Journey",
-    steps: [
-      {
-        icon: CalendarCheck,
-        title: "Service Booking",
-        caption:
-          "Book your car wash service in just a few taps through the Carzzi App.",
-        image: "/images/workflows/wash/1.jpg",
-      },
-      {
-        icon: UserCheck,
-        title: "Assigning a Professional",
-        caption:
-          "We assign a trained and verified car wash technician to provide the service at your location.",
-        image: "/images/workflows/wash/2.jpg",
-      },
-      {
-        icon: Droplets,
-        title: "Car Wash at Your Doorstep",
-        caption:
-          "Enjoy a professional car wash at your doorstep without leaving your home.",
-        image: "/images/workflows/wash/3.jpg",
-      },
-    ],
-  },
-  {
     name: "Tyre Replacement",
-    journeyName: "The Carzzi Tyre Replacement Journey",
+    journeyName: "Tyre Replacement Made Simple",
     steps: [
       {
         icon: CalendarCheck,
@@ -243,15 +195,19 @@ const workflows: Workflow[] = [
       {
         icon: Disc,
         title: "Delivered Back to You",
-        caption:
-          "New tyres professionally fitted & balanced, delivered safely to your doorstep.",
+        bullets: [
+          "New tyres professionally fitted & balanced.",
+          "Quality check completed.",
+          "Delivered safely to your doorstep.",
+          "Ready for the road!",
+        ],
         image: "/images/workflows/tyre/4.jpg",
       },
     ],
   },
   {
     name: "Battery Replacement",
-    journeyName: "The Carzzi Battery Replacement Journey",
+    journeyName: "Battery Replacement Made Simple",
     steps: [
       {
         icon: CalendarCheck,
@@ -269,16 +225,20 @@ const workflows: Workflow[] = [
       },
       {
         icon: ClipboardCheck,
-        title: "Doorstep Inspection",
+        title: "Expert Replacement at Your Doorstep",
         caption:
-          "Our expert checks your battery and electrical system to ensure the right replacement.",
+          "Our expert checks your battery and electrical system to ensure the right replacement. We replace the old battery with a new one safely and professionally at your doorstep.",
         image: "/images/workflows/battery/3.jpg",
       },
       {
         icon: Battery,
-        title: "Delivered — Peace of Mind",
-        caption:
-          "New battery professionally fitted & tested, delivered safely to your doorstep.",
+        title: "Delivered. Power. Peace of Mind.",
+        bullets: [
+          "New battery professionally fitted & tested.",
+          "Electrical system check completed.",
+          "Delivered safely to your doorstep.",
+          "Ready for the road!",
+        ],
         image: "/images/workflows/battery/4.jpg",
       },
     ],
@@ -318,11 +278,10 @@ const WorkflowsSection: React.FC = () => {
             How Carzzi Works
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            One simple journey, tailored to every service.
+            From booking to doorstep, we make it simple for you.
           </p>
         </div>
 
-        {/* Tab pills with autoplay progress */}
         <div className="flex flex-wrap justify-center gap-3 mb-14">
           {workflows.map((wf, i) => {
             const isActive = i === activeIndex;
@@ -352,7 +311,6 @@ const WorkflowsSection: React.FC = () => {
         </div>
 
         <div key={activeIndex} className="max-w-6xl mx-auto">
-          {/* Road header: START — 1 — 2 — 3 ... — END */}
           <div
             className="mb-2 text-center opacity-0"
             style={{ animation: "workflow-fade-up 0.4s ease-out forwards" }}
@@ -370,7 +328,6 @@ const WorkflowsSection: React.FC = () => {
             }
           `}</style>
 
-          {/* Road: dashed line + numbered dots, columns matching the cards below exactly */}
           <div className="hidden sm:block relative mb-8">
             <MapPin className="absolute -left-9 top-1/2 -translate-y-1/2 w-6 h-6 text-primary" />
             <MapPin className="absolute -right-9 top-1/2 -translate-y-1/2 w-6 h-6 text-primary fill-primary/20" />
@@ -403,7 +360,6 @@ const WorkflowsSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Step cards */}
           <div
             className={`grid gap-5 sm:gap-6 workflow-steps-grid-${stepCount}`}
             style={{
@@ -439,9 +395,23 @@ const WorkflowsSection: React.FC = () => {
                       <step.icon className="w-4 h-4" />
                     </span>
                   </div>
-                  <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
-                    {step.caption}
-                  </p>
+                  {step.bullets?.length ? (
+                    <ul className="space-y-1.5">
+                      {step.bullets.map((bullet) => (
+                        <li
+                          key={bullet}
+                          className="flex items-start gap-2 text-muted-foreground text-xs sm:text-sm leading-relaxed"
+                        >
+                          <Check className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
+                      {step.caption}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
