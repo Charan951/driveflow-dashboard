@@ -14,7 +14,7 @@ import {
   MAX_PASSWORD_LENGTH,
 } from '@/lib/formValidation';
 
-type LoginStep = 'identifier' | 'password' | 'emailOtp' | 'phoneOtp';
+type LoginStep = 'identifier' | 'password' | 'phoneOtp';
 type IdentifierKind = 'email' | 'phone' | null;
 
 const detectIdentifierKind = (value: string): IdentifierKind => {
@@ -39,7 +39,6 @@ const LoginPage: React.FC = () => {
   const [maskedPhone, setMaskedPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const otpSentRef = useRef(false);
 
   const RESEND_COOLDOWN_SECONDS = 30;
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
@@ -203,89 +202,12 @@ const LoginPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // Email + password fully authenticates now — no OTP step follows.
       const result = await authService.prepareLogin({ email: identifier, password });
-      if (result.skipOtp) {
-        applyLoggedInUser(result);
-      } else {
-        setMaskedPhone(result.mobile || '');
-        setOtp('');
-        otpSentRef.current = false;
-        setStep('emailOtp');
-        toast.success('Email and password verified');
-      }
+      applyLoggedInUser(result);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Invalid email or password');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (step !== 'emailOtp' || otpSentRef.current) return;
-
-    const sendOtp = async () => {
-      setIsLoading(true);
-      try {
-        const result = await authService.sendLoginOtp({ email: identifier });
-        otpSentRef.current = true;
-        setMaskedPhone(result.mobile || maskedPhone);
-        startResendCountdown();
-        const channels: string[] = result.channels || [];
-        const label =
-          channels.includes('whatsapp') && channels.includes('sms')
-            ? 'WhatsApp and SMS'
-            : channels.includes('sms')
-              ? 'SMS'
-              : 'WhatsApp';
-        toast.success(`OTP sent to your ${label}`);
-      } catch (error: unknown) {
-        const err = error as { response?: { data?: { message?: string } } };
-        toast.error(err.response?.data?.message || 'Failed to send OTP');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    sendOtp();
-  }, [step, identifier, maskedPhone]);
-
-  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 6) {
-      toast.error('Please enter the 6-digit OTP');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const data = await authService.verifyLoginOtp({ email: identifier, otp });
-      applyLoggedInUser(data);
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'OTP verification failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendEmailOtp = async () => {
-    setIsLoading(true);
-    try {
-      const result = await authService.sendLoginOtp({ email: identifier });
-      setOtp('');
-      startResendCountdown();
-      const channels: string[] = result.channels || [];
-      const label =
-        channels.includes('whatsapp') && channels.includes('sms')
-          ? 'WhatsApp and SMS'
-          : channels.includes('sms')
-            ? 'SMS'
-            : 'WhatsApp';
-      toast.success(`OTP resent to your ${label}`);
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
       setIsLoading(false);
     }
@@ -383,7 +305,6 @@ const LoginPage: React.FC = () => {
     setIdentifierKind(null);
     setPassword('');
     setOtp('');
-    otpSentRef.current = false;
     if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
     setResendSecondsLeft(0);
   };
@@ -505,8 +426,8 @@ const LoginPage: React.FC = () => {
           </form>
         )}
 
-        {(step === 'emailOtp' || step === 'phoneOtp') && (
-          <form onSubmit={step === 'emailOtp' ? handleVerifyEmailOtp : handleVerifyPhoneOtp} className="space-y-4">
+        {step === 'phoneOtp' && (
+          <form onSubmit={handleVerifyPhoneOtp} className="space-y-4">
             <div className="relative">
               <input
                 type="text"
@@ -551,7 +472,7 @@ const LoginPage: React.FC = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={step === 'emailOtp' ? handleResendEmailOtp : handleResendPhoneOtp}
+                  onClick={handleResendPhoneOtp}
                   disabled={isLoading}
                   className="text-primary font-medium hover:underline disabled:opacity-50"
                 >
