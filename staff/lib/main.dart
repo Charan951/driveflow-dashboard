@@ -8,7 +8,6 @@ import 'core/storage.dart';
 import 'core/app_colors.dart';
 import 'widgets/connectivity_gate.dart';
 import 'state/theme_provider.dart';
-import 'services/background_tracking.dart';
 import 'services/tracking_service.dart';
 import 'services/socket_service.dart';
 import 'services/notification_service.dart';
@@ -53,7 +52,6 @@ Future<void> _bootstrapApp(ThemeProvider themeProvider) async {
 
   await Future.wait([
     themeProvider.loadThemeMode(),
-    BackgroundTracking.configure(),
     SocketService().init(),
     NotificationService().initialize(),
   ]);

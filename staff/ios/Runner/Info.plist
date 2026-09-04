@@ -36,7 +36,6 @@
 	<string>Location is used while you Navigate on an active job so dispatch and the customer can see your live position.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>location</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
