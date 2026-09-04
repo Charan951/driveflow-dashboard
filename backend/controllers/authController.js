@@ -39,6 +39,13 @@ const isNameTooLong = (value) => {
 const DUMMY_TEST_MOBILE = '911111111111';
 const DUMMY_TEST_OTP = '123456';
 const DUMMY_TEST_EMAIL = 'verification@gmail.com';
+/** App Store / Play Store review accounts — reviewers can't receive the
+ * WhatsApp/SMS OTP, so these skip it the same way DUMMY_TEST_EMAIL does. */
+const APP_REVIEW_EMAILS = new Set([
+  DUMMY_TEST_EMAIL,
+  'staff.review@carzzi.com',
+  'merchant.review@carzzi.com',
+]);
 
 const OTP_PENDING_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
@@ -405,7 +412,7 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
-    if (user.role === 'admin' || isTestingEnv() || normalizedEmail === DUMMY_TEST_EMAIL) {
+    if (user.role === 'admin' || isTestingEnv() || APP_REVIEW_EMAILS.has(normalizedEmail)) {
       return sendAuthResponse(req, res, user, { skipOtp: true });
     }
 
