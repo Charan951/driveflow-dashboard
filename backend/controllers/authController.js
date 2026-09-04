@@ -412,35 +412,11 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
-    if (user.role === 'admin' || isTestingEnv() || APP_REVIEW_EMAILS.has(normalizedEmail)) {
-      return sendAuthResponse(req, res, user, { skipOtp: true });
-    }
-
-    const mobile = resolveUserMobile(user);
-    if (!mobile) {
-      return res.status(400).json({
-        message: 'No WhatsApp number on your account. Contact support or update your profile phone number.',
-      });
-    }
-
-    const expiresAt = new Date(Date.now() + OTP_PENDING_TTL_MS);
-    await PendingLogin.findOneAndUpdate(
-      { email: normalizedEmail },
-      {
-        email: normalizedEmail,
-        userId: user._id,
-        mobile,
-        expiresAt,
-        otpHash: null,
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    res.json({
-      message: 'Credentials verified. Continue to OTP verification.',
-      mobile: `******${mobile.slice(-4)}`,
-      verified: true,
-    });
+    // Email + password already authenticates an existing account — no
+    // extra OTP step on top of it. (OTP still applies to first-time
+    // signup verification and the phone-only login flow, which has no
+    // password to begin with.)
+    return sendAuthResponse(req, res, user, { skipOtp: true });
   } catch (error) {
     console.error('prepareLogin error:', error.message);
     res.status(500).json({ message: error.message || 'Could not verify login' });
