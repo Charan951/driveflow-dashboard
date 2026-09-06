@@ -1531,13 +1531,18 @@ class _CarzziDashboardState extends State<CarzziDashboard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (ongoing.isEmpty) {
+      final isAuthenticated = context.watch<AuthProvider>().isAuthenticated;
+      // No point offering "Book Service" before there's a vehicle to book
+      // it for — send them to add one first instead.
+      final needsVehicle = isAuthenticated && _vehicles.isEmpty;
+
       return _NeonBorderCard(
         neonColor: _neonBlue,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'No upcoming service',
+              needsVehicle ? 'No vehicle added yet' : 'No upcoming service',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: isDark ? Colors.white : AppColors.textPrimaryLight,
                 fontWeight: FontWeight.w700,
@@ -1545,9 +1550,11 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             ),
             AppSpacing.verticalSmall,
             Text(
-              context.watch<AuthProvider>().isAuthenticated
-                  ? 'Book a service to keep your vehicle in top condition.'
-                  : 'Explore our catalog. Log in when you are ready to book.',
+              !isAuthenticated
+                  ? 'Explore our catalog. Log in when you are ready to book.'
+                  : needsVehicle
+                  ? 'Add your vehicle to start booking services.'
+                  : 'Book a service to keep your vehicle in top condition.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: isDark ? Colors.white : AppColors.textSecondaryLight,
               ),
@@ -1556,10 +1563,12 @@ class _CarzziDashboardState extends State<CarzziDashboard>
             Align(
               alignment: Alignment.centerRight,
               child: _NeonButton(
-                label: 'Book Service',
+                label: needsVehicle ? 'Add Vehicle' : 'Book Service',
                 purple: _accentPurple,
                 blue: _accentBlue,
-                onTap: _showBookServiceDialog,
+                onTap: needsVehicle
+                    ? () => Navigator.of(context).pushNamed('/add-vehicle')
+                    : _showBookServiceDialog,
               ),
             ),
           ],
