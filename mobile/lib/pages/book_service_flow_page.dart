@@ -609,6 +609,45 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return service.price.toDouble();
   }
 
+  /// Only one service can be booked at a time — selecting a new one
+  /// replaces whatever was selected before, rather than adding to it.
+  /// Tapping the already-selected service deselects it.
+  void _toggleServiceSelection(ServiceItem service) {
+    final alreadySelected = _selectedServiceIds.contains(service.id);
+    setState(() {
+      _selectedServiceIds.clear();
+      _serviceQuantities.clear();
+      _tireSizes.clear();
+      _selectedTireBrands.clear();
+      _isManualSize.clear();
+
+      if (alreadySelected) return;
+
+      _selectedServiceIds = [service.id];
+      _serviceQuantities[service.id] = 1;
+
+      // Pre-fill tire size if vehicle is selected
+      if (_selectedVehicleId != null) {
+        final vehicle = _vehicles.firstWhere(
+          (v) => v.id == _selectedVehicleId,
+          orElse: () => _vehicles.first,
+        );
+        if (_selectedVehicleOEMTire != null &&
+            _selectedVehicleOEMTire!.isNotEmpty) {
+          _tireSizes[service.id] = _selectedVehicleOEMTire!;
+          if (!commonTireSizes.contains(_selectedVehicleOEMTire)) {
+            _isManualSize[service.id] = true;
+          }
+          if (_tireSizeControllers.containsKey(service.id)) {
+            _tireSizeControllers[service.id]!.text =
+                _selectedVehicleOEMTire!;
+          }
+        }
+        _autoFillTireSize(service.id, vehicle);
+      }
+    });
+  }
+
   double _calculateTotal() {
     final selectedServices = _allServices
         .where((s) => _selectedServiceIds.contains(s.id))
@@ -2298,36 +2337,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                     return Column(
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (selected) {
-                                _selectedServiceIds.remove(service.id);
-                                _serviceQuantities.remove(service.id);
-                              } else {
-                                _selectedServiceIds.add(service.id);
-                                _serviceQuantities[service.id] = 1;
-
-                                // Pre-fill tire size if vehicle is selected
-                                if (_selectedVehicleId != null) {
-                                  final vehicle = _vehicles.firstWhere(
-                                    (v) => v.id == _selectedVehicleId,
-                                    orElse: () => _vehicles.first,
-                                  );
-                                  if (_selectedVehicleOEMTire != null &&
-                                      _selectedVehicleOEMTire!.isNotEmpty) {
-                                    _tireSizes[service.id] =
-                                        _selectedVehicleOEMTire!;
-                                    if (!commonTireSizes.contains(
-                                      _selectedVehicleOEMTire,
-                                    )) {
-                                      _isManualSize[service.id] = true;
-                                    }
-                                  }
-                                  _autoFillTireSize(service.id, vehicle);
-                                }
-                              }
-                            });
-                          },
+                          onTap: () => _toggleServiceSelection(service),
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(12),
@@ -2716,42 +2726,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   return Column(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (selected) {
-                              _selectedServiceIds.remove(service.id);
-                              _serviceQuantities.remove(service.id);
-                            } else {
-                              _selectedServiceIds.add(service.id);
-                              _serviceQuantities[service.id] = 1;
-
-                              // Pre-fill tire size if vehicle is selected
-                              if (_selectedVehicleId != null) {
-                                final vehicle = _vehicles.firstWhere(
-                                  (v) => v.id == _selectedVehicleId,
-                                  orElse: () => _vehicles.first,
-                                );
-                                if (_selectedVehicleOEMTire != null &&
-                                    _selectedVehicleOEMTire!.isNotEmpty) {
-                                  _tireSizes[service.id] =
-                                      _selectedVehicleOEMTire!;
-                                  if (!commonTireSizes.contains(
-                                    _selectedVehicleOEMTire,
-                                  )) {
-                                    _isManualSize[service.id] = true;
-                                  }
-                                  if (_tireSizeControllers.containsKey(
-                                    service.id,
-                                  )) {
-                                    _tireSizeControllers[service.id]!.text =
-                                        _selectedVehicleOEMTire!;
-                                  }
-                                }
-                                _autoFillTireSize(service.id, vehicle);
-                              }
-                            }
-                          });
-                        },
+                        onTap: () => _toggleServiceSelection(service),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(12),
