@@ -168,6 +168,43 @@ const workflows: Workflow[] = [
     ],
   },
   {
+    name: "Car Wash",
+    journeyName: "The Carzzi Car Wash Journey",
+    steps: [
+      {
+        icon: CalendarCheck,
+        title: "Service Booking",
+        caption:
+          "Book your car wash service in just a few taps through the Carzzi App.",
+        image: "/images/workflows/wash/1.jpg",
+      },
+      {
+        icon: UserCheck,
+        title: "Assigning a Professional",
+        caption:
+          "We assign a trained and verified car wash technician to provide the service at your location.",
+        image: "/images/workflows/wash/2.jpg",
+      },
+      {
+        icon: Droplets,
+        title: "Car Wash at Your Doorstep",
+        caption:
+          "Enjoy a professional car wash at your doorstep without leaving your home.",
+        image: "/images/workflows/wash/3.jpg",
+      },
+      {
+        icon: Sparkles,
+        title: "Sparkling Clean, Delivered",
+        bullets: [
+          "Professional wash completed.",
+          "Quality check done.",
+          "Your car, spotless and ready.",
+        ],
+        image: "/images/workflows/wash/3.jpg",
+      },
+    ],
+  },
+  {
     name: "Tyre Replacement",
     journeyName: "Tyre Replacement Made Simple",
     steps: [
