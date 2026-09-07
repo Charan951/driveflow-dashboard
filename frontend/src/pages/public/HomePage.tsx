@@ -200,7 +200,7 @@ const workflows: Workflow[] = [
           "Quality check done.",
           "Your car, spotless and ready.",
         ],
-        image: "/images/workflows/wash/3.jpg",
+        image: "/images/workflows/wash/4.jpg",
       },
     ],
   },
