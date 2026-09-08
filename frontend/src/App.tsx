@@ -40,6 +40,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollToTop from "./components/ScrollToTop";
 import AuthBootstrap from "./components/AuthBootstrap";
 import NoInternetScreen from "./components/NoInternetScreen";
+import PageTitle from "./components/PageTitle";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const SocketNotificationListener = lazyRetry(() => import("./components/SocketNotificationListener"));
@@ -164,6 +165,7 @@ const App = () => {
     >
       <AuthBootstrap>
       <ScrollToTop />
+      <PageTitle />
       <Suspense fallback={<PageLoader />}>
         <SocketNotificationListener />
         <Routes>

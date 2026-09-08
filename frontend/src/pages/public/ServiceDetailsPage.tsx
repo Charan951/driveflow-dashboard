@@ -5,11 +5,14 @@ import { serviceService, Service } from '@/services/serviceService';
 import { isGeneralServiceItem } from '@/lib/orderPricing';
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const ServiceDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useDocumentTitle(service?.name, service?.description);
 
   useEffect(() => {
     const fetchService = async () => {

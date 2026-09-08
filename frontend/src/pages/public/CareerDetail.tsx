@@ -7,6 +7,7 @@ import { uploadService } from '@/services/uploadService';
 import { captchaService, CaptchaData } from '@/services/captchaService';
 import { toast } from 'sonner';
 import { isValidEmail, isValidPhone10, isValidName, hasExcessiveRepeatedChars } from "@/lib/formValidation";
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const CAREER_MAX_NAME_LENGTH = 10;
 
@@ -27,6 +28,11 @@ const CareerDetail: React.FC = () => {
     additionalMessage: '',
   });
 
+  useDocumentTitle(
+    career?.title,
+    career?.shortDescription ||
+      (career ? `${career.title} — ${career.department}, ${career.location}. Apply now on Carzzi Careers.` : undefined)
+  );
 
   useEffect(() => {
     const fetchCareer = async () => {

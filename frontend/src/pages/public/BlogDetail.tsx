@@ -10,6 +10,7 @@ import {
   type CarouselApi,
 } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 const BlogDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,8 @@ const BlogDetail: React.FC = () => {
     Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useDocumentTitle(blog?.title, blog?.excerpt);
 
   useEffect(() => {
     if (!galleryApi) return;
