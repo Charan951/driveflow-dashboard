@@ -358,6 +358,46 @@ const AdminMerchantsPage: React.FC = () => {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {([
+          { key: 'all', label: 'All', icon: null },
+          { key: 'pending', label: 'Pending', icon: Clock },
+          { key: 'approved', label: 'Approved', icon: CheckCircle },
+          { key: 'rejected', label: 'Rejected', icon: XCircle },
+        ] as const).map(({ key, label, icon: Icon }) => {
+          const count =
+            key === 'all'
+              ? users.length
+              : key === 'approved'
+              ? users.filter(u => u.isApproved).length
+              : key === 'pending'
+              ? users.filter(u => !u.isApproved && !u.rejectionReason).length
+              : users.filter(u => !u.isApproved && u.rejectionReason).length;
+          const isActive = statusFilter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setStatusFilter(key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5" />}
+              {label}
+              <span
+                className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${
+                  isActive ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-700'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex flex-col md:flex-row gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
