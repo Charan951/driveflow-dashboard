@@ -203,4 +203,29 @@ class AuthService {
     final response = await _api.putJson(ApiEndpoints.authProfile, body: data);
     await AppStorage().setUserJson(jsonEncode(response));
   }
+
+  /// Public self-service application for a garage/business to become a
+  /// Carzzi merchant partner. No session is created — the account starts
+  /// unapproved and only becomes usable once an admin approves it.
+  /// Returns the server's confirmation message.
+  Future<String> applyAsMerchant({
+    required String businessName,
+    required String email,
+    required String password,
+    required String phone,
+    required String address,
+  }) async {
+    final response = await _api.postJson(
+      ApiEndpoints.authMerchantApply,
+      body: {
+        'name': businessName.trim(),
+        'email': email.trim(),
+        'password': password,
+        'phone': phone.trim(),
+        'address': address.trim(),
+      },
+    );
+    return response['message']?.toString() ??
+        'Your application has been submitted.';
+  }
 }

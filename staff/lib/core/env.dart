@@ -36,6 +36,7 @@ class Env {
 
 class ApiEndpoints {
   static const String authLogin = '/auth/login';
+  static const String authMerchantApply = '/auth/merchant/apply';
   static const String authLogout = '/auth/logout';
   static const String authLoginPrepare = '/auth/login/prepare';
   static const String authLoginSendOtp = '/auth/login/send-otp';

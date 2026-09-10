@@ -18,7 +18,7 @@ import {
   verifySignupOtp as msg91VerifySignupOtp,
 } from '../utils/msg91Service.js';
 import { isTestingEnv } from '../utils/appEnvironment.js';
-import { isValidEmail } from '../utils/validation.js';
+import { isValidEmail, isValidPhone10 } from '../utils/validation.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 const MAX_NAME_LENGTH = 50;
@@ -341,6 +341,73 @@ export const registerUser = async (req, res) => {
       res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Public self-service application for a garage/business to become
+//          a Carzzi merchant partner. Unlike registerUser (customers, always
+//          auto-approved), this always lands as role 'merchant' with
+//          isApproved: false — an admin must approve it (see
+//          approveUser/rejectUser in userController.js, surfaced today in
+//          the Admin > Merchants "Pending" tab) before the account can log
+//          in. Any role/isApproved/subRole fields in the request body are
+//          ignored; they're never trusted from an unauthenticated request.
+// @route   POST /api/auth/merchant/apply
+// @access  Public
+export const applyAsMerchant = async (req, res) => {
+  const { name, email, password, phone, address } = req.body;
+
+  try {
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ message: 'Business/garage name is required' });
+    }
+    if (!isValidName(name)) {
+      return res.status(400).json({ message: 'Business/garage name must be 1-20 characters, letters and spaces only' });
+    }
+    const emailValidation = isValidEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.error || 'Invalid email' });
+    }
+    if (!password || password.length < 6 || password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: `Password must be 6-${MAX_PASSWORD_LENGTH} characters` });
+    }
+    if (!isValidPhone10(phone)) {
+      return res.status(400).json({ message: 'A valid 10-digit phone number is required' });
+    }
+    if (!address || typeof address !== 'string' || !address.trim()) {
+      return res.status(400).json({ message: 'Garage address is required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const userExists = await User.exists({ email: normalizedEmail });
+    if (userExists) {
+      return res.status(400).json({ message: 'An account with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password,
+      role: 'merchant',
+      phone: phone.trim(),
+      location: { address: address.trim() },
+      isApproved: false,
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid application data' });
+    }
+
+    res.status(201).json({
+      message:
+        'Your application has been submitted. Our team will review it and you’ll be able to log in once approved.',
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const firstError = Object.values(error.errors)[0]?.message;
+      return res.status(400).json({ message: firstError || 'Invalid application data' });
+    }
     res.status(500).json({ message: error.message });
   }
 };

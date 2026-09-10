@@ -647,6 +647,26 @@ class _StaffLoginPageState extends State<StaffLoginPage>
                                       ],
                                     ),
                                   ],
+                                  if (_step == _LoginStep.identifier) ...[
+                                    const SizedBox(height: 20),
+                                    Center(
+                                      child: TextButton(
+                                        onPressed: _isSubmitting
+                                            ? null
+                                            : () => Navigator.of(
+                                                context,
+                                              ).pushNamed('/merchant-apply'),
+                                        child: const Text(
+                                          "Own a garage? Apply as a Partner",
+                                          style: TextStyle(
+                                            color: AppColors.cinematicOrange,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

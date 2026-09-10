@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   registerUser,
+  applyAsMerchant,
   loginUser,
   googleLogin,
   forgotPassword,
@@ -30,6 +31,7 @@ import {
   loginPrepareLimiter,
   loginOtpLimiter,
   forgotPasswordLimiter,
+  publicFormLimiter,
 } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
@@ -46,6 +48,7 @@ router.post('/login/verify-otp', loginOtpLimiter, rejectPrivilegedAuthFields, ve
 router.post('/login/phone/send-otp', loginOtpLimiter, rejectPrivilegedAuthFields, sendPhoneLoginOtp);
 router.post('/login/phone/verify-otp', loginOtpLimiter, rejectPrivilegedAuthFields, verifyPhoneLoginOtp);
 router.post('/register', blockLegacyAuthInProduction, rejectPrivilegedAuthFields, registerUser);
+router.post('/merchant/apply', publicFormLimiter, rejectPrivilegedAuthFields, applyAsMerchant);
 router.post('/login', blockLegacyAuthInProduction, rejectPrivilegedAuthFields, loginUser);
 router.post('/google', rejectPrivilegedAuthFields, googleLogin);
 router.post('/forgot-password', forgotPasswordLimiter, rejectPrivilegedAuthFields, forgotPassword);

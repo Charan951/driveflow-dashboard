@@ -19,6 +19,7 @@ import 'pages/order_detail_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/splash_page.dart';
 import 'pages/onboarding_page.dart';
+import 'pages/merchant_apply_page.dart';
 import 'pages/merchant/merchant_dashboard.dart';
 import 'pages/merchant/merchant_orders_page.dart';
 import 'pages/merchant/merchant_order_detail_page.dart';
@@ -276,6 +277,7 @@ class StaffApp extends StatelessWidget {
           },
         ),
         '/login': (context) => const StaffLoginPage(),
+        '/merchant-apply': (context) => const MerchantApplyPage(),
         '/home': (context) => const StaffHomePage(),
         '/merchant-dashboard': (context) => const MerchantDashboardPage(),
         '/merchant-orders': (context) => const MerchantOrdersPage(),
