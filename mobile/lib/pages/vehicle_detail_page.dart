@@ -14,6 +14,8 @@ import '../widgets/global_sync_refresh.dart';
 import '../services/vehicle_service.dart';
 import '../utils/auth_gate.dart';
 import '../utils/vehicle_health.dart';
+import 'book_service_flow_page.dart';
+import '../widgets/gradient_button.dart';
 
 /// Order and copy aligned with [frontend/src/components/VehicleHealthIndicators.tsx].
 const List<Map<String, String>> _kVehicleHealthIndicatorRows = [
@@ -113,6 +115,83 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
       _error = errors.isEmpty ? null : errors.join('\n');
       _loading = false;
     });
+  }
+
+  /// "Select Service Category" picker for this vehicle's Book Service
+  /// button — same categories/copy as the one on My Vehicles
+  /// (my_vehicles_page.dart), but pushes a fresh BookServiceFlowPage with
+  /// this vehicle preselected instead of switching the shared bottom-nav
+  /// tabs (which have no way to carry a preselected vehicle through).
+  void _showBookServiceCategoryDialog() {
+    if (!mounted) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    void openFlow(String category) {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookServiceFlowPage(
+            initialCategory: category,
+            initialVehicleId: _vehicle.id,
+          ),
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        title: Text(
+          'Select Service Category',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _BookServiceCategoryTile(
+              icon: Icons.settings_suggest_outlined,
+              title: 'services',
+              subtitle: 'General maintenance & repairs',
+              color: AppColors.primaryBlue,
+              onTap: () => openFlow('Periodic'),
+            ),
+            const SizedBox(height: 12),
+            _BookServiceCategoryTile(
+              icon: Icons.local_car_wash_outlined,
+              title: 'Car Wash',
+              subtitle: 'Premium cleaning services',
+              color: Colors.blue,
+              onTap: () => openFlow('Wash'),
+            ),
+            const SizedBox(height: 12),
+            _BookServiceCategoryTile(
+              icon: Icons.tire_repair_outlined,
+              title: 'Battery/tyres',
+              subtitle: 'Replacement & maintenance',
+              color: Colors.orange,
+              onTap: () => openFlow('Tyres'),
+            ),
+            const SizedBox(height: 12),
+            _BookServiceCategoryTile(
+              icon: Icons.shield_outlined,
+              title: 'Essentials',
+              subtitle: 'Quick utility & care services',
+              color: Colors.purple,
+              onTap: () => openFlow('Essentials'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   DateTime? _parseDate(String value) {
@@ -298,14 +377,29 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'No service history for this vehicle yet.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isDark
-                      ? AppColors.textSecondary
-                      : AppColors.textSecondaryLight,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "This vehicle hasn't been serviced with us yet. "
+                    'Book your first service today!',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : AppColors.textSecondaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.section),
+                  SizedBox(
+                    width: 220,
+                    child: GradientButton(
+                      text: 'Book Service',
+                      icon: Icons.add_circle_outline,
+                      onPressed: _showBookServiceCategoryDialog,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1223,4 +1317,82 @@ class _VehicleSpecItem {
   final String value;
 
   const _VehicleSpecItem(this.icon, this.label, this.value);
+}
+
+/// Row in the "Select Service Category" dialog. Mirrors _CategoryTile in
+/// my_vehicles_page.dart (kept as a separate copy since Dart privacy is
+/// per-file, not shared across libraries).
+class _BookServiceCategoryTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BookServiceCategoryTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: isDark ? Colors.white30 : Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -46,7 +46,16 @@ import '../widgets/gradient_button.dart';
 class BookServiceFlowPage extends StatefulWidget {
   final String? initialCategory;
 
-  const BookServiceFlowPage({super.key, this.initialCategory});
+  /// Set when arriving from a vehicle's own detail page ("Book Service"
+  /// there) — that vehicle is preselected and the Vehicle step is skipped
+  /// instead of asking the customer to pick again.
+  final String? initialVehicleId;
+
+  const BookServiceFlowPage({
+    super.key,
+    this.initialCategory,
+    this.initialVehicleId,
+  });
 
   @override
   State<BookServiceFlowPage> createState() => _BookServiceFlowPageState();
@@ -547,6 +556,22 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       return '$brand is not available for this vehicle. Please choose another brand.';
     }
     return null;
+  }
+
+  /// Price for the given brand on the currently selected vehicle, or null
+  /// when there's no vehicle reference match (nothing to show — the brand
+  /// itself isn't necessarily unavailable, we just don't have vehicle-
+  /// specific pricing). A brand that's actually unavailable never reaches
+  /// here, since _brandUnavailableReason blocks selecting it in the first
+  /// place.
+  double? _getBrandPrice(bool isBattery, String brand) {
+    final ref = _selectedVehicleReference;
+    if (ref == null) return null;
+    final key =
+        '${isBattery ? 'battery_price' : 'tyre_price'}_${brand.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
+    final raw = ref[key];
+    final price = double.tryParse(raw?.toString().trim() ?? '');
+    return (price != null && price > 0) ? price : null;
   }
 
   /// A high-visibility banner for blocking errors (e.g. an unavailable
@@ -1287,10 +1312,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               null; // Clear any previous errors if we got at least something
 
           if (_vehicles.isNotEmpty && _selectedVehicleId == null) {
-            _selectedVehicleId = _vehicles.first.id;
+            final preselected = widget.initialVehicleId != null
+                ? _vehicles.where((v) => v.id == widget.initialVehicleId)
+                : const Iterable<Vehicle>.empty();
+            final vehicle = preselected.isNotEmpty
+                ? preselected.first
+                : _vehicles.first;
+            _selectedVehicleId = vehicle.id;
+            if (preselected.isNotEmpty && _currentStep == 0) {
+              _currentStep = 1;
+            }
 
             // Auto-fill tire size for the default selected vehicle
-            final vehicle = _vehicles.first;
             _loadPickupDropPrice(vehicle);
             for (final serviceId in _selectedServiceIds) {
               _autoFillTireSize(serviceId, vehicle);
@@ -2407,36 +2440,21 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                               : AppColors.textPrimaryLight,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'Price: ₹${_getServicePrice(service).toStringAsFixed(0)}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark
-                                                  ? AppColors.textSecondary
-                                                  : AppColors
-                                                        .textSecondaryLight,
-                                            ),
+                                      if (!isGeneralServiceItem(
+                                        service,
+                                      )) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Time: ${service.estimatedMinutes} mins',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark
+                                                ? AppColors.textSecondary
+                                                : AppColors
+                                                      .textSecondaryLight,
                                           ),
-                                          if (!isGeneralServiceItem(
-                                            service,
-                                          )) ...[
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '• Time: ${service.estimatedMinutes} mins',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: isDark
-                                                    ? AppColors.textSecondary
-                                                    : AppColors
-                                                          .textSecondaryLight,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -2580,12 +2598,35 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                   _selectedTireBrands[service
                                                       .id] ==
                                                   brand;
+                                              final brandPrice = isSelected
+                                                  ? _getBrandPrice(
+                                                      isBatteryService,
+                                                      brand,
+                                                    )
+                                                  : null;
                                               return ChoiceChip(
-                                                label: Text(
-                                                  brand,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                  ),
+                                                label: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      brand,
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
+                                                    if (brandPrice != null)
+                                                      Text(
+                                                        '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
+                                                        style: const TextStyle(
+                                                          fontSize: 9,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: AppColors
+                                                              .primaryBlue,
+                                                        ),
+                                                      ),
+                                                  ],
                                                 ),
                                                 selected: isSelected,
                                                 onSelected: (val) {
@@ -2795,33 +2836,18 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                             : AppColors.textPrimaryLight,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          'Price: ₹${_getServicePrice(service).toStringAsFixed(0)}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: isDark
-                                                ? AppColors.textSecondary
-                                                : AppColors.textSecondaryLight,
-                                          ),
+                                    if (!isGeneralServiceItem(service)) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Time: ${service.estimatedMinutes} mins',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? AppColors.textSecondary
+                                              : AppColors.textSecondaryLight,
                                         ),
-                                        if (!isGeneralServiceItem(service)) ...[
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '• Time: ${service.estimatedMinutes} mins',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark
-                                                  ? AppColors.textSecondary
-                                                  : AppColors
-                                                        .textSecondaryLight,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -2961,12 +2987,35 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                 _selectedTireBrands[service
                                                     .id] ==
                                                 brand;
+                                            final brandPrice = isSelected
+                                                ? _getBrandPrice(
+                                                    isBatteryService,
+                                                    brand,
+                                                  )
+                                                : null;
                                             return ChoiceChip(
-                                              label: Text(
-                                                brand,
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                ),
+                                              label: Column(
+                                                mainAxisSize:
+                                                    MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    brand,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                  if (brandPrice != null)
+                                                    Text(
+                                                      '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
+                                                      style: const TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: AppColors
+                                                            .primaryBlue,
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
                                               selected: isSelected,
                                               onSelected: (val) {
