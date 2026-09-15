@@ -1277,25 +1277,28 @@ const BookServicePage: React.FC = () => {
                                 </>
                               )}
 
-                              {/* Quantity Selection */}
-                              <div className={`space-y-3 ${isTireLike ? 'pt-4 border-t border-border/50' : ''}`}>
-                                <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Quantity</label>
-                                <div className="flex flex-wrap gap-2">
-                                  {[1, 2, 3, 4, 5].map(qty => (
-                                    <button
-                                      key={qty}
-                                      onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
-                                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
-                                        (serviceQuantities[service._id] || 1) === qty
-                                          ? 'border-primary bg-primary/10 text-primary'
-                                          : 'border-border bg-muted/20 hover:border-primary/30'
-                                      }`}
-                                    >
-                                      {qty}
-                                    </button>
-                                  ))}
+                              {/* Quantity Selection — tyres only; a battery
+                                  replacement is always one battery. */}
+                              {isTireLike && (
+                                <div className="space-y-3 pt-4 border-t border-border/50">
+                                  <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Quantity</label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {[1, 2, 3, 4, 5].map(qty => (
+                                      <button
+                                        key={qty}
+                                        onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
+                                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+                                          (serviceQuantities[service._id] || 1) === qty
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'border-border bg-muted/20 hover:border-primary/30'
+                                        }`}
+                                      >
+                                        {qty}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
                               {/* Brand Selection — Tyres or Battery, whichever this service is */}
                               <div className="space-y-3 pt-4 border-t border-border/50">
