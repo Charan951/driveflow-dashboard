@@ -458,10 +458,13 @@ const AdminVehicleDataPage = () => {
     );
   };
 
-  // Sheet rows store a missing price as the literal string "NA" (or blank),
-  // not a number — show that as-is instead of prefixing it with ₹.
+  // Sheet rows mark a missing price either with a blank cell or the literal
+  // string "NA" — both mean the same "no price" thing, so show both as
+  // "NA" rather than mixing a blank-cell "-" with an explicit "NA" text.
+  // Real free-text values (e.g. "Contact Carzzi Team...") pass through as-is.
   const formatPrice = (value: unknown) => {
-    if (value === null || value === undefined || value === '') return '-';
+    if (value === null || value === undefined) return 'NA';
+    if (typeof value === 'string' && (value.trim() === '' || value.trim().toUpperCase() === 'NA')) return 'NA';
     if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '')) {
       return `₹${value}`;
     }
