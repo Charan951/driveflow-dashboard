@@ -458,12 +458,22 @@ const AdminVehicleDataPage = () => {
     );
   };
 
+  // Sheet rows store a missing price as the literal string "NA" (or blank),
+  // not a number — show that as-is instead of prefixing it with ₹.
+  const formatPrice = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '')) {
+      return `₹${value}`;
+    }
+    return String(value);
+  };
+
   const renderBuiltinCell = (key: string, fieldName: string, item: VehicleData) => {
     if (isBuiltinHidden(key)) return null;
     const value = item[fieldName];
     return (
       <td key={fieldName} className="px-6 py-4 text-sm text-gray-600">
-        {value ? `₹${value}` : '-'}
+        {formatPrice(value)}
       </td>
     );
   };
@@ -702,30 +712,30 @@ const AdminVehicleDataPage = () => {
                   {renderBuiltinCell('dummy', 'tyre_price_dummy', item)}
                     {columns.filter(c => c.category === 'tyre').map((col) => (
                       <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
-                        {item[col.fieldName] ? `₹${item[col.fieldName]}` : '-'}
+                        {formatPrice(item[col.fieldName])}
                       </td>
                     ))}
                   {renderBuiltinCell('amaron', 'battery_price_amaron', item)}
                   {renderBuiltinCell('exide', 'battery_price_exide', item)}
                   {columns.filter(c => c.category === 'battery').map((col) => (
                     <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
-                      {item[col.fieldName] ? `₹${item[col.fieldName]}` : '-'}
+                      {formatPrice(item[col.fieldName])}
                     </td>
                   ))}
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.car_wash_exterior_price ? `₹${item.car_wash_exterior_price}` : '-'}
+                    {formatPrice(item.car_wash_exterior_price)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.car_wash_interior_exterior_price ? `₹${item.car_wash_interior_exterior_price}` : '-'}
+                    {formatPrice(item.car_wash_interior_exterior_price)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.car_wash_interior_exterior_underbody_price ? `₹${item.car_wash_interior_exterior_underbody_price}` : '-'}
+                    {formatPrice(item.car_wash_interior_exterior_underbody_price)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.general_service_price ? `₹${item.general_service_price}` : '-'}
+                    {formatPrice(item.general_service_price)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.pickup_drop_price ? `₹${item.pickup_drop_price}` : '-'}
+                    {formatPrice(item.pickup_drop_price)}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
