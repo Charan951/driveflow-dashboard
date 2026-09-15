@@ -20,10 +20,11 @@ interface ReferenceRecord {
   [key: string]: unknown;
 }
 
-/** Type-to-search field: filters `options` as the user types instead of
- * requiring an open-then-scroll <select>. Only a value from `options` (or
- * empty) is treated as "selected" — typed text that doesn't match anything
- * just doesn't fire onSelect until the user picks a suggestion. */
+/** Type-to-search field: shows the full `options` list on focus, then
+ * narrows it as the user types, instead of requiring an open-then-scroll
+ * <select>. Only a value from `options` (or empty) is treated as "selected"
+ * — typed text that doesn't match anything just doesn't fire onSelect until
+ * the user picks a suggestion. */
 const AutocompleteField: React.FC<{
   label: string;
   value: string;
@@ -51,11 +52,11 @@ const AutocompleteField: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Only show suggestions once the user has typed something — focusing an
-  // empty field shouldn't dump the full list.
+  // Empty query shows the full list (e.g. right after focusing); once the
+  // user types, narrow it down to matching options.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
+    if (!q) return options;
     return options.filter((o) => o.toLowerCase().startsWith(q));
   }, [query, options]);
 
@@ -77,7 +78,7 @@ const AutocompleteField: React.FC<{
             const exact = options.find((o) => o.toLowerCase() === e.target.value.trim().toLowerCase());
             onSelect(exact ?? '');
           }}
-          onFocus={() => setIsOpen(query.trim().length > 0)}
+          onFocus={() => setIsOpen(true)}
           placeholder={disabled ? placeholder : placeholder || 'Type to search'}
           className="w-full px-4 py-3 pr-10 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
         />
