@@ -144,6 +144,20 @@ const BookServicePage: React.FC = () => {
     s.name.toLowerCase().includes('general service')
   );
 
+  // Per-brand price for the selected vehicle, so a customer can see what a
+  // tyre/battery brand actually costs before committing to it — same
+  // brandKey derivation getPackagePrice/calculateServicesTotal use to price
+  // (and, server-side, to validate) the booking. Returns null when there's
+  // no vehicle reference match at all (nothing to show) or when this brand
+  // has no valid price for this specific vehicle (surfaced as unavailable).
+  const getBrandPrice = (brand: string, isBattery: boolean): number | null => {
+    if (!selectedVehicleReference) return null;
+    const brandKey = `${isBattery ? 'battery' : 'tyre'}_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
+    const raw = selectedVehicleReference[brandKey];
+    const num = Number(raw);
+    return raw && !isNaN(num) && num > 0 ? num : null;
+  };
+
   const getPackagePrice = (service: Service) => {
     const isWash = service.category === 'Car Wash' || service.category === 'Wash';
     const isBattery =
@@ -1288,20 +1302,31 @@ const BookServicePage: React.FC = () => {
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {(isBatteryLike ? batteryBrandOptions : tireBrandOptions).map(brand => (
-                                    <button
-                                      key={brand}
-                                      type="button"
-                                      onClick={() => setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }))}
-                                      className={`p-2.5 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
-                                        selectedTireBrands[service._id] === brand
-                                          ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/5'
-                                          : 'border-border bg-muted/20 hover:border-primary/30 text-foreground'
-                                      }`}
-                                    >
-                                      {brand}
-                                    </button>
-                                  ))}
+                                  {(isBatteryLike ? batteryBrandOptions : tireBrandOptions).map(brand => {
+                                    const isSelected = selectedTireBrands[service._id] === brand;
+                                    const brandPrice = isSelected ? getBrandPrice(brand, isBatteryLike) : null;
+                                    return (
+                                      <button
+                                        key={brand}
+                                        type="button"
+                                        onClick={() => setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }))}
+                                        className={`flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
+                                          isSelected
+                                            ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/5'
+                                            : 'border-border bg-muted/20 hover:border-primary/30 text-foreground'
+                                        }`}
+                                      >
+                                        <span>{brand}</span>
+                                        {isSelected && selectedVehicleReference && (
+                                          brandPrice !== null ? (
+                                            <span className="text-[11px] font-bold text-primary">₹{brandPrice}</span>
+                                          ) : (
+                                            <span className="text-[11px] font-medium text-destructive">Not available for this vehicle</span>
+                                          )
+                                        )}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </motion.div>
