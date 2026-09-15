@@ -53,6 +53,11 @@ const ADMIN_TIRE_BRANDS = [
   'Dummy'
 ];
 
+const ADMIN_BATTERY_BRANDS = [
+  'Amaron',
+  'Exide',
+];
+
 const extractPincodeFromAddress = (address?: string) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
   return match ? match[1] : null;
@@ -273,6 +278,31 @@ const BookServicePage: React.FC = () => {
   const tireBrandOptions = [
     ...ADMIN_TIRE_BRANDS.filter((brand) => !hiddenBuiltinTireBrands?.has(brand)),
     ...dynamicTireBrands,
+  ];
+
+  // Same pattern as tyre brands: admin-added battery brand columns show up
+  // here too once priced in Vehicle Reference Data, and hidden built-ins drop out.
+  const [dynamicBatteryBrands, setDynamicBatteryBrands] = useState<string[]>([]);
+  useEffect(() => {
+    getVehicleReferenceColumns()
+      .then((cols) => {
+        const labels = cols.filter((c) => c.category === 'battery').map((c) => c.label);
+        setDynamicBatteryBrands(labels);
+      })
+      .catch(() => setDynamicBatteryBrands([]));
+  }, []);
+  const [hiddenBuiltinBatteryBrands, setHiddenBuiltinBatteryBrands] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    getVehicleReferenceBuiltinColumns()
+      .then((cols) => {
+        const hidden = cols.filter((c) => c.category === 'battery' && c.hidden).map((c) => c.label);
+        setHiddenBuiltinBatteryBrands(new Set(hidden));
+      })
+      .catch(() => setHiddenBuiltinBatteryBrands(new Set()));
+  }, []);
+  const batteryBrandOptions = [
+    ...ADMIN_BATTERY_BRANDS.filter((brand) => !hiddenBuiltinBatteryBrands?.has(brand)),
+    ...dynamicBatteryBrands,
   ];
 
   useEffect(() => {
@@ -1167,84 +1197,98 @@ const BookServicePage: React.FC = () => {
                           )}
                         </motion.button>
 
-                        {/* Size Selection for "Customer can opt change" or services with "change" in name */}
-                        {selectedServices.includes(service._id) && 
-                          (
-                            service.name?.toLowerCase()?.includes('change') || 
-                            service.name?.toLowerCase()?.includes('size') ||
-                            service.category === 'Tyres' ||
-                            service.category === 'Tyre & Battery'
-                          ) && (
-                            <motion.div 
+                        {/* Size/Quantity/Brand panel — Tyres get size + brand, Battery
+                            gets just brand, both get quantity. */}
+                        {(() => {
+                          const isBatteryLike =
+                            service.category === 'Battery' ||
+                            service.vehiclePricingColumn === 'battery_brand' ||
+                            service.name?.toLowerCase()?.includes('battery');
+                          const isTireLike =
+                            !isBatteryLike &&
+                            (service.name?.toLowerCase()?.includes('change') ||
+                              service.name?.toLowerCase()?.includes('size') ||
+                              service.category === 'Tyres' ||
+                              service.category === 'Tyre & Battery');
+
+                          if (!selectedServices.includes(service._id) || (!isTireLike && !isBatteryLike)) {
+                            return null;
+                          }
+
+                          return (
+                            <motion.div
                               initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="bg-card border-2 border-primary/20 rounded-2xl p-4 sm:p-6 ml-2 sm:ml-4 space-y-4"
-                          >
-                            <div className="flex items-center justify-between">
-                              <label className="text-sm font-bold text-foreground uppercase tracking-wider">Select Size</label>
-                              <button 
-                                onClick={() => {
-                                  setIsManualSize(prev => ({ ...prev, [service._id]: !prev[service._id] }));
-                                  setTireSizes(prev => ({ ...prev, [service._id]: '' }));
-                                }}
-                                className="text-xs font-bold text-primary hover:underline"
-                              >
-                                {isManualSize[service._id] ? 'Choose from list' : 'Enter manual size'}
-                              </button>
-                            </div>
-                            
-                            {isManualSize[service._id] ? (
-                              <input 
-                                type="text"
-                                placeholder="e.g. 205/55 R16"
-                                value={tireSizes[service._id] || ''}
-                                onChange={(e) => setTireSizes(prev => ({ ...prev, [service._id]: e.target.value }))}
-                                className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium"
-                              />
-                            ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                                {COMMON_TIRE_SIZES.map(size => (
-                                  <button
-                                    key={size}
-                                    onClick={() => setTireSizes(prev => ({ ...prev, [service._id]: size }))}
-                                    className={`p-2 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-medium transition-all ${
-                                      tireSizes[service._id] === size
-                                        ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-border bg-muted/20 hover:border-primary/30'
-                                    }`}
-                                  >
-                                    {size}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="bg-card border-2 border-primary/20 rounded-2xl p-4 sm:p-6 ml-2 sm:ml-4 space-y-4"
+                            >
+                              {isTireLike && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-sm font-bold text-foreground uppercase tracking-wider">Select Size</label>
+                                    <button
+                                      onClick={() => {
+                                        setIsManualSize(prev => ({ ...prev, [service._id]: !prev[service._id] }));
+                                        setTireSizes(prev => ({ ...prev, [service._id]: '' }));
+                                      }}
+                                      className="text-xs font-bold text-primary hover:underline"
+                                    >
+                                      {isManualSize[service._id] ? 'Choose from list' : 'Enter manual size'}
+                                    </button>
+                                  </div>
 
-                            {/* Quantity Selection */}
-                            <div className="space-y-3 pt-4 border-t border-border/50">
-                              <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Quantity</label>
-                              <div className="flex flex-wrap gap-2">
-                                {[1, 2, 3, 4, 5].map(qty => (
-                                  <button
-                                    key={qty}
-                                    onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
-                                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
-                                      (serviceQuantities[service._id] || 1) === qty
-                                        ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-border bg-muted/20 hover:border-primary/30'
-                                    }`}
-                                  >
-                                    {qty}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
+                                  {isManualSize[service._id] ? (
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. 205/55 R16"
+                                      value={tireSizes[service._id] || ''}
+                                      onChange={(e) => setTireSizes(prev => ({ ...prev, [service._id]: e.target.value }))}
+                                      className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium"
+                                    />
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                                      {COMMON_TIRE_SIZES.map(size => (
+                                        <button
+                                          key={size}
+                                          onClick={() => setTireSizes(prev => ({ ...prev, [service._id]: size }))}
+                                          className={`p-2 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-medium transition-all ${
+                                            tireSizes[service._id] === size
+                                              ? 'border-primary bg-primary/10 text-primary'
+                                              : 'border-border bg-muted/20 hover:border-primary/30'
+                                          }`}
+                                        >
+                                          {size}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
 
-                            {/* Brand Selection for Tyres */}
-                            {(service.category === 'Tyres' || service.category === 'Tyre & Battery') && (
+                              {/* Quantity Selection */}
+                              <div className={`space-y-3 ${isTireLike ? 'pt-4 border-t border-border/50' : ''}`}>
+                                <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Quantity</label>
+                                <div className="flex flex-wrap gap-2">
+                                  {[1, 2, 3, 4, 5].map(qty => (
+                                    <button
+                                      key={qty}
+                                      onClick={() => setServiceQuantities(prev => ({ ...prev, [service._id]: qty }))}
+                                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center font-bold transition-all ${
+                                        (serviceQuantities[service._id] || 1) === qty
+                                          ? 'border-primary bg-primary/10 text-primary'
+                                          : 'border-border bg-muted/20 hover:border-primary/30'
+                                      }`}
+                                    >
+                                      {qty}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Brand Selection — Tyres or Battery, whichever this service is */}
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {tireBrandOptions.map(brand => (
+                                  {(isBatteryLike ? batteryBrandOptions : tireBrandOptions).map(brand => (
                                     <button
                                       key={brand}
                                       type="button"
@@ -1260,9 +1304,9 @@ const BookServicePage: React.FC = () => {
                                   ))}
                                 </div>
                               </div>
-                            )}
-                          </motion.div>
-                        )}
+                            </motion.div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
