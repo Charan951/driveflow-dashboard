@@ -1198,7 +1198,6 @@ const BookServicePage: React.FC = () => {
                           <div className="flex-1 text-left min-w-0">
                             <span className="font-bold text-base sm:text-lg text-foreground block line-clamp-2">{service.name}</span>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                              <span>Price: ₹{getPackagePrice(service)}</span>
                               {!isGeneralServiceItem(service) && (
                                 <span>Time: {service.duration} mins</span>
                               )}
