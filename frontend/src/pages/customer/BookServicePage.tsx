@@ -1301,7 +1301,7 @@ const BookServicePage: React.FC = () => {
                               {/* Brand Selection — Tyres or Battery, whichever this service is */}
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 items-start">
                                   {(isBatteryLike ? batteryBrandOptions : tireBrandOptions).map(brand => {
                                     const isSelected = selectedTireBrands[service._id] === brand;
                                     const brandPrice = isSelected ? getBrandPrice(brand, isBatteryLike) : null;
