@@ -228,7 +228,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
                   <h3 className="text-lg font-semibold">No service history</h3>
                   <p className="text-muted-foreground max-w-xs mx-auto">This vehicle hasn't been serviced with us yet. Book your first service today!</p>
                   <button 
-                    onClick={() => navigate('/book-service')}
+                    onClick={() => navigate('/book-service', { state: { vehicleId: id } })}
                     className="mt-6 px-6 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
                   >
                     Book Service

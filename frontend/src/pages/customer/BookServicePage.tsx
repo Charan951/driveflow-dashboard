@@ -284,6 +284,16 @@ const BookServicePage: React.FC = () => {
     }
   }, [location.state]);
 
+  // Arriving from a vehicle's own detail page ("Book Service" there) already
+  // tells us which vehicle — preselect it and skip straight to the Service
+  // step instead of asking again.
+  useEffect(() => {
+    const vehicleId = location.state?.vehicleId as string | undefined;
+    if (!vehicleId) return;
+    setSelectedVehicle(vehicleId);
+    setCurrentStep((step) => (step === 0 ? 1 : step));
+  }, [location.state]);
+
   useEffect(() => {
     if (!user?._id) return;
     const hasSaved = Array.isArray(user.addresses) && user.addresses.length > 0;
@@ -508,12 +518,10 @@ const BookServicePage: React.FC = () => {
 
   const toggleService = async (serviceId: string) => {
     const isSelecting = !selectedServices.includes(serviceId);
-    
-    setSelectedServices(prev => {
-      return isSelecting
-        ? [...prev, serviceId]
-        : prev.filter(id => id !== serviceId);
-    });
+
+    // Only one service can be booked at a time — selecting a service
+    // replaces whatever was selected before, rather than adding to it.
+    setSelectedServices(isSelecting ? [serviceId] : []);
 
     // If selecting a tire service and a vehicle is selected, pre-fill tire size
     if (isSelecting) {
