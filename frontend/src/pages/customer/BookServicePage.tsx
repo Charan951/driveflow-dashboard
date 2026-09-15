@@ -284,16 +284,6 @@ const BookServicePage: React.FC = () => {
     }
   }, [location.state]);
 
-  // Arriving from a vehicle's own detail page ("Book Service" there) already
-  // tells us which vehicle — preselect it and skip straight to the Service
-  // step instead of asking again.
-  useEffect(() => {
-    const vehicleId = location.state?.vehicleId as string | undefined;
-    if (!vehicleId) return;
-    setSelectedVehicle(vehicleId);
-    setCurrentStep((step) => (step === 0 ? 1 : step));
-  }, [location.state]);
-
   useEffect(() => {
     if (!user?._id) return;
     const hasSaved = Array.isArray(user.addresses) && user.addresses.length > 0;
@@ -604,8 +594,15 @@ const BookServicePage: React.FC = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    setCurrentStep(0);
-    setSelectedVehicle(null);
+    // Arriving from a vehicle's own detail page ("Book Service" there)
+    // already tells us which vehicle — preselect it and skip straight to
+    // the Service step instead of resetting to "ask again". Folded into
+    // this same reset effect (rather than a separate one keyed on
+    // location.state) so it can't run before this reset and get wiped out.
+    const preselectedVehicleId = location.state?.vehicleId as string | undefined;
+
+    setCurrentStep(preselectedVehicleId ? 1 : 0);
+    setSelectedVehicle(preselectedVehicleId ?? null);
     setSelectedServices([]);
     setTireSizes({});
     setSelectedTireBrands({});
@@ -614,7 +611,7 @@ const BookServicePage: React.FC = () => {
     setSelectedDate(startOfLocalDay());
     setSelectedTime(null);
     setError(null);
-  }, [searchParams]);
+  }, [searchParams, location.state]);
 
   useEffect(() => {
     const fetchSlots = async () => {
