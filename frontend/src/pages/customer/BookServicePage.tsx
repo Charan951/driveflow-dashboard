@@ -1319,7 +1319,7 @@ const BookServicePage: React.FC = () => {
                                         <span>{brand}</span>
                                         {isSelected && selectedVehicleReference && (
                                           brandPrice !== null ? (
-                                            <span className="text-[11px] font-bold text-primary">₹{brandPrice}</span>
+                                            <span className="text-[11px] font-bold text-primary">₹{brandPrice} /{isBatteryLike ? 'battery' : 'tyre'}</span>
                                           ) : (
                                             <span className="text-[11px] font-medium text-destructive">Not available for this vehicle</span>
                                           )
