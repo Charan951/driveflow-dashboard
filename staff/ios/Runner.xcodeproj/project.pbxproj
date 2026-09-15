@@ -210,6 +210,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				44249A8713D16802D8B53976 /* [CP] Embed Pods Frameworks */,
 				65140F2CD3121EA3D32BB3B1 /* [CP] Copy Pods Resources */,
+				C162B3401E01B5464F499306 /* Update Version From pubspec.yaml */,
 			);
 			buildRules = (
 			);
@@ -354,6 +355,21 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		C162B3401E01B5464F499306 /* Update Version From pubspec.yaml */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Update Version From pubspec.yaml";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nPUBSPEC=\"$SRCROOT/../pubspec.yaml\"\nVERSION_LINE=$(grep '^version:' \"$PUBSPEC\" | head -1 | sed 's/version:[[:space:]]*//' | tr -d '\\r\\n')\nBUILD_NAME=\"${VERSION_LINE%%+*}\"\nBUILD_NUMBER=\"${VERSION_LINE##*+}\"\nPLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n# Runs after Copy Bundle Resources, patching the already-copied Info.plist\n# directly — CURRENT_PROJECT_VERSION/MARKETING_VERSION substitution from\n# Generated.xcconfig happens when Xcode resolves build settings at the\n# START of the build, before any script phase runs, so a stale\n# Generated.xcconfig (e.g. archiving without a prior `flutter build`/`pub\n# get`) can't be fixed by a script phase reading build settings. Patching\n# the file on disk afterwards sidesteps that entirely.\nif [ -f \"$PLIST\" ] && [ -n \"$BUILD_NAME\" ] && [ -n \"$BUILD_NUMBER\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $BUILD_NAME\" \"$PLIST\"\n  /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$PLIST\"\nfi\n";
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
