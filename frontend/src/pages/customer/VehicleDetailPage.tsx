@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleHealthIndicators from '@/components/VehicleHealthIndicators';
+import ServiceCategoryDialog from '@/components/ServiceCategoryDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -227,12 +228,14 @@ const CustomerVehicleDetailPage: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-semibold">No service history</h3>
                   <p className="text-muted-foreground max-w-xs mx-auto">This vehicle hasn't been serviced with us yet. Book your first service today!</p>
-                  <button 
-                    onClick={() => navigate('/book-service', { state: { vehicleId: id } })}
-                    className="mt-6 px-6 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    Book Service
-                  </button>
+                  <ServiceCategoryDialog
+                    vehicleId={id}
+                    trigger={
+                      <button className="mt-6 px-6 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
+                        Book Service
+                      </button>
+                    }
+                  />
                 </div>
               ) : (
                 <div className="grid gap-4">

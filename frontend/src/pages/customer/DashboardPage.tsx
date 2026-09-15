@@ -8,10 +8,6 @@ import {
   Plus,
   Clock,
   ArrowRight,
-  Wrench,
-  Droplets,
-  Battery,
-  Package,
   MapPin
 } from 'lucide-react';
 import { staggerContainer, staggerItem } from '@/animations/variants';
@@ -19,13 +15,13 @@ import VehicleCard from '@/components/VehicleCard';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
 import OrderCard from '@/components/OrderCard';
 import CouponSlider from '@/components/CouponSlider';
+import ServiceCategoryDialog from '@/components/ServiceCategoryDialog';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -333,78 +329,16 @@ const DashboardPage: React.FC = () => {
         </div>
         
         {ongoingBookings.length === 0 && (
-          <Dialog>
-            <DialogTrigger asChild>
+          <ServiceCategoryDialog
+            trigger={
               <button
                 className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors flex-shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 Book Service
               </button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold">Select Service Category</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <Link
-                  to="/book-service?category=Periodic"
-                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Wrench className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">services</p>
-                    <p className="text-sm text-muted-foreground">General maintenance & repairs</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </Link>
-
-                <Link
-                  to="/book-service?category=Wash"
-                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-blue-500 hover:bg-blue-50 transition-all"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <Droplets className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">Car Wash</p>
-                    <p className="text-sm text-muted-foreground">Premium cleaning services</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                </Link>
-
-                <Link
-                  to="/book-service?category=Tyres"
-                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-orange-500 hover:bg-orange-50 transition-all"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                    <Battery className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">Battery/tyres</p>
-                    <p className="text-sm text-muted-foreground">Replacement & maintenance</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors" />
-                </Link>
-
-                <Link
-                  to="/book-service?category=Essentials"
-                  className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-purple-500 hover:bg-purple-50 transition-all"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                    <Package className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">Essentials</p>
-                    <p className="text-sm text-muted-foreground">Quick utility & care services</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-purple-500 transition-colors" />
-                </Link>
-              </div>
-            </DialogContent>
-          </Dialog>
+            }
+          />
         )}
       </motion.div>
 
