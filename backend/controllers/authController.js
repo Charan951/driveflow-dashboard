@@ -479,10 +479,36 @@ export const prepareLogin = async (req, res) => {
       return res.status(401).json({ message: 'Account pending approval. Please wait for admin approval.' });
     }
 
-    // Email + password already authenticates an existing account — no
-    // extra OTP step on top of it. (OTP still applies to first-time
-    // signup verification and the phone-only login flow, which has no
-    // password to begin with.)
+    // Admin accounts get an extra WhatsApp/SMS OTP step on top of the
+    // password, for stronger protection on the most privileged role —
+    // same mechanism as the phone-only login flow below, just entered
+    // via email+password first instead of phone+OTP alone.
+    if (user.role === 'admin') {
+      const mobile = resolveUserMobile(user);
+      if (!mobile) {
+        return res.status(400).json({
+          message: 'No WhatsApp/SMS number on this account. Contact support to add one before logging in.',
+        });
+      }
+
+      const expiresAt = new Date(Date.now() + OTP_PENDING_TTL_MS);
+      await PendingLogin.findOneAndUpdate(
+        { email: normalizedEmail },
+        { email: normalizedEmail, userId: user._id, mobile, expiresAt, otpHash: null },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      return res.json({
+        message: 'Credentials verified. Continue to OTP verification.',
+        mobile: `******${mobile.slice(-4)}`,
+        verified: true,
+      });
+    }
+
+    // Every other role: email + password already authenticates an
+    // existing account — no extra OTP step on top of it. (OTP still
+    // applies to first-time signup verification and the phone-only login
+    // flow, which has no password to begin with.)
     return sendAuthResponse(req, res, user, { skipOtp: true });
   } catch (error) {
     console.error('prepareLogin error:', error.message);
