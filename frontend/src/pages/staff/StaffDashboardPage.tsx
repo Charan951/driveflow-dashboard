@@ -9,6 +9,7 @@ import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { staggerContainer, staggerItem } from '@/animations/variants';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { STATUS_LABELS, getStatusLabel } from '@/lib/statusFlow';
 
 const ACTIVE_STATUSES = [
@@ -89,7 +90,13 @@ const StaffDashboardPage: React.FC = () => {
       });
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load dashboard data');
+      // A 401 here means the session expired mid-fetch — the global axios
+      // interceptor already logs the user out and redirects to /login, so
+      // this toast would otherwise show up on the login page talking
+      // about a dashboard the user's no longer looking at.
+      if (!(axios.isAxiosError(error) && error.response?.status === 401)) {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setIsLoading(false);
     }

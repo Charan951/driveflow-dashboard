@@ -30,6 +30,7 @@ import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
 import { reviewService, Review } from '@/services/reviewService';
 import { toast } from 'sonner';
+import axios from 'axios';
 import { socketService } from '@/services/socket';
 import GlobalSyncRefresh from '@/components/GlobalSyncRefresh';
 import { useAuthStore } from '@/store/authStore';
@@ -137,7 +138,15 @@ const DashboardPage: React.FC = () => {
       setReviews(reviewsData);
     } catch (error) {
       console.error('Failed to fetch dashboard data', error);
-      toast.error('Failed to load dashboard data');
+      // A 401 here means the session expired mid-fetch — the global axios
+      // interceptor already logs the user out and redirects to /login, so
+      // by the time this toast would render it'd be sitting on the login
+      // page talking about a dashboard the user's no longer looking at.
+      // Skip it; only show the toast for a genuine failure while actually
+      // on this page (network error, 500, etc.).
+      if (!(axios.isAxiosError(error) && error.response?.status === 401)) {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
     }
