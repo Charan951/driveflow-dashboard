@@ -1304,26 +1304,41 @@ const BookServicePage: React.FC = () => {
                               <div className="space-y-3 pt-4 border-t border-border/50">
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 items-start">
-                                  {(isBatteryLike ? batteryBrandOptions : tireBrandOptions).map(brand => {
+                                  {[...(isBatteryLike ? batteryBrandOptions : tireBrandOptions)]
+                                    // Available brands first — a customer shouldn't have to scan
+                                    // past disabled ones to find one they can actually pick.
+                                    .sort((a, b) => {
+                                      const aUnavailable = !!selectedVehicleReference && getBrandPrice(a, isBatteryLike) === null;
+                                      const bUnavailable = !!selectedVehicleReference && getBrandPrice(b, isBatteryLike) === null;
+                                      return Number(aUnavailable) - Number(bUnavailable);
+                                    })
+                                    .map(brand => {
                                     const isSelected = selectedTireBrands[service._id] === brand;
-                                    const brandPrice = isSelected ? getBrandPrice(brand, isBatteryLike) : null;
+                                    const brandPrice = getBrandPrice(brand, isBatteryLike);
+                                    // Only treat a brand as unavailable once we actually have
+                                    // reference data for this vehicle — no match yet just means
+                                    // nothing to check against, not that every brand is unavailable.
+                                    const isUnavailable = !!selectedVehicleReference && brandPrice === null;
                                     return (
                                       <button
                                         key={brand}
                                         type="button"
+                                        disabled={isUnavailable}
                                         onClick={() => setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }))}
                                         className={`flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
-                                          isSelected
-                                            ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/5'
-                                            : 'border-border bg-muted/20 hover:border-primary/30 text-foreground'
+                                          isUnavailable
+                                            ? 'border-border bg-muted/10 text-muted-foreground cursor-not-allowed opacity-75'
+                                            : isSelected
+                                              ? 'border-primary bg-primary/10 text-primary shadow-sm shadow-primary/5'
+                                              : 'border-border bg-muted/20 hover:border-primary/30 text-foreground'
                                         }`}
                                       >
                                         <span>{brand}</span>
-                                        {isSelected && selectedVehicleReference && (
-                                          brandPrice !== null ? (
+                                        {isUnavailable ? (
+                                          <span className="text-[11px] font-medium">Not available</span>
+                                        ) : (
+                                          isSelected && brandPrice !== null && (
                                             <span className="text-[11px] font-bold text-primary">₹{brandPrice} /{isBatteryLike ? 'battery' : 'tyre'}</span>
-                                          ) : (
-                                            <span className="text-[11px] font-medium text-destructive">Not available for this vehicle</span>
                                           )
                                         )}
                                       </button>
