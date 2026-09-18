@@ -1,40 +1,54 @@
-import nodemailer from 'nodemailer';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import dotenv from 'dotenv';
 import { logger } from '../middleware/errorHandler.js';
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+// Reuses the same AWS credentials already used for S3 (utils/s3Storage.js)
+// — the IAM user/role just needs ses:SendEmail permission added, and the
+// sending identity (SES_FROM_EMAIL, e.g. support@carzzi.com) must be a
+// verified domain/address in SES for this AWS account/region, or sends
+// will fail. While the account is in the SES sandbox, mail can only be
+// sent to addresses that are *also* verified in SES — request production
+// access to lift that.
+const ses = new SESv2Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
+const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'support@carzzi.com';
+
 export const sendEmail = async (to, subject, text, html) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     return;
   }
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-    html,
-  };
+  const body = {};
+  if (text) body.Text = { Data: text, Charset: 'UTF-8' };
+  if (html) body.Html = { Data: html, Charset: 'UTF-8' };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: FROM_EMAIL,
+        Destination: { ToAddresses: [to] },
+        Content: {
+          Simple: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body: body,
+          },
+        },
+      })
+    );
   } catch (error) {
     logger.error({
-      message: 'SMTP email send failed',
+      message: 'SES email send failed',
       error: error.message || error,
       to,
-      subject
+      subject,
     });
   }
 };

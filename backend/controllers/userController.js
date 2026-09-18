@@ -414,7 +414,7 @@ export const updateUserRole = async (req, res) => {
 };
 
 const queueWelcomeEmail = ({ name, email, password, role }) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) return;
 
   const readableRole = role === 'merchant' ? 'Merchant' : role === 'staff' ? 'Staff' : 'User';
   const subject = `Welcome to Carzzi - ${readableRole} Account Created`;
