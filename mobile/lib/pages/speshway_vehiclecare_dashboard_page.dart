@@ -21,6 +21,7 @@ import '../services/vehicle_service.dart';
 import '../services/review_service.dart';
 import '../services/coupon_service.dart';
 import '../utils/coupon_utils.dart';
+import '../utils/string_utils.dart';
 import '../state/auth_provider.dart';
 import '../state/navigation_provider.dart';
 import '../utils/auth_gate.dart';
@@ -1773,7 +1774,7 @@ class _CarzziDashboardState extends State<CarzziDashboard>
                     const SizedBox(height: 10),
                     Flexible(
                       child: Text(
-                        item.label,
+                        toTitleCase(item.label),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark
                               ? Colors.white

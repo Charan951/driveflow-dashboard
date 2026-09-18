@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
 import '../core/app_spacing.dart';
 import '../core/api_client.dart';
-import '../state/navigation_provider.dart';
 import '../models/vehicle.dart';
 import '../services/vehicle_service.dart';
 import '../core/socket_sync.dart';
@@ -13,6 +12,7 @@ import '../widgets/customer_drawer.dart';
 import '../widgets/global_sync_refresh.dart';
 import '../widgets/guest_login_prompt.dart';
 import '../utils/auth_gate.dart';
+import 'book_service_flow_page.dart';
 
 class MyVehiclesPage extends StatefulWidget {
   const MyVehiclesPage({super.key});
@@ -65,10 +65,22 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
     }
   }
 
-  void _showBookServiceDialog() {
+  void _showBookServiceDialog(Vehicle vehicle) {
     if (!mounted) return;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final nav = context.read<NavigationProvider>();
+
+    void openFlow(String category) {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookServiceFlowPage(
+            initialCategory: category,
+            initialVehicleId: vehicle.id,
+          ),
+        ),
+      );
+    }
 
     showDialog(
       context: context,
@@ -93,15 +105,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               title: 'Car Wash',
               subtitle: 'Premium cleaning services',
               color: Colors.blue,
-              onTap: () {
-                Navigator.pop(context);
-                nav.setTab(0);
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
-                }
-              },
+              onTap: () => openFlow('Wash'),
             ),
             const SizedBox(height: 12),
             _CategoryTile(
@@ -109,15 +113,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               title: 'services',
               subtitle: 'General maintenance & repairs',
               color: AppColors.primaryBlue,
-              onTap: () {
-                Navigator.pop(context);
-                nav.setTab(1);
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
-                }
-              },
+              onTap: () => openFlow('Periodic'),
             ),
             const SizedBox(height: 12),
             _CategoryTile(
@@ -125,10 +121,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               title: 'Essentials',
               subtitle: 'Essential services',
               color: Colors.purple,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).pushNamed('/essentials');
-              },
+              onTap: () => openFlow('Essentials'),
             ),
             const SizedBox(height: 12),
             _CategoryTile(
@@ -136,15 +129,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               title: 'Tyres',
               subtitle: 'Replacement & maintenance',
               color: Colors.orange,
-              onTap: () {
-                Navigator.pop(context);
-                nav.setTab(3);
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
-                }
-              },
+              onTap: () => openFlow('Tyres'),
             ),
             const SizedBox(height: 12),
             _CategoryTile(
@@ -152,15 +137,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               title: 'Battery',
               subtitle: 'Replacement & maintenance',
               color: Colors.orange,
-              onTap: () {
-                Navigator.pop(context);
-                nav.setTab(4);
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
-                }
-              },
+              onTap: () => openFlow('Battery'),
             ),
           ],
         ),
@@ -305,7 +282,7 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
                       final v = _vehicles[index];
                       return _VehicleCard(
                         vehicle: v,
-                        onBookService: _showBookServiceDialog,
+                        onBookService: () => _showBookServiceDialog(v),
                       );
                     },
                   ),

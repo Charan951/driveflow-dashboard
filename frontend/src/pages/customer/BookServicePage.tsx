@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -39,10 +39,37 @@ import { Info } from 'lucide-react';
 
 const steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
 
-const COMMON_TIRE_SIZES = [
-  '145/70 R12', '155/80 R13', '165/80 R14', '175/65 R14', '185/65 R15', 
-  '195/55 R16', '205/55 R16', '215/60 R16', '225/45 R17', '235/45 R18'
+const formatTireSizeLabel = (value: string) => {
+  let s = value.trim();
+  s = s.replace(/\s*\/\s*/g, '/');
+  s = s.replace(/\s+/g, ' ');
+  s = s.replace(/(\d{2,3})\/(\d{2})\s*R\s*(\d{2})/gi, '$1/$2 R$3');
+  return s;
+};
+
+/** Catalog for manual-entry autocomplete (same list as mobile). */
+const ALL_TIRE_SIZE_SUGGESTIONS = [
+  '145/70 R12',
+  '155/80 R13',
+  '165/80 R14',
+  '175/65 R14',
+  '185/65 R15',
+  '195/60 R16',
+  '195/55 R16',
+  '205/55 R16',
+  '215/60 R16',
+  '225/45 R17',
+  '235/45 R18',
 ];
+
+const tireSizeSuggestionsForQuery = (raw: string, focused: boolean) => {
+  if (!focused) return [] as string[];
+  const q = raw.trim().toLowerCase();
+  if (!q) return [...ALL_TIRE_SIZE_SUGGESTIONS];
+  return ALL_TIRE_SIZE_SUGGESTIONS.filter(
+    (s) => s.toLowerCase().includes(q) && s.toLowerCase() !== q,
+  );
+};
 
 const ADMIN_TIRE_BRANDS = [
   'Bridgestone',
@@ -67,6 +94,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 const BookingSkeleton = () => (
   <div className="w-full h-full py-4 lg:py-6 space-y-6">
@@ -91,6 +119,7 @@ const BookServicePage: React.FC = () => {
   const [selectedTireBrands, setSelectedTireBrands] = useState<Record<string, string>>({});
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
+  const [focusedManualSizeId, setFocusedManualSizeId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => startOfLocalDay());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -120,6 +149,24 @@ const BookServicePage: React.FC = () => {
 
   const selectedVehicleData = Array.isArray(vehicles) ? vehicles.find(v => v && v._id === selectedVehicle) : undefined;
   const selectedServicesData = Array.isArray(services) ? services.filter(s => s && selectedServices.includes(s._id)) : [];
+
+  const vehicleTireSizeOptions = useMemo(() => {
+    const sizes = new Set<string>();
+    const add = (raw?: string | null) => {
+      const trimmed = String(raw || '').trim();
+      if (!trimmed) return;
+      sizes.add(formatTireSizeLabel(trimmed));
+    };
+    if (selectedVehicleReference) {
+      add(selectedVehicleReference.front_tyres);
+      add(selectedVehicleReference.rear_tyres);
+    }
+    if (selectedVehicleData) {
+      add(selectedVehicleData.frontTyres);
+      add(selectedVehicleData.rearTyres);
+    }
+    return Array.from(sizes);
+  }, [selectedVehicleReference, selectedVehicleData]);
 
   const getBookingCategory = () => {
     if (selectedServicesData.length === 0) return 'All';
@@ -530,14 +577,6 @@ const BookServicePage: React.FC = () => {
               if (isTireService && !newSizes[serviceId]) {
                 newSizes[serviceId] = vehicleTireSize;
                 changed = true;
-                
-                // If the size is not in COMMON_TIRE_SIZES, enable manual size mode
-                if (!COMMON_TIRE_SIZES.includes(vehicleTireSize)) {
-                  setIsManualSize(prevManual => ({
-                    ...prevManual,
-                    [serviceId]: true
-                  }));
-                }
               }
             });
             
@@ -590,14 +629,6 @@ const BookServicePage: React.FC = () => {
             ...prevSizes,
             [serviceId]: vehicleTireSize
           }));
-          
-          // If the size is not in COMMON_TIRE_SIZES, enable manual size mode
-          if (!COMMON_TIRE_SIZES.includes(vehicleTireSize)) {
-            setIsManualSize(prevManual => ({
-              ...prevManual,
-              [serviceId]: true
-            }));
-          }
         }
       }
     }
@@ -1238,28 +1269,87 @@ const BookServicePage: React.FC = () => {
                                 <>
                                   <div className="flex items-center justify-between">
                                     <label className="text-sm font-bold text-foreground uppercase tracking-wider">Select Size</label>
-                                    <button
-                                      onClick={() => {
-                                        setIsManualSize(prev => ({ ...prev, [service._id]: !prev[service._id] }));
-                                        setTireSizes(prev => ({ ...prev, [service._id]: '' }));
-                                      }}
-                                      className="text-xs font-bold text-primary hover:underline"
-                                    >
-                                      {isManualSize[service._id] ? 'Choose from list' : 'Enter manual size'}
-                                    </button>
+                                    {vehicleTireSizeOptions.length > 0 && (
+                                      <button
+                                        onClick={() => {
+                                          const nextManual = !isManualSize[service._id];
+                                          setIsManualSize(prev => ({ ...prev, [service._id]: nextManual }));
+                                          if (nextManual) {
+                                            setTireSizes(prev => ({ ...prev, [service._id]: '' }));
+                                          } else if (vehicleTireSizeOptions.length === 1) {
+                                            setTireSizes(prev => ({
+                                              ...prev,
+                                              [service._id]: vehicleTireSizeOptions[0],
+                                            }));
+                                          } else {
+                                            setTireSizes(prev => ({ ...prev, [service._id]: '' }));
+                                          }
+                                        }}
+                                        className="text-xs font-bold text-primary hover:underline"
+                                      >
+                                        {isManualSize[service._id] ? 'Vehicle sizes' : 'Manual Entry'}
+                                      </button>
+                                    )}
                                   </div>
 
-                                  {isManualSize[service._id] ? (
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. 205/55 R16"
-                                      value={tireSizes[service._id] || ''}
-                                      onChange={(e) => setTireSizes(prev => ({ ...prev, [service._id]: e.target.value }))}
-                                      className="w-full p-4 rounded-xl border-2 border-border bg-muted/30 focus:border-primary outline-none transition-all font-medium"
-                                    />
+                                  {(isManualSize[service._id] || vehicleTireSizeOptions.length === 0) ? (
+                                    <div className="space-y-1.5">
+                                      <Input
+                                        type="text"
+                                        placeholder="Enter size (e.g. 185/65 R15)"
+                                        value={tireSizes[service._id] || ''}
+                                        onChange={(e) =>
+                                          setTireSizes((prev) => ({
+                                            ...prev,
+                                            [service._id]: e.target.value,
+                                          }))
+                                        }
+                                        onFocus={() => setFocusedManualSizeId(service._id)}
+                                        onBlur={() => {
+                                          // Delay so a suggestion click can register before list hides.
+                                          window.setTimeout(() => {
+                                            setFocusedManualSizeId((current) =>
+                                              current === service._id ? null : current,
+                                            );
+                                          }, 150);
+                                        }}
+                                        className="h-12 rounded-xl border-2 border-border bg-muted/30 px-4 text-sm font-medium placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
+                                      />
+                                      {(() => {
+                                        const suggestions = tireSizeSuggestionsForQuery(
+                                          tireSizes[service._id] || '',
+                                          focusedManualSizeId === service._id,
+                                        );
+                                        if (suggestions.length === 0) return null;
+                                        return (
+                                          <div className="max-h-56 overflow-y-auto rounded-xl border-2 border-border bg-card shadow-sm">
+                                            {suggestions.map((size, index) => (
+                                              <button
+                                                key={size}
+                                                type="button"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                  setTireSizes((prev) => ({
+                                                    ...prev,
+                                                    [service._id]: size,
+                                                  }));
+                                                  setFocusedManualSizeId(null);
+                                                }}
+                                                className={`flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold text-foreground transition-colors hover:bg-primary/5 ${
+                                                  index > 0 ? 'border-t border-border/60' : ''
+                                                }`}
+                                              >
+                                                <Disc className="h-4 w-4 shrink-0 text-primary" />
+                                                <span>{size}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
                                   ) : (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                                      {COMMON_TIRE_SIZES.map(size => (
+                                      {vehicleTireSizeOptions.map(size => (
                                         <button
                                           key={size}
                                           onClick={() => setTireSizes(prev => ({ ...prev, [service._id]: size }))}

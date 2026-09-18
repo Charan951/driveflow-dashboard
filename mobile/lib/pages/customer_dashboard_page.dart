@@ -21,6 +21,7 @@ import '../services/review_service.dart';
 import '../state/auth_provider.dart';
 import '../services/coupon_service.dart';
 import '../utils/coupon_utils.dart';
+import '../utils/string_utils.dart';
 import '../widgets/customer_drawer.dart';
 import '../widgets/coupon_slider.dart';
 import '../utils/auth_gate.dart';
@@ -2298,7 +2299,7 @@ class _QuickServiceTileState extends State<_QuickServiceTile> {
             ),
             const Spacer(),
             Text(
-              widget.title,
+              toTitleCase(widget.title),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../core/app_styles.dart';
+import '../utils/string_utils.dart';
 
 class QuickServiceCard extends StatelessWidget {
   final IconData icon;
@@ -57,7 +58,7 @@ class QuickServiceCard extends StatelessWidget {
               const SizedBox(height: 16),
               // Title
               Text(
-                title,
+                toTitleCase(title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppStyles.headingStyle.copyWith(

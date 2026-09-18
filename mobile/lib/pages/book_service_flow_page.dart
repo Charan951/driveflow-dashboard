@@ -101,6 +101,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   Set<String> _hiddenBuiltinBatteryBrands = const {};
   final Map<String, bool> _isManualSize = {};
   final Map<String, TextEditingController> _tireSizeControllers = {};
+  final Map<String, FocusNode> _tireSizeFocusNodes = {};
+  /// When true, also show brands that have no price for this vehicle.
+  final Set<String> _showUnavailableBrands = {};
   DateTime _selectedDate = DateTime.now();
   String? _selectedTimeSlot;
   List<String> _availableSlots = [];
@@ -632,22 +635,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return (price != null && price > 0) ? price : null;
   }
 
-  /// A high-visibility banner for blocking errors (e.g. an unavailable
-  /// brand), anchored to the TOP of the screen — SnackBars can't be
-  /// repositioned there, so this drops a self-dismissing overlay entry
-  /// instead: icon + bold text on the app's error color, slides down from
-  /// under the status bar.
-  void _showErrorSnackBar(String message) {
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (context) => _TopErrorBanner(
-        message: message,
-        onDismissed: () => entry.remove(),
-      ),
-    );
-    Overlay.of(context).insert(entry);
-  }
-
   double _getServicePrice(ServiceItem service) {
     if (_adjustedPrices.containsKey(service.id)) {
       return _adjustedPrices[service.id]!;
@@ -692,6 +679,38 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return service.price.toDouble();
   }
 
+  Widget _buildSelectedServicePrice(ServiceItem service) {
+    // Step-2 cards only show vehicle price for the Services / Periodic flow.
+    final flow = widget.initialCategory;
+    if (flow != null && flow != 'Periodic' && flow != 'Services') {
+      return const SizedBox.shrink();
+    }
+    if (flow == null && !isGeneralServiceItem(service)) {
+      return const SizedBox.shrink();
+    }
+
+    final qty = _serviceQuantities[service.id] ?? 1;
+    final unit = _getServicePrice(service);
+    final total = unit * qty;
+    if (total <= 0) return const SizedBox.shrink();
+
+    final label = qty > 1
+        ? '₹${formatInrAmount(total)}  ($qty × ₹${formatInrAmount(unit)})'
+        : '₹${formatInrAmount(total)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primaryBlue,
+        ),
+      ),
+    );
+  }
+
   /// Only one service can be booked at a time — selecting a new one
   /// replaces whatever was selected before, rather than adding to it.
   /// Tapping the already-selected service deselects it.
@@ -718,9 +737,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         if (_selectedVehicleOEMTire != null &&
             _selectedVehicleOEMTire!.isNotEmpty) {
           _tireSizes[service.id] = _selectedVehicleOEMTire!;
-          if (!commonTireSizes.contains(_selectedVehicleOEMTire)) {
-            _isManualSize[service.id] = true;
-          }
           if (_tireSizeControllers.containsKey(service.id)) {
             _tireSizeControllers[service.id]!.text =
                 _selectedVehicleOEMTire!;
@@ -844,10 +860,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         // Update controller if it exists
         if (_tireSizeControllers.containsKey(serviceId)) {
           _tireSizeControllers[serviceId]!.text = nonNullTireSize;
-        }
-
-        if (!commonTireSizes.contains(nonNullTireSize)) {
-          _isManualSize[serviceId] = true;
         }
       });
     }
@@ -989,9 +1001,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           _selectedVehicleOEMTire = formatted;
           for (final sid in _selectedServiceIds) {
             _tireSizes[sid] = formatted;
-            if (!commonTireSizes.contains(formatted)) {
-              _isManualSize[sid] = true;
-            }
             if (_tireSizeControllers.containsKey(sid)) {
               _tireSizeControllers[sid]!.text = formatted;
             }
@@ -1001,7 +1010,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     } catch (_) {}
   }
 
-  static const List<String> commonTireSizes = [
+  String _formatTireSizeLabel(String v) {
+    var s = v.trim();
+    s = s.replaceAll(RegExp(r'\s*/\s*'), '/');
+    s = s.replaceAll(RegExp(r'\s+'), ' ');
+    s = s.replaceAllMapped(
+      RegExp(r'(\d{2,3})/(\d{2})\s*R\s*(\d{2})'),
+      (m) => '${m[1]}/${m[2]} R${m[3]}',
+    );
+    return s;
+  }
+
+  /// Catalog used for manual-entry autocomplete suggestions.
+  static const List<String> _allTireSizeSuggestions = [
     '145/70 R12',
     '155/80 R13',
     '165/80 R14',
@@ -1014,6 +1035,202 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     '225/45 R17',
     '235/45 R18',
   ];
+
+  InputDecoration _appInputDecoration({
+    required bool isDark,
+    required String hintText,
+  }) {
+    final borderColor = isDark
+        ? AppColors.borderColor
+        : AppColors.borderColorLight;
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: isDark ? AppColors.textMuted : AppColors.textMutedLight,
+      ),
+      filled: true,
+      fillColor: isDark
+          ? AppColors.backgroundSecondary
+          : AppColors.backgroundSecondaryLight,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
+      ),
+    );
+  }
+
+  List<String> _tireSizeSuggestionsForQuery(String raw, {required bool focused}) {
+    if (!focused) return const [];
+    final q = raw.trim().toLowerCase();
+    if (q.isEmpty) return List<String>.from(_allTireSizeSuggestions);
+    return _allTireSizeSuggestions
+        .where((s) => s.toLowerCase().contains(q))
+        .where((s) => s.toLowerCase() != q)
+        .toList();
+  }
+
+  Widget _buildManualTireSizeField({
+    required ServiceItem service,
+    required bool isDark,
+  }) {
+    final controller = _tireSizeControllers.putIfAbsent(
+      service.id,
+      () => TextEditingController(text: _tireSizes[service.id] ?? ''),
+    );
+    final focusNode = _tireSizeFocusNodes.putIfAbsent(
+      service.id,
+      () {
+        final node = FocusNode();
+        node.addListener(() {
+          if (mounted) setState(() {});
+        });
+        return node;
+      },
+    );
+    final suggestions = _tireSizeSuggestionsForQuery(
+      controller.text,
+      focused: focusNode.hasFocus,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          style: TextStyle(
+            color: isDark ? AppColors.textPrimary : Colors.black87,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          onChanged: (val) => setState(() => _tireSizes[service.id] = val),
+          textInputAction: TextInputAction.done,
+          decoration: _appInputDecoration(
+            isDark: isDark,
+            hintText: 'Enter size (e.g. 185/65 R15)',
+          ),
+        ),
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.backgroundSecondary
+                  : AppColors.backgroundSecondaryLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.borderColor
+                    : AppColors.borderColorLight,
+              ),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: suggestions.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                color: isDark
+                    ? Colors.white12
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
+              itemBuilder: (context, i) {
+                final size = suggestions[i];
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      _tireSizes[service.id] = size;
+                      controller.text = size;
+                      controller.selection = TextSelection.collapsed(
+                        offset: size.length,
+                      );
+                    });
+                    focusNode.unfocus();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.tire_repair_outlined,
+                          size: 16,
+                          color: AppColors.primaryBlue,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            size,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Tyre sizes for the currently selected vehicle (front/rear from reference
+  /// data and the vehicle record). Used instead of the full common list.
+  List<String> _vehicleTireSizeOptions() {
+    final sizes = <String>{};
+
+    void addRaw(String? raw) {
+      final trimmed = raw?.trim();
+      if (trimmed == null || trimmed.isEmpty) return;
+      sizes.add(_formatTireSizeLabel(trimmed));
+    }
+
+    final ref = _selectedVehicleReference;
+    if (ref != null) {
+      addRaw(ref['front_tyres']?.toString());
+      addRaw(ref['rear_tyres']?.toString());
+    }
+
+    Vehicle? vehicle;
+    final selectedId = _selectedVehicleId;
+    if (selectedId != null) {
+      for (final v in _vehicles) {
+        if (v.id == selectedId) {
+          vehicle = v;
+          break;
+        }
+      }
+    }
+    if (vehicle != null) {
+      addRaw(vehicle.frontTyres);
+      addRaw(vehicle.rearTyres);
+    }
+
+    addRaw(_selectedVehicleOEMTire);
+
+    return sizes.toList();
+  }
 
   @override
   void initState() {
@@ -1096,6 +1313,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     _notesController.dispose();
     for (final controller in _tireSizeControllers.values) {
       controller.dispose();
+    }
+    for (final node in _tireSizeFocusNodes.values) {
+      node.dispose();
     }
     _locationSearchDebounce?.cancel();
     _locationSearchController.dispose();
@@ -1698,10 +1918,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       ],
       onSync: _onGlobalSyncRefresh,
       child: PopScope(
-        canPop: _currentStep == 0,
+        canPop: false,
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) return;
-          _handleBack();
+          _onBackPressed();
         },
         child: Scaffold(
           backgroundColor: isDark
@@ -1710,13 +1930,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-              onPressed: () {
-                if (_currentStep > 0) {
-                  _handleBack();
-                } else {
-                  context.read<NavigationProvider>().setTab(2);
-                }
-              },
+              onPressed: _onBackPressed,
             ),
             title: Text(
               () {
@@ -1764,7 +1978,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   children: [
                     Positioned.fill(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1819,6 +2033,328 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     );
   }
 
+  /// Equal-width option tile used by size / brand / quantity grids.
+  Widget _buildSelectionTile({
+    required String label,
+    String? subtitle,
+    required bool selected,
+    required bool enabled,
+    required VoidCallback? onTap,
+    bool compact = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = selected
+        ? AppColors.primaryBlue
+        : enabled
+        ? (isDark ? Colors.white24 : Colors.black26)
+        : (isDark ? Colors.white10 : Colors.black12);
+    final labelColor = !enabled
+        ? (isDark ? Colors.white38 : Colors.black38)
+        : selected
+        ? (isDark ? Colors.white : Colors.black87)
+        : (isDark ? Colors.white70 : Colors.black87);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 6 : 8,
+            vertical: compact
+                ? 10
+                : subtitle != null
+                ? 8
+                : 10,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primaryBlue.withAlpha(isDark ? 70 : 40)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: selected ? 1.5 : 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                selected ? '✓ $label' : label,
+                maxLines: compact ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: compact ? 13 : 11.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: labelColor,
+                  height: 1.15,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    color: enabled
+                        ? AppColors.primaryBlue
+                        : (isDark ? Colors.white30 : Colors.black38),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionGrid({
+    required List<Widget> children,
+    int crossAxisCount = 2,
+    double childAspectRatio = 2.6,
+  }) {
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: childAspectRatio,
+      children: children,
+    );
+  }
+
+  /// Size / brand / quantity panel for tyre & battery services.
+  Widget _buildTireBatteryOptionsPanel({
+    required ServiceItem service,
+    required bool showSizeSelection,
+    required bool showBrandSelection,
+    required bool isBatteryService,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brands = _sortedBrandOptions(isBatteryService);
+    final availableBrands = brands
+        .where((b) => _brandUnavailableReason(isBatteryService, b) == null)
+        .toList();
+    final unavailableBrands = brands
+        .where((b) => _brandUnavailableReason(isBatteryService, b) != null)
+        .toList();
+    final showUnavailable = _showUnavailableBrands.contains(service.id);
+    final brandsToShow = showUnavailable
+        ? [...availableBrands, ...unavailableBrands]
+        : availableBrands;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showSizeSelection) ...[
+            Builder(
+              builder: (context) {
+                final vehicleSizes = _vehicleTireSizeOptions();
+                final forceManual = vehicleSizes.isEmpty;
+                final isManual =
+                    forceManual || (_isManualSize[service.id] ?? false);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Select Size',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        if (!forceManual)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                final nextManual =
+                                    !(_isManualSize[service.id] ?? false);
+                                _isManualSize[service.id] = nextManual;
+                                if (nextManual) {
+                                  _tireSizes[service.id] = '';
+                                } else if (vehicleSizes.length == 1) {
+                                  _tireSizes[service.id] = vehicleSizes.first;
+                                } else {
+                                  _tireSizes[service.id] = '';
+                                }
+                              });
+                            },
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              isManual ? 'Vehicle sizes' : 'Manual Entry',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (isManual)
+                      _buildManualTireSizeField(
+                        service: service,
+                        isDark: isDark,
+                      )
+                    else
+                      _buildOptionGrid(
+                        crossAxisCount: 2,
+                        childAspectRatio: 3.1,
+                        children: vehicleSizes.map((size) {
+                          final isSelected = _tireSizes[service.id] == size;
+                          return _buildSelectionTile(
+                            label: size,
+                            selected: isSelected,
+                            enabled: true,
+                            compact: true,
+                            onTap: () => setState(
+                              () => _tireSizes[service.id] = size,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+          if (showBrandSelection) ...[
+            if (showSizeSelection) ...[
+              const SizedBox(height: 12),
+              Divider(height: 1, color: isDark ? Colors.white12 : Colors.black12),
+              const SizedBox(height: 10),
+            ],
+            const Text(
+              'Select Brand',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            if (brandsToShow.isEmpty)
+              Text(
+                'No brands available for this vehicle.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                ),
+              )
+            else
+              _buildOptionGrid(
+                crossAxisCount: 2,
+                childAspectRatio: 2.0,
+                children: brandsToShow.map((brand) {
+                  final isSelected = _selectedTireBrands[service.id] == brand;
+                  final isUnavailable =
+                      _brandUnavailableReason(isBatteryService, brand) != null;
+                  final brandPrice = isSelected
+                      ? _getBrandPrice(isBatteryService, brand)
+                      : null;
+                  return _buildSelectionTile(
+                    label: brand,
+                    subtitle: isUnavailable
+                        ? 'Unavailable'
+                        : brandPrice != null
+                        ? '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}'
+                        : null,
+                    selected: isSelected,
+                    enabled: !isUnavailable,
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedTireBrands.remove(service.id);
+                        } else {
+                          _selectedTireBrands[service.id] = brand;
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            if (unavailableBrands.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () {
+                    setState(() {
+                      if (showUnavailable) {
+                        _showUnavailableBrands.remove(service.id);
+                      } else {
+                        _showUnavailableBrands.add(service.id);
+                      }
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    showUnavailable
+                        ? 'Hide unavailable brands'
+                        : 'Show ${unavailableBrands.length} unavailable',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+          if (!isBatteryService) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: isDark ? Colors.white12 : Colors.black12),
+            const SizedBox(height: 10),
+            const Text(
+              'Select Quantity',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [1, 2, 3, 4, 5].map((qty) {
+                final isSelected =
+                    (_serviceQuantities[service.id] ?? 1) == qty;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: qty == 5 ? 0 : 8),
+                    child: _buildSelectionTile(
+                      label: '$qty',
+                      selected: isSelected,
+                      enabled: true,
+                      compact: true,
+                      onTap: () => setState(
+                        () => _serviceQuantities[service.id] = qty,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomButtons() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -1860,7 +2396,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
               Expanded(
                 flex: 1,
                 child: TextButton(
-                  onPressed: _loading ? null : _handleBack,
+                  onPressed: _loading ? null : _onBackPressed,
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
@@ -2022,6 +2558,36 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         _appliedCoupon = null;
       }
     });
+  }
+
+  /// Leaves the booking flow: pops a pushed route (e.g. from My Vehicles),
+  /// otherwise returns to the home tab when this page is embedded in the
+  /// bottom-nav shell.
+  void _exitBookingFlow() {
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    context.read<NavigationProvider>().setTab(2);
+  }
+
+  void _onBackPressed() {
+    if (_loading) return;
+
+    // Vehicle was already chosen before opening this flow — don't send the
+    // user back to the vehicle picker; leave the flow instead.
+    if (_currentStep == 1 && widget.initialVehicleId != null) {
+      _exitBookingFlow();
+      return;
+    }
+
+    if (_currentStep > 0) {
+      _handleBack();
+      return;
+    }
+
+    _exitBookingFlow();
   }
 
   void _handleBack() {
@@ -2519,6 +3085,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                           ),
                                         ),
                                       ],
+                                      _buildSelectedServicePrice(service),
                                     ],
                                   ),
                                 ),
@@ -2539,248 +3106,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                           ),
                         ),
                         if (showSizeSelection || showBrandSelection)
-                          Container(
-                            margin: const EdgeInsets.only(left: 16, bottom: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.grey.shade900
-                                  : Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFF2563EB).withAlpha(100),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (showSizeSelection) ...[
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Select Size',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _isManualSize[service.id] =
-                                                !(_isManualSize[service.id] ??
-                                                    false);
-                                            _tireSizes[service.id] = '';
-                                          });
-                                        },
-                                        child: Text(
-                                          _isManualSize[service.id] == true
-                                              ? 'Common Sizes'
-                                              : 'Manual Entry',
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (_isManualSize[service.id] == true)
-                                    TextField(
-                                      controller: _tireSizeControllers
-                                          .putIfAbsent(
-                                            service.id,
-                                            () => TextEditingController(
-                                              text:
-                                                  _tireSizes[service.id] ?? '',
-                                            ),
-                                          ),
-                                      onChanged: (val) => setState(
-                                        () => _tireSizes[service.id] = val,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText:
-                                            'Enter size (e.g. 185/65 R15)',
-                                        isDense: true,
-                                        border: OutlineInputBorder(),
-                                      ),
-                                    )
-                                  else
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 4,
-                                      children: commonTireSizes.map((size) {
-                                        final isSelected =
-                                            _tireSizes[service.id] == size;
-                                        return ChoiceChip(
-                                          label: Text(
-                                            size,
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                          selected: isSelected,
-                                          onSelected: (val) {
-                                            if (val) {
-                                              setState(
-                                                () => _tireSizes[service.id] =
-                                                    size,
-                                              );
-                                            }
-                                          },
-                                          selectedColor: const Color(
-                                            0xFF2563EB,
-                                          ).withAlpha(50),
-                                        );
-                                      }).toList(),
-                                    ),
-                                ],
-
-                                // Brand Selection
-                                if (showBrandSelection) ...[
-                                  if (showSizeSelection)
-                                    const SizedBox(height: 16),
-                                  if (showSizeSelection) const Divider(),
-                                  if (showSizeSelection)
-                                    const SizedBox(height: 8),
-                                  const Text(
-                                    'Select Brand',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children:
-                                        _sortedBrandOptions(isBatteryService)
-                                            .map((brand) {
-                                              final isSelected =
-                                                  _selectedTireBrands[service
-                                                      .id] ==
-                                                  brand;
-                                              final unavailableReason =
-                                                  _brandUnavailableReason(
-                                                    isBatteryService,
-                                                    brand,
-                                                  );
-                                              final isUnavailable =
-                                                  unavailableReason != null;
-                                              final brandPrice = isSelected
-                                                  ? _getBrandPrice(
-                                                      isBatteryService,
-                                                      brand,
-                                                    )
-                                                  : null;
-                                              return Opacity(
-                                                opacity: isUnavailable
-                                                    ? 0.75
-                                                    : 1,
-                                                child: ChoiceChip(
-                                                  label: Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        brand,
-                                                        style: const TextStyle(
-                                                          fontSize: 10,
-                                                        ),
-                                                      ),
-                                                      if (isUnavailable)
-                                                        const Text(
-                                                          'Not available',
-                                                          style: TextStyle(
-                                                            fontSize: 9,
-                                                          ),
-                                                        )
-                                                      else if (brandPrice !=
-                                                          null)
-                                                        Text(
-                                                          '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
-                                                          style: const TextStyle(
-                                                            fontSize: 9,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w700,
-                                                            color: AppColors
-                                                                .primaryBlue,
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                  selected: isSelected,
-                                                  onSelected: isUnavailable
-                                                      ? null
-                                                      : (val) {
-                                                          setState(() {
-                                                            if (val) {
-                                                              _selectedTireBrands[service
-                                                                      .id] =
-                                                                  brand;
-                                                            } else {
-                                                              _selectedTireBrands
-                                                                  .remove(
-                                                                    service.id,
-                                                                  );
-                                                            }
-                                                          });
-                                                        },
-                                                  selectedColor: const Color(
-                                                    0xFF2563EB,
-                                                  ).withAlpha(50),
-                                                ),
-                                              );
-                                            })
-                                            .toList(),
-                                  ),
-                                ],
-
-                                // Quantity — tyres only (not batteries)
-                                if (!isBatteryService) ...[
-                                  const SizedBox(height: 16),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    'Select Quantity',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: [1, 2, 3, 4, 5].map((qty) {
-                                      final isSelected =
-                                          (_serviceQuantities[service.id] ??
-                                              1) ==
-                                          qty;
-                                      return ChoiceChip(
-                                        label: Text(
-                                          qty.toString(),
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                        selected: isSelected,
-                                        onSelected: (val) {
-                                          if (val) {
-                                            setState(() {
-                                              _serviceQuantities[service.id] =
-                                                  qty;
-                                            });
-                                          }
-                                        },
-                                        selectedColor: const Color(
-                                          0xFF2563EB,
-                                        ).withAlpha(50),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ],
-                            ),
+                          _buildTireBatteryOptionsPanel(
+                            service: service,
+                            showSizeSelection: showSizeSelection,
+                            showBrandSelection: showBrandSelection,
+                            isBatteryService: isBatteryService,
                           ),
                       ],
                     );
@@ -2924,6 +3254,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                         ),
                                       ),
                                     ],
+                                    _buildSelectedServicePrice(service),
                                   ],
                                 ),
                               ),
@@ -2944,242 +3275,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         ),
                       ),
                       if (showSizeSelection || showBrandSelection)
-                        Container(
-                          margin: const EdgeInsets.only(left: 16, bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.grey.shade900
-                                : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFF2563EB).withAlpha(100),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (showSizeSelection) ...[
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'Select Size',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _isManualSize[service.id] =
-                                              !(_isManualSize[service.id] ??
-                                                  false);
-                                          _tireSizes[service.id] = '';
-                                        });
-                                      },
-                                      child: Text(
-                                        _isManualSize[service.id] == true
-                                            ? 'Common Sizes'
-                                            : 'Manual Entry',
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_isManualSize[service.id] == true)
-                                  TextField(
-                                    controller: _tireSizeControllers
-                                        .putIfAbsent(
-                                          service.id,
-                                          () => TextEditingController(
-                                            text: _tireSizes[service.id] ?? '',
-                                          ),
-                                        ),
-                                    onChanged: (val) => setState(
-                                      () => _tireSizes[service.id] = val,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      hintText: 'Enter size (e.g. 185/65 R15)',
-                                      isDense: true,
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  )
-                                else
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: commonTireSizes.map((size) {
-                                      final isSelected =
-                                          _tireSizes[service.id] == size;
-                                      return ChoiceChip(
-                                        label: Text(
-                                          size,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                        selected: isSelected,
-                                        onSelected: (val) {
-                                          if (val) {
-                                            setState(
-                                              () =>
-                                                  _tireSizes[service.id] = size,
-                                            );
-                                          }
-                                        },
-                                        selectedColor: const Color(
-                                          0xFF2563EB,
-                                        ).withAlpha(50),
-                                      );
-                                    }).toList(),
-                                  ),
-                              ],
-
-                              // Brand Selection
-                              if (showBrandSelection) ...[
-                                if (showSizeSelection)
-                                  const SizedBox(height: 16),
-                                if (showSizeSelection) const Divider(),
-                                if (showSizeSelection)
-                                  const SizedBox(height: 8),
-                                const Text(
-                                  'Select Brand',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children:
-                                      _sortedBrandOptions(isBatteryService)
-                                          .map((brand) {
-                                            final isSelected =
-                                                _selectedTireBrands[service
-                                                    .id] ==
-                                                brand;
-                                            final unavailableReason =
-                                                _brandUnavailableReason(
-                                                  isBatteryService,
-                                                  brand,
-                                                );
-                                            final isUnavailable =
-                                                unavailableReason != null;
-                                            final brandPrice = isSelected
-                                                ? _getBrandPrice(
-                                                    isBatteryService,
-                                                    brand,
-                                                  )
-                                                : null;
-                                            return Opacity(
-                                              opacity: isUnavailable
-                                                  ? 0.75
-                                                  : 1,
-                                              child: ChoiceChip(
-                                                label: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      brand,
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                      ),
-                                                    ),
-                                                    if (isUnavailable)
-                                                      const Text(
-                                                        'Not available',
-                                                        style: TextStyle(
-                                                          fontSize: 9,
-                                                        ),
-                                                      )
-                                                    else if (brandPrice !=
-                                                        null)
-                                                      Text(
-                                                        '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
-                                                        style: const TextStyle(
-                                                          fontSize: 9,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: AppColors
-                                                              .primaryBlue,
-                                                        ),
-                                                      ),
-                                                  ],
-                                                ),
-                                                selected: isSelected,
-                                                onSelected: isUnavailable
-                                                    ? null
-                                                    : (val) {
-                                                        setState(() {
-                                                          if (val) {
-                                                            _selectedTireBrands[service
-                                                                    .id] =
-                                                                brand;
-                                                          } else {
-                                                            _selectedTireBrands
-                                                                .remove(
-                                                                  service.id,
-                                                                );
-                                                          }
-                                                        });
-                                                      },
-                                                selectedColor: const Color(
-                                                  0xFF2563EB,
-                                                ).withAlpha(50),
-                                              ),
-                                            );
-                                          })
-                                          .toList(),
-                                ),
-                              ],
-
-                              // Quantity — tyres only (not batteries)
-                              if (!isBatteryService) ...[
-                                const SizedBox(height: 16),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Select Quantity',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: [1, 2, 3, 4, 5].map((qty) {
-                                    final isSelected =
-                                        (_serviceQuantities[service.id] ?? 1) ==
-                                        qty;
-                                    return ChoiceChip(
-                                      label: Text(
-                                        qty.toString(),
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                      selected: isSelected,
-                                      onSelected: (val) {
-                                        if (val) {
-                                          setState(() {
-                                            _serviceQuantities[service.id] =
-                                                qty;
-                                          });
-                                        }
-                                      },
-                                      selectedColor: const Color(
-                                        0xFF2563EB,
-                                      ).withAlpha(50),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ],
-                          ),
+                        _buildTireBatteryOptionsPanel(
+                          service: service,
+                          showSizeSelection: showSizeSelection,
+                          showBrandSelection: showBrandSelection,
+                          isBatteryService: isBatteryService,
                         ),
                     ],
                   );
@@ -4857,108 +4957,4 @@ class DashedLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
-
-/// Self-dismissing error banner anchored to the top of the screen (under
-/// the status bar), inserted directly into the [Overlay] so it isn't
-/// constrained by Scaffold/SnackBar's bottom-only positioning.
-class _TopErrorBanner extends StatefulWidget {
-  final String message;
-  final VoidCallback onDismissed;
-
-  const _TopErrorBanner({required this.message, required this.onDismissed});
-
-  @override
-  State<_TopErrorBanner> createState() => _TopErrorBannerState();
-}
-
-class _TopErrorBannerState extends State<_TopErrorBanner>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<Offset> _slide;
-  Timer? _autoDismissTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-      reverseDuration: const Duration(milliseconds: 200),
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _controller.forward();
-    _autoDismissTimer = Timer(const Duration(seconds: 4), _dismiss);
-  }
-
-  Future<void> _dismiss() async {
-    if (!mounted) return;
-    _autoDismissTimer?.cancel();
-    await _controller.reverse();
-    widget.onDismissed();
-  }
-
-  @override
-  void dispose() {
-    _autoDismissTimer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-    return Positioned(
-      top: topInset + 8,
-      left: 16,
-      right: 16,
-      child: SlideTransition(
-        position: _slide,
-        child: SafeArea(
-          bottom: false,
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              onTap: _dismiss,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.error,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

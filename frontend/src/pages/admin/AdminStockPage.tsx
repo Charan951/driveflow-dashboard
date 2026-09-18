@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import * as XLSX from 'xlsx';
-import { Search, Filter, Package, FileUp, FileDown, Columns3, CheckCircle, FileText, Plus, Edit, Trash2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Search, Package, FileUp, FileDown, Columns3, CheckCircle, Plus, Edit, Trash2, X } from 'lucide-react';
 import {
   getVehicleReference,
   importVehicleReference,
@@ -189,7 +187,7 @@ const AdminVehicleDataPage = () => {
     }
   };
 
-  const handleOpenModal = (vehicle: VehicleData | null = null) => {
+  const handleOpenModal = useCallback((vehicle: VehicleData | null = null) => {
     if (vehicle) {
       setEditingVehicle(vehicle);
       setFormData({
@@ -252,7 +250,19 @@ const AdminVehicleDataPage = () => {
       setDynamicFormData(dynamicValues);
     }
     setIsModalOpen(true);
-  };
+  }, [columns]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this vehicle reference?')) {
+      try {
+        await deleteVehicleReference(id);
+        toast.success('Vehicle data deleted successfully');
+        fetchVehicleData();
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to delete vehicle data');
+      }
+    }
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,18 +296,6 @@ const AdminVehicleDataPage = () => {
       fetchVehicleData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to save vehicle data');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this vehicle reference?')) {
-      try {
-        await deleteVehicleReference(id);
-        toast.success('Vehicle data deleted successfully');
-        fetchVehicleData();
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Failed to delete vehicle data');
-      }
     }
   };
 
@@ -405,7 +403,7 @@ const AdminVehicleDataPage = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (vehicleData.length === 0) {
       toast.error('No vehicle data to export');
       return;
@@ -439,18 +437,56 @@ const AdminVehicleDataPage = () => {
       return row;
     });
 
+    const XLSX = await import('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Vehicle Reference Data');
     XLSX.writeFile(workbook, `vehicle_reference_data_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const hiddenBuiltinKeys = useMemo(
+    () => new Set(builtinColumns.filter((c) => c.hidden).map((c) => c.key)),
+    [builtinColumns],
+  );
+
+  const tyreColumns = useMemo(
+    () => columns.filter((c) => c.category === 'tyre'),
+    [columns],
+  );
+
+  const batteryColumns = useMemo(
+    () => columns.filter((c) => c.category === 'battery'),
+    [columns],
+  );
+
+  const filteredData = useMemo(() => {
+    if (!Array.isArray(vehicleData)) return [];
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return vehicleData;
+    return vehicleData.filter(
+      (item) =>
+        item.brand_name?.toLowerCase().includes(term) ||
+        item.model?.toLowerCase().includes(term) ||
+        item.brand_model?.toLowerCase().includes(term),
+    );
+  }, [vehicleData, searchTerm]);
+
+  const stats = useMemo(
+    () => ({
+      totalModels: Array.isArray(vehicleData) ? vehicleData.length : 0,
+      brands: Array.isArray(vehicleData)
+        ? new Set(vehicleData.map((v) => v.brand_name)).size
+        : 0,
+    }),
+    [vehicleData],
+  );
+
   // Renders a built-in brand column header, or nothing if the admin has
   // hidden that column (hide/restore is managed via the Manage Columns
   // modal). Keep in sync with renderBuiltinCell below — both key off the
   // same builtin `key`.
   const renderBuiltinHeader = (key: string, label: string) => {
-    if (isBuiltinHidden(key)) return null;
+    if (hiddenBuiltinKeys.has(key)) return null;
     return (
       <th key={key} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
         {label}
@@ -472,24 +508,13 @@ const AdminVehicleDataPage = () => {
   };
 
   const renderBuiltinCell = (key: string, fieldName: string, item: VehicleData) => {
-    if (isBuiltinHidden(key)) return null;
+    if (hiddenBuiltinKeys.has(key)) return null;
     const value = item[fieldName];
     return (
       <td key={fieldName} className="px-6 py-4 text-sm text-gray-600">
         {formatPrice(value)}
       </td>
     );
-  };
-
-  const filteredData = Array.isArray(vehicleData) ? vehicleData.filter(item =>
-    item.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.brand_model?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) : [];
-
-  const stats = {
-    totalModels: Array.isArray(vehicleData) ? vehicleData.length : 0,
-    brands: Array.isArray(vehicleData) ? new Set(vehicleData.map(v => v.brand_name)).size : 0,
   };
 
   if (loading && (!Array.isArray(vehicleData) || vehicleData.length === 0)) {
@@ -560,9 +585,7 @@ const AdminVehicleDataPage = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100"
         >
           <div className="flex justify-between items-start">
@@ -574,12 +597,9 @@ const AdminVehicleDataPage = () => {
               <Package size={20} className="md:w-6 md:h-6" />
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <div
           className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100"
         >
           <div className="flex justify-between items-start">
@@ -591,7 +611,7 @@ const AdminVehicleDataPage = () => {
               <CheckCircle size={20} className="md:w-6 md:h-6" />
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -609,8 +629,12 @@ const AdminVehicleDataPage = () => {
         </div>
       </div>
 
-      {/* Data View */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-w-0 max-w-full">
+      {/* Data View — content-visibility keeps offscreen rows cheap while
+          a modal is open and the page re-renders. */}
+      <div
+        className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-w-0 max-w-full"
+        style={{ contentVisibility: 'auto', containIntrinsicSize: '800px' }}
+      >
         {/* Mobile card list */}
         <div className="md:hidden divide-y divide-gray-100">
           {filteredData.length === 0 ? (
@@ -664,14 +688,14 @@ const AdminVehicleDataPage = () => {
                 {renderBuiltinHeader('michelin', 'Michelin')}
                 {renderBuiltinHeader('dummy2', 'Dummy 2')}
                 {renderBuiltinHeader('dummy', 'Dummy')}
-                {columns.filter(c => c.category === 'tyre').map((col) => (
+                {tyreColumns.map((col) => (
                   <th key={col.fieldName} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
                     {col.label}
                   </th>
                 ))}
                 {renderBuiltinHeader('amaron', 'Amaron')}
                 {renderBuiltinHeader('exide', 'Exide')}
-                {columns.filter(c => c.category === 'battery').map((col) => (
+                {batteryColumns.map((col) => (
                   <th key={col.fieldName} className="px-6 py-4 font-semibold text-gray-700 whitespace-nowrap">
                     {col.label}
                   </th>
@@ -713,14 +737,14 @@ const AdminVehicleDataPage = () => {
                   {renderBuiltinCell('michelin', 'tyre_price_michelin', item)}
                   {renderBuiltinCell('dummy2', 'tyre_price_dummy2', item)}
                   {renderBuiltinCell('dummy', 'tyre_price_dummy', item)}
-                    {columns.filter(c => c.category === 'tyre').map((col) => (
-                      <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
-                        {formatPrice(item[col.fieldName])}
-                      </td>
-                    ))}
+                  {tyreColumns.map((col) => (
+                    <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
+                      {formatPrice(item[col.fieldName])}
+                    </td>
+                  ))}
                   {renderBuiltinCell('amaron', 'battery_price_amaron', item)}
                   {renderBuiltinCell('exide', 'battery_price_exide', item)}
-                  {columns.filter(c => c.category === 'battery').map((col) => (
+                  {batteryColumns.map((col) => (
                     <td key={col.fieldName} className="px-6 py-4 text-sm text-gray-600">
                       {formatPrice(item[col.fieldName])}
                     </td>
@@ -770,7 +794,9 @@ const AdminVehicleDataPage = () => {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal — mount only while open so opening does not keep a
+          heavy form tree around, and closed state stays cheap. */}
+      {isModalOpen && (
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -1028,8 +1054,10 @@ const AdminVehicleDataPage = () => {
           </form>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Manage Columns Modal */}
+      {isColumnModalOpen && (
       <Dialog
         open={isColumnModalOpen}
         onOpenChange={(open) => {
@@ -1234,6 +1262,7 @@ const AdminVehicleDataPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
     </GlobalSyncRefresh>
   );
