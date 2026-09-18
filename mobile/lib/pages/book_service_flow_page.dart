@@ -43,6 +43,13 @@ import '../widgets/custom_stepper.dart';
 import '../widgets/vehicle_card.dart';
 import '../widgets/gradient_button.dart';
 
+/// Earliest customer-bookable calendar day (tomorrow at local midnight).
+DateTime _earliestBookableDate([DateTime? from]) {
+  final now = from ?? DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return today.add(const Duration(days: 1));
+}
+
 class BookServiceFlowPage extends StatefulWidget {
   final String? initialCategory;
 
@@ -99,12 +106,26 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   List<String> _dynamicBatteryBrands = const [];
   Set<String> _hiddenBuiltinTireBrands = const {};
   Set<String> _hiddenBuiltinBatteryBrands = const {};
+  /// Display label → Vehicle Data fieldName (handles renamed columns).
+  Map<String, String> _tireBrandFields = const {
+    'Bridgestone': 'tyre_price_bridgestone',
+    'Yokohama': 'tyre_price_yokohama',
+    'Apollo': 'tyre_price_apollo',
+    'Michelin': 'tyre_price_michelin',
+    'Dummy 2': 'tyre_price_dummy2',
+    'Dummy': 'tyre_price_dummy',
+  };
+  Map<String, String> _batteryBrandFields = const {
+    'Amaron': 'battery_price_amaron',
+    'Exide': 'battery_price_exide',
+  };
   final Map<String, bool> _isManualSize = {};
   final Map<String, TextEditingController> _tireSizeControllers = {};
   final Map<String, FocusNode> _tireSizeFocusNodes = {};
   /// When true, also show brands that have no price for this vehicle.
   final Set<String> _showUnavailableBrands = {};
-  DateTime _selectedDate = DateTime.now();
+  /// Earliest bookable day is tomorrow (same-day booking not allowed).
+  DateTime _selectedDate = _earliestBookableDate();
   String? _selectedTimeSlot;
   List<String> _availableSlots = [];
   List<String> _bookedSlots = [];
@@ -580,42 +601,200 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final available = <String>[];
     final unavailable = <String>[];
     for (final brand in options) {
-      final isAvailable =
-          _brandUnavailableReason(isBatteryService, brand) == null;
-      (isAvailable ? available : unavailable).add(brand);
+      final isNa = _isBrandNaUnavailable(isBatteryService, brand);
+      (isNa ? unavailable : available).add(brand);
     }
     return [...available, ...unavailable];
   }
 
   Future<void> _fetchBrandColumns() async {
     final results = await Future.wait([
-      _vehicleService.getReferenceColumnLabels('tyre'),
-      _vehicleService.getReferenceColumnLabels('battery'),
-      _vehicleService.getHiddenBuiltinColumnLabels('tyre'),
-      _vehicleService.getHiddenBuiltinColumnLabels('battery'),
+      _vehicleService.getReferenceColumns('tyre'),
+      _vehicleService.getReferenceColumns('battery'),
+      _vehicleService.getBuiltinColumns('tyre'),
+      _vehicleService.getBuiltinColumns('battery'),
     ]);
     if (!mounted) return;
+    final dynamicTire =
+        results[0] as List<({String label, String fieldName})>;
+    final dynamicBattery =
+        results[1] as List<({String label, String fieldName})>;
+    final builtinTire =
+        results[2] as List<({String label, String fieldName, bool hidden})>;
+    final builtinBattery =
+        results[3] as List<({String label, String fieldName, bool hidden})>;
+
+    final tireFields = <String, String>{
+      'Bridgestone': 'tyre_price_bridgestone',
+      'Yokohama': 'tyre_price_yokohama',
+      'Apollo': 'tyre_price_apollo',
+      'Michelin': 'tyre_price_michelin',
+      'Dummy 2': 'tyre_price_dummy2',
+      'Dummy': 'tyre_price_dummy',
+    };
+    for (final c in builtinTire) {
+      tireFields[c.label] = c.fieldName;
+    }
+    for (final c in dynamicTire) {
+      tireFields[c.label] = c.fieldName;
+    }
+
+    final batteryFields = <String, String>{
+      'Amaron': 'battery_price_amaron',
+      'Exide': 'battery_price_exide',
+    };
+    for (final c in builtinBattery) {
+      batteryFields[c.label] = c.fieldName;
+    }
+    for (final c in dynamicBattery) {
+      batteryFields[c.label] = c.fieldName;
+    }
+
     setState(() {
-      _dynamicTireBrands = results[0] as List<String>;
-      _dynamicBatteryBrands = results[1] as List<String>;
-      _hiddenBuiltinTireBrands = results[2] as Set<String>;
-      _hiddenBuiltinBatteryBrands = results[3] as Set<String>;
+      _dynamicTireBrands = dynamicTire.map((c) => c.label).toList();
+      _dynamicBatteryBrands = dynamicBattery.map((c) => c.label).toList();
+      _hiddenBuiltinTireBrands = builtinTire
+          .where((c) => c.hidden)
+          .map((c) => c.label)
+          .toSet();
+      _hiddenBuiltinBatteryBrands = builtinBattery
+          .where((c) => c.hidden)
+          .map((c) => c.label)
+          .toSet();
+      _tireBrandFields = tireFields;
+      _batteryBrandFields = batteryFields;
     });
   }
 
-  /// Returns a user-facing reason the given brand can't be selected for this
-  /// vehicle (its reference price is missing/non-numeric, e.g. "Not
-  /// Available"), or null if the brand's price is valid.
-  String? _brandUnavailableReason(bool isBattery, String brand) {
+  String _brandFieldName(bool isBattery, String brand) {
+    final map = isBattery ? _batteryBrandFields : _tireBrandFields;
+    if (map.containsKey(brand)) return map[brand]!;
+    final ci = map.entries.where(
+      (e) => e.key.toLowerCase() == brand.toLowerCase(),
+    );
+    if (ci.isNotEmpty) return ci.first.value;
+    return '${isBattery ? 'battery_price' : 'tyre_price'}_${brand.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
+  }
+
+  dynamic _brandRaw(bool isBattery, String brand) {
     final ref = _selectedVehicleReference;
     if (ref == null) return null;
-    final key =
-        '${isBattery ? 'battery_price' : 'tyre_price'}_${brand.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
-    final raw = ref[key];
-    final price = double.tryParse(raw?.toString().trim() ?? '');
-    if (raw == null || raw.toString().trim().isEmpty || price == null || price <= 0) {
-      return '$brand is not available for this vehicle. Please choose another brand.';
+    final field = _brandFieldName(isBattery, brand);
+    final direct = ref[field];
+    if (direct != null && direct.toString().trim().isNotEmpty) return direct;
+
+    final prefix = isBattery ? 'battery_price_' : 'tyre_price_';
+    final brandSlug = brand.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    for (final entry in ref.entries) {
+      final key = entry.key.toString();
+      if (!key.startsWith(prefix)) continue;
+      final keySlug = key
+          .substring(prefix.length)
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '');
+      if (keySlug == brandSlug) return entry.value;
     }
+    return direct;
+  }
+
+  bool _isBlankOrNaPrice(dynamic raw) {
+    final trimmed = raw?.toString().trim() ?? '';
+    if (trimmed.isEmpty) return true;
+    final upper = trimmed.toUpperCase();
+    return upper == 'NA' ||
+        upper == 'N/A' ||
+        upper == '-' ||
+        upper == 'NULL' ||
+        upper == 'NOT AVAILABLE' ||
+        upper == 'UNAVAILABLE';
+  }
+
+  /// Non-numeric Vehicle Data note (e.g. "Contact Carzzi Team…").
+  /// Null when the cell is a real price, blank, or NA.
+  String? _brandPriceNote(bool isBattery, String brand) {
+    final raw = _brandRaw(isBattery, brand);
+    if (raw == null || _isBlankOrNaPrice(raw)) return null;
+    final price = double.tryParse(raw.toString().trim());
+    if (price != null && price > 0) return null;
+    return raw.toString().trim();
+  }
+
+  /// True only for blank / NA cells — these stay in the "unavailable" bucket.
+  /// Brands with a free-text note are treated as available visually.
+  bool _isBrandNaUnavailable(bool isBattery, String brand) {
+    if (_selectedVehicleReference == null) return false;
+    return _isBlankOrNaPrice(_brandRaw(isBattery, brand));
+  }
+
+  /// Returns a user-facing reason the given brand can't be selected for this
+  /// vehicle (blank/NA), or null if the brand has a valid price.
+  String? _brandUnavailableReason(bool isBattery, String brand) {
+    if (!_isBrandNaUnavailable(isBattery, brand)) return null;
+    return '$brand is not available for this vehicle. Please choose another brand.';
+  }
+
+  /// Non-numeric Vehicle Data cell for this service's price column, if any.
+  String? _servicePriceNote(ServiceItem service) {
+    final ref = _selectedVehicleReference;
+    if (ref == null) return null;
+
+    String? asNote(dynamic raw) {
+      if (raw == null || _isBlankOrNaPrice(raw)) return null;
+      final trimmed = raw.toString().trim();
+      final price = double.tryParse(trimmed);
+      if (price != null && price > 0) return null;
+      return trimmed;
+    }
+
+    final cat = (service.category ?? '').toLowerCase();
+    final nameLower = service.name.toLowerCase();
+    final isBattery =
+        cat.contains('battery') || service.vehiclePricingColumn == 'battery_brand';
+    final isTire =
+        cat.contains('tyre') ||
+        cat.contains('tire') ||
+        service.vehiclePricingColumn == 'tyre_brand';
+    final isGeneral =
+        cat == 'periodic' ||
+        cat == 'services' ||
+        nameLower.contains('general service');
+    final isWash =
+        cat == 'car wash' || cat == 'wash' || cat == 'detailing';
+
+    final column = service.vehiclePricingColumn;
+    if (column != null &&
+        column != 'tyre_brand' &&
+        column != 'battery_brand') {
+      return asNote(ref[column]);
+    }
+
+    if (isGeneral) {
+      return asNote(ref['general_service_price']);
+    }
+
+    if (isWash) {
+      dynamic raw;
+      if ((nameLower.contains('exterior wash') ||
+              nameLower.contains('exterior only')) &&
+          !nameLower.contains('interior')) {
+        raw = ref['car_wash_exterior_price'];
+      } else if (nameLower.contains('interior + exterior') &&
+          !nameLower.contains('underbody')) {
+        raw = ref['car_wash_interior_exterior_price'];
+      } else if (nameLower.contains('underbody wash') ||
+          (nameLower.contains('interior') &&
+              nameLower.contains('exterior') &&
+              nameLower.contains('underbody'))) {
+        raw = ref['car_wash_interior_exterior_underbody_price'];
+      }
+      final rawStr = raw?.toString().trim() ?? '';
+      if (rawStr.isEmpty) {
+        raw = ref['car_wash_price'];
+      }
+      return asNote(raw);
+    }
+
+    if (isTire || isBattery) return null;
     return null;
   }
 
@@ -626,11 +805,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   /// here, since _brandUnavailableReason blocks selecting it in the first
   /// place.
   double? _getBrandPrice(bool isBattery, String brand) {
-    final ref = _selectedVehicleReference;
-    if (ref == null) return null;
-    final key =
-        '${isBattery ? 'battery_price' : 'tyre_price'}_${brand.toLowerCase().replaceAll(RegExp(r'\s+'), '')}';
-    final raw = ref[key];
+    final raw = _brandRaw(isBattery, brand);
     final price = double.tryParse(raw?.toString().trim() ?? '');
     return (price != null && price > 0) ? price : null;
   }
@@ -680,13 +855,29 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   }
 
   Widget _buildSelectedServicePrice(ServiceItem service) {
-    // Step-2 cards only show vehicle price for the Services / Periodic flow.
+    // Step-2 cards show vehicle-matched price for Services, Car Wash, and Essentials.
+    // Tyres/Battery stay brand-driven (price appears on brand chips instead).
     final flow = widget.initialCategory;
-    if (flow != null && flow != 'Periodic' && flow != 'Services') {
+    final isWashFlow = flow == 'Wash' || flow == 'Car Wash';
+    final isEssentialsFlow = flow == 'Essentials';
+    final isServicesFlow = flow == 'Periodic' || flow == 'Services';
+    final isTireBatteryFlow =
+        flow == 'Tyres' || flow == 'Battery' || flow == 'Tyre & Battery';
+
+    if (isTireBatteryFlow) return const SizedBox.shrink();
+
+    if (flow != null && !isServicesFlow && !isWashFlow && !isEssentialsFlow) {
       return const SizedBox.shrink();
     }
-    if (flow == null && !isGeneralServiceItem(service)) {
-      return const SizedBox.shrink();
+
+    if (flow == null) {
+      final cat = (service.category ?? '').toLowerCase();
+      final isWash =
+          cat == 'car wash' || cat == 'wash' || cat == 'detailing';
+      final isEssentials = cat == 'essentials';
+      if (!isGeneralServiceItem(service) && !isWash && !isEssentials) {
+        return const SizedBox.shrink();
+      }
     }
 
     final qty = _serviceQuantities[service.id] ?? 1;
@@ -716,6 +907,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   /// Tapping the already-selected service deselects it.
   void _toggleServiceSelection(ServiceItem service) {
     final alreadySelected = _selectedServiceIds.contains(service.id);
+    if (!alreadySelected) {
+      final note = _servicePriceNote(service);
+      if (note != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(note)),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _selectedServiceIds.clear();
       _serviceQuantities.clear();
@@ -2057,7 +2258,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: enabled ? onTap : null,
+        // Keep muted styling via [enabled], but still allow taps so unavailable
+        // brands can surface the Vehicle Data note in a snackbar.
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
@@ -2144,10 +2347,10 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final brands = _sortedBrandOptions(isBatteryService);
     final availableBrands = brands
-        .where((b) => _brandUnavailableReason(isBatteryService, b) == null)
+        .where((b) => !_isBrandNaUnavailable(isBatteryService, b))
         .toList();
     final unavailableBrands = brands
-        .where((b) => _brandUnavailableReason(isBatteryService, b) != null)
+        .where((b) => _isBrandNaUnavailable(isBatteryService, b))
         .toList();
     final showUnavailable = _showUnavailableBrands.contains(service.id);
     final brandsToShow = showUnavailable
@@ -2262,21 +2465,45 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 childAspectRatio: 2.0,
                 children: brandsToShow.map((brand) {
                   final isSelected = _selectedTireBrands[service.id] == brand;
-                  final isUnavailable =
-                      _brandUnavailableReason(isBatteryService, brand) != null;
+                  final isNaUnavailable =
+                      _isBrandNaUnavailable(isBatteryService, brand);
+                  final priceNote = _brandPriceNote(isBatteryService, brand);
                   final brandPrice = isSelected
                       ? _getBrandPrice(isBatteryService, brand)
                       : null;
                   return _buildSelectionTile(
                     label: brand,
-                    subtitle: isUnavailable
-                        ? 'Unavailable'
+                    subtitle: isNaUnavailable
+                        ? 'Not available'
                         : brandPrice != null
                         ? '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}'
                         : null,
                     selected: isSelected,
-                    enabled: !isUnavailable,
+                    enabled: !isNaUnavailable,
                     onTap: () {
+                      if (priceNote != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(priceNote),
+                            duration: const Duration(seconds: 8),
+                          ),
+                        );
+                        return;
+                      }
+                      if (isNaUnavailable) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _brandUnavailableReason(
+                                    isBatteryService,
+                                    brand,
+                                  ) ??
+                                  '$brand is not available for this vehicle.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
                       setState(() {
                         if (isSelected) {
                           _selectedTireBrands.remove(service.id);
@@ -3355,10 +3582,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   Expanded(
                     child: InkWell(
                       onTap: () async {
+                        final earliest = _earliestBookableDate();
+                        final initial = _selectedDate.isBefore(earliest)
+                            ? earliest
+                            : _selectedDate;
                         final date = await showDatePicker(
                           context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime.now(),
+                          initialDate: initial,
+                          firstDate: earliest,
                           lastDate: DateTime.now().add(
                             const Duration(days: 90),
                           ),

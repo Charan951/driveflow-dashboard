@@ -214,17 +214,48 @@ class VehicleService {
 
   /// Admin-added price columns from Vehicle Reference Data (e.g. a brand
   /// beyond the built-in Bridgestone/Yokohama/... or Amaron/Exide list),
-  /// filtered to [category] ('tyre' or 'battery'). Mirrors
-  /// getVehicleReferenceColumns() in the web frontend. Best-effort: an
-  /// empty list on failure just means brand selection falls back to the
-  /// built-in list only.
-  Future<List<String>> getReferenceColumnLabels(String category) async {
+  /// filtered to [category] ('tyre' or 'battery'). Returns label + fieldName
+  /// so renamed display labels still resolve to the correct Vehicle Data key.
+  Future<List<({String label, String fieldName})>> getReferenceColumns(
+    String category,
+  ) async {
     try {
       final res = await _api.getAny(ApiEndpoints.vehicleReferenceColumns);
       return _asMapList(res)
           .where((c) => c['category'] == category)
-          .map((c) => c['label']?.toString() ?? '')
-          .where((label) => label.isNotEmpty)
+          .map((c) {
+            final label = c['label']?.toString() ?? '';
+            final fieldName = c['fieldName']?.toString() ?? '';
+            return (label: label, fieldName: fieldName);
+          })
+          .where((c) => c.label.isNotEmpty && c.fieldName.isNotEmpty)
+          .toList();
+    } catch (e) {
+      return const [];
+    }
+  }
+
+  Future<List<String>> getReferenceColumnLabels(String category) async {
+    final cols = await getReferenceColumns(category);
+    return cols.map((c) => c.label).toList();
+  }
+
+  /// Built-in brand columns for [category], including label/fieldName/hidden.
+  Future<List<({String label, String fieldName, bool hidden})>>
+  getBuiltinColumns(String category) async {
+    try {
+      final res = await _api.getAny(
+        ApiEndpoints.vehicleReferenceBuiltinColumns,
+      );
+      return _asMapList(res)
+          .where((c) => c['category'] == category)
+          .map((c) {
+            final label = c['label']?.toString() ?? '';
+            final fieldName = c['fieldName']?.toString() ?? '';
+            final hidden = c['hidden'] == true;
+            return (label: label, fieldName: fieldName, hidden: hidden);
+          })
+          .where((c) => c.label.isNotEmpty && c.fieldName.isNotEmpty)
           .toList();
     } catch (e) {
       return const [];
@@ -235,17 +266,7 @@ class VehicleService {
   /// Reference Data — these shouldn't be offered here either. Mirrors
   /// getVehicleReferenceBuiltinColumns() in the web frontend.
   Future<Set<String>> getHiddenBuiltinColumnLabels(String category) async {
-    try {
-      final res = await _api.getAny(
-        ApiEndpoints.vehicleReferenceBuiltinColumns,
-      );
-      return _asMapList(res)
-          .where((c) => c['category'] == category && c['hidden'] == true)
-          .map((c) => c['label']?.toString() ?? '')
-          .where((label) => label.isNotEmpty)
-          .toSet();
-    } catch (e) {
-      return const {};
-    }
+    final cols = await getBuiltinColumns(category);
+    return cols.where((c) => c.hidden).map((c) => c.label).toSet();
   }
 }

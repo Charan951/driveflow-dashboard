@@ -34,7 +34,7 @@ import SlotPicker from '@/components/SlotPicker';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import VehicleDetailModal from '@/components/VehicleDetailModal';
 import { toast } from 'sonner';
-import { cn, formatLocalYmd, startOfLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
+import { cn, formatLocalYmd, earliestBookableLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
 import { Info } from 'lucide-react';
 
 const steps = ['Vehicle', 'Service', 'Schedule', 'Confirm'];
@@ -85,6 +85,21 @@ const ADMIN_BATTERY_BRANDS = [
   'Exide',
 ];
 
+/** Default field names for built-in brands (label → Vehicle Data column). */
+const BUILTIN_TIRE_FIELD_BY_LABEL: Record<string, string> = {
+  Bridgestone: 'tyre_price_bridgestone',
+  Yokohama: 'tyre_price_yokohama',
+  Apollo: 'tyre_price_apollo',
+  Michelin: 'tyre_price_michelin',
+  'Dummy 2': 'tyre_price_dummy2',
+  Dummy: 'tyre_price_dummy',
+};
+
+const BUILTIN_BATTERY_FIELD_BY_LABEL: Record<string, string> = {
+  Amaron: 'battery_price_amaron',
+  Exide: 'battery_price_exide',
+};
+
 const extractPincodeFromAddress = (address?: string) => {
   const match = String(address || '').match(/(\d{6})(?!\d)/);
   return match ? match[1] : null;
@@ -120,7 +135,7 @@ const BookServicePage: React.FC = () => {
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [isManualSize, setIsManualSize] = useState<Record<string, boolean>>({});
   const [focusedManualSizeId, setFocusedManualSizeId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(() => startOfLocalDay());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => earliestBookableLocalDay());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
@@ -135,6 +150,17 @@ const BookServicePage: React.FC = () => {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
   const [selectedVehicleReference, setSelectedVehicleReference] = useState<any>(null);
+  // Display label → Vehicle Data fieldName (renamed columns still resolve).
+  const [tireBrandFields, setTireBrandFields] = useState<Record<string, string>>({
+    ...BUILTIN_TIRE_FIELD_BY_LABEL,
+  });
+  const [batteryBrandFields, setBatteryBrandFields] = useState<Record<string, string>>({
+    ...BUILTIN_BATTERY_FIELD_BY_LABEL,
+  });
+  const [dynamicTireBrands, setDynamicTireBrands] = useState<string[]>([]);
+  const [dynamicBatteryBrands, setDynamicBatteryBrands] = useState<string[]>([]);
+  const [hiddenBuiltinTireBrands, setHiddenBuiltinTireBrands] = useState<Set<string> | null>(null);
+  const [hiddenBuiltinBatteryBrands, setHiddenBuiltinBatteryBrands] = useState<Set<string> | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [pickupDropPrice, setPickupDropPrice] = useState<number>(0);
   const [carWashPrices, setCarWashPrices] = useState<Record<string, number | null>>({});
@@ -197,12 +223,131 @@ const BookServicePage: React.FC = () => {
   // (and, server-side, to validate) the booking. Returns null when there's
   // no vehicle reference match at all (nothing to show) or when this brand
   // has no valid price for this specific vehicle (surfaced as unavailable).
+  const resolveBrandFieldName = (brand: string, isBattery: boolean): string => {
+    const map = isBattery ? batteryBrandFields : tireBrandFields;
+    if (map[brand]) return map[brand];
+    const ci = Object.entries(map).find(([label]) => label.toLowerCase() === brand.toLowerCase());
+    if (ci) return ci[1];
+    return `${isBattery ? 'battery' : 'tyre'}_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
+  };
+
+  const getBrandRaw = (brand: string, isBattery: boolean): unknown => {
+    if (!selectedVehicleReference) return undefined;
+    const field = resolveBrandFieldName(brand, isBattery);
+    const direct = selectedVehicleReference[field];
+    if (direct !== null && direct !== undefined && String(direct).trim() !== '') {
+      return direct;
+    }
+    // Renamed labels (e.g. "Bridgestone [B250]") may not slug-match fieldName —
+    // compare alphanumeric-only brand vs stored keys.
+    const prefix = isBattery ? 'battery_price_' : 'tyre_price_';
+    const brandSlug = brand.toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const [key, value] of Object.entries(selectedVehicleReference)) {
+      if (!key.startsWith(prefix)) continue;
+      const keySlug = key.slice(prefix.length).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (keySlug === brandSlug) return value;
+    }
+    return direct;
+  };
+
   const getBrandPrice = (brand: string, isBattery: boolean): number | null => {
     if (!selectedVehicleReference) return null;
-    const brandKey = `${isBattery ? 'battery' : 'tyre'}_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
-    const raw = selectedVehicleReference[brandKey];
+    const raw = getBrandRaw(brand, isBattery);
     const num = Number(raw);
-    return raw && !isNaN(num) && num > 0 ? num : null;
+    return raw !== null && raw !== undefined && String(raw).trim() !== '' && !isNaN(num) && num > 0
+      ? num
+      : null;
+  };
+
+  /** Blank / NA-style Vehicle Data cells — these brands stay unavailable. */
+  const isBlankOrNaPrice = (raw: unknown): boolean => {
+    if (raw === null || raw === undefined) return true;
+    const s = String(raw).trim();
+    if (!s) return true;
+    const upper = s.toUpperCase();
+    return (
+      upper === 'NA' ||
+      upper === 'N/A' ||
+      upper === '-' ||
+      upper === 'NULL' ||
+      upper === 'NOT AVAILABLE' ||
+      upper === 'UNAVAILABLE'
+    );
+  };
+
+  /** Non-numeric vehicle-data cell text (e.g. "Contact Carzzi Team") for toast.
+   *  Returns null for real prices and for blank/NA cells. */
+  const asVehiclePriceNote = (raw: unknown): string | null => {
+    if (isBlankOrNaPrice(raw)) return null;
+    const s = String(raw).trim();
+    const n = Number(s);
+    if (!Number.isNaN(n) && n > 0) return null;
+    return s;
+  };
+
+  const getBrandPriceNote = (brand: string, isBattery: boolean): string | null => {
+    if (!selectedVehicleReference) return null;
+    return asVehiclePriceNote(getBrandRaw(brand, isBattery));
+  };
+
+  /** True when Vehicle Data has blank/NA for this brand (hide in unavailable). */
+  const isBrandNaUnavailable = (brand: string, isBattery: boolean): boolean => {
+    if (!selectedVehicleReference) return false;
+    return isBlankOrNaPrice(getBrandRaw(brand, isBattery));
+  };
+
+  /** Message from Vehicle Reference when this service's price cell is text, not a number. */
+  const getServicePriceNote = (service: Service): string | null => {
+    if (!selectedVehicleReference) return null;
+
+    const isWash = service.category === 'Car Wash' || service.category === 'Wash' || service.category === 'Detailing';
+    const isBattery =
+      service.category === 'Battery' ||
+      service.vehiclePricingColumn === 'battery_brand' ||
+      service.name.toLowerCase().includes('battery');
+    const isTire =
+      !isBattery &&
+      (service.category === 'Tyres' ||
+        service.category === 'Tyre & Battery' ||
+        service.vehiclePricingColumn === 'tyre_brand' ||
+        service.name.toLowerCase().includes('tyre'));
+    const isGeneral =
+      service.category === 'Periodic' ||
+      service.category === 'Services' ||
+      service.name.toLowerCase().includes('general service');
+
+    const column = service.vehiclePricingColumn;
+    if (column && column !== 'tyre_brand' && column !== 'battery_brand') {
+      return asVehiclePriceNote(selectedVehicleReference[column as string]);
+    }
+
+    if (isGeneral) {
+      return asVehiclePriceNote(selectedVehicleReference.general_service_price);
+    }
+
+    if (isWash) {
+      const sName = service.name.toLowerCase();
+      let raw: unknown = null;
+      if (sName.includes('exterior wash') && !sName.includes('interior')) {
+        raw = selectedVehicleReference.car_wash_exterior_price;
+      } else if (sName.includes('interior + exterior') && !sName.includes('underbody')) {
+        raw = selectedVehicleReference.car_wash_interior_exterior_price;
+      } else if (
+        sName.includes('underbody wash') ||
+        (sName.includes('interior') && sName.includes('exterior') && sName.includes('underbody'))
+      ) {
+        raw = selectedVehicleReference.car_wash_interior_exterior_underbody_price;
+      }
+      if (raw === null || raw === undefined || String(raw).trim() === '') {
+        raw = selectedVehicleReference.car_wash_price;
+      }
+      return asVehiclePriceNote(raw);
+    }
+
+    // Tyre/battery prices are per-brand; checked when a brand is chosen.
+    if (isTire || isBattery) return null;
+
+    return null;
   };
 
   const getPackagePrice = (service: Service) => {
@@ -253,9 +398,8 @@ const BookServicePage: React.FC = () => {
         else if (nameLower.includes('exide')) brand = 'Exide';
       }
       if (brand) {
-        const brandKey = `battery_price_${brand.toLowerCase().replace(/\s+/g, '')}`;
-        const price = selectedVehicleReference[brandKey];
-        if (price) return Number(price);
+        const price = getBrandPrice(brand, true);
+        if (price != null) return price;
       }
       return Number(service.price || 0);
     }
@@ -263,9 +407,8 @@ const BookServicePage: React.FC = () => {
     if (isTire) {
       const selectedBrandName = selectedTireBrands[service._id];
       if (selectedBrandName && selectedVehicleReference) {
-        const brandKey = `tyre_price_${selectedBrandName.toLowerCase().replace(/\s+/g, '')}`;
-        const price = selectedVehicleReference[brandKey];
-        if (price) return Number(price);
+        const price = getBrandPrice(selectedBrandName, false);
+        if (price != null) return price;
       }
       // Fallback to service price if no brand selected or no reference price
       return Number(service.price || 0);
@@ -314,53 +457,58 @@ const BookServicePage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Admin-added tyre brand columns (e.g. Continental) show up here too, so
-  // customers can actually select them once priced in Vehicle Reference Data.
-  const [dynamicTireBrands, setDynamicTireBrands] = useState<string[]>([]);
   useEffect(() => {
-    getVehicleReferenceColumns()
-      .then((cols) => {
-        const labels = cols.filter((c) => c.category === 'tyre').map((c) => c.label);
-        setDynamicTireBrands(labels);
+    Promise.all([getVehicleReferenceColumns(), getVehicleReferenceBuiltinColumns()])
+      .then(([cols, builtins]) => {
+        const tireFields: Record<string, string> = { ...BUILTIN_TIRE_FIELD_BY_LABEL };
+        for (const c of builtins.filter((col) => col.category === 'tyre')) {
+          tireFields[c.label] = c.fieldName;
+        }
+        const dynamicTire = cols.filter((c) => c.category === 'tyre');
+        for (const c of dynamicTire) {
+          tireFields[c.label] = c.fieldName;
+        }
+        setTireBrandFields(tireFields);
+        setDynamicTireBrands(dynamicTire.map((c) => c.label));
+        setHiddenBuiltinTireBrands(
+          new Set(
+            builtins
+              .filter((c) => c.category === 'tyre' && c.hidden)
+              .map((c) => c.label),
+          ),
+        );
+
+        const batteryFields: Record<string, string> = { ...BUILTIN_BATTERY_FIELD_BY_LABEL };
+        for (const c of builtins.filter((col) => col.category === 'battery')) {
+          batteryFields[c.label] = c.fieldName;
+        }
+        const dynamicBattery = cols.filter((c) => c.category === 'battery');
+        for (const c of dynamicBattery) {
+          batteryFields[c.label] = c.fieldName;
+        }
+        setBatteryBrandFields(batteryFields);
+        setDynamicBatteryBrands(dynamicBattery.map((c) => c.label));
+        setHiddenBuiltinBatteryBrands(
+          new Set(
+            builtins
+              .filter((c) => c.category === 'battery' && c.hidden)
+              .map((c) => c.label),
+          ),
+        );
       })
-      .catch(() => setDynamicTireBrands([]));
+      .catch(() => {
+        setDynamicTireBrands([]);
+        setDynamicBatteryBrands([]);
+        setHiddenBuiltinTireBrands(new Set());
+        setHiddenBuiltinBatteryBrands(new Set());
+      });
   }, []);
-  // Built-in brands an admin has hidden in Vehicle Reference Data shouldn't
-  // be offered here either. Until this loads, nothing is filtered out yet.
-  const [hiddenBuiltinTireBrands, setHiddenBuiltinTireBrands] = useState<Set<string> | null>(null);
-  useEffect(() => {
-    getVehicleReferenceBuiltinColumns()
-      .then((cols) => {
-        const hidden = cols.filter((c) => c.category === 'tyre' && c.hidden).map((c) => c.label);
-        setHiddenBuiltinTireBrands(new Set(hidden));
-      })
-      .catch(() => setHiddenBuiltinTireBrands(new Set()));
-  }, []);
+
   const tireBrandOptions = [
     ...ADMIN_TIRE_BRANDS.filter((brand) => !hiddenBuiltinTireBrands?.has(brand)),
     ...dynamicTireBrands,
   ];
 
-  // Same pattern as tyre brands: admin-added battery brand columns show up
-  // here too once priced in Vehicle Reference Data, and hidden built-ins drop out.
-  const [dynamicBatteryBrands, setDynamicBatteryBrands] = useState<string[]>([]);
-  useEffect(() => {
-    getVehicleReferenceColumns()
-      .then((cols) => {
-        const labels = cols.filter((c) => c.category === 'battery').map((c) => c.label);
-        setDynamicBatteryBrands(labels);
-      })
-      .catch(() => setDynamicBatteryBrands([]));
-  }, []);
-  const [hiddenBuiltinBatteryBrands, setHiddenBuiltinBatteryBrands] = useState<Set<string> | null>(null);
-  useEffect(() => {
-    getVehicleReferenceBuiltinColumns()
-      .then((cols) => {
-        const hidden = cols.filter((c) => c.category === 'battery' && c.hidden).map((c) => c.label);
-        setHiddenBuiltinBatteryBrands(new Set(hidden));
-      })
-      .catch(() => setHiddenBuiltinBatteryBrands(new Set()));
-  }, []);
   const batteryBrandOptions = [
     ...ADMIN_BATTERY_BRANDS.filter((brand) => !hiddenBuiltinBatteryBrands?.has(brand)),
     ...dynamicBatteryBrands,
@@ -591,6 +739,15 @@ const BookServicePage: React.FC = () => {
 
   const toggleService = async (serviceId: string) => {
     const isSelecting = !selectedServices.includes(serviceId);
+    const service = services.find(s => s._id === serviceId);
+
+    if (isSelecting && service) {
+      const priceNote = getServicePriceNote(service);
+      if (priceNote) {
+        toast.info(priceNote);
+        return;
+      }
+    }
 
     // Only one service can be booked at a time — selecting a service
     // replaces whatever was selected before, rather than adding to it.
@@ -598,7 +755,6 @@ const BookServicePage: React.FC = () => {
 
     // If selecting a tire service and a vehicle is selected, pre-fill tire size
     if (isSelecting) {
-      const service = services.find(s => s._id === serviceId);
       const isTireService = service?.name?.toLowerCase()?.includes('change') || 
                           service?.name?.toLowerCase()?.includes('size') ||
                           service?.category === 'Tyres' ||
@@ -683,7 +839,7 @@ const BookServicePage: React.FC = () => {
     setSelectedTireBrands({});
     setServiceQuantities({});
     setIsManualSize({});
-    setSelectedDate(startOfLocalDay());
+    setSelectedDate(earliestBookableLocalDay());
     setSelectedTime(null);
     setError(null);
   }, [searchParams, location.state]);
@@ -1233,6 +1389,41 @@ const BookServicePage: React.FC = () => {
                                 <span>Time: {service.duration} mins</span>
                               )}
                             </div>
+                            {(() => {
+                              const categoryParam = searchParams.get('category');
+                              const isTireBatteryFlow =
+                                categoryParam === 'Tyres' || categoryParam === 'Battery';
+                              if (isTireBatteryFlow) return null;
+
+                              const cat = (service.category || '').toLowerCase();
+                              const isWash =
+                                cat === 'car wash' || cat === 'wash' || cat === 'detailing';
+                              const isEssentials = cat === 'essentials';
+                              const showForFlow =
+                                categoryParam === 'Periodic' ||
+                                categoryParam === 'Services' ||
+                                categoryParam === 'Wash' ||
+                                categoryParam === 'Car Wash' ||
+                                categoryParam === 'Essentials';
+                              const showForService =
+                                !categoryParam &&
+                                (isGeneralServiceItem(service) || isWash || isEssentials);
+
+                              if (!showForFlow && !showForService) return null;
+
+                              const unit = getPackagePrice(service);
+                              const qty = serviceQuantities[service._id] || 1;
+                              const total = unit * qty;
+                              if (!total || total <= 0) return null;
+
+                              return (
+                                <p className="mt-1 text-sm font-bold text-primary">
+                                  {qty > 1
+                                    ? `₹${total}  (${qty} × ₹${unit})`
+                                    : `₹${unit}`}
+                                </p>
+                              );
+                            })()}
                           </div>
                           {selectedServices.includes(service._id) && (
                             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
@@ -1395,26 +1586,37 @@ const BookServicePage: React.FC = () => {
                                 <label className="text-sm font-bold text-foreground uppercase tracking-wider block">Select Brand</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 items-start">
                                   {[...(isBatteryLike ? batteryBrandOptions : tireBrandOptions)]
-                                    // Available brands first — a customer shouldn't have to scan
-                                    // past disabled ones to find one they can actually pick.
+                                    // Available first (priced or note-text). NA/blank last.
                                     .sort((a, b) => {
-                                      const aUnavailable = !!selectedVehicleReference && getBrandPrice(a, isBatteryLike) === null;
-                                      const bUnavailable = !!selectedVehicleReference && getBrandPrice(b, isBatteryLike) === null;
+                                      const aUnavailable = isBrandNaUnavailable(a, isBatteryLike);
+                                      const bUnavailable = isBrandNaUnavailable(b, isBatteryLike);
                                       return Number(aUnavailable) - Number(bUnavailable);
                                     })
                                     .map(brand => {
                                     const isSelected = selectedTireBrands[service._id] === brand;
                                     const brandPrice = getBrandPrice(brand, isBatteryLike);
-                                    // Only treat a brand as unavailable once we actually have
-                                    // reference data for this vehicle — no match yet just means
-                                    // nothing to check against, not that every brand is unavailable.
-                                    const isUnavailable = !!selectedVehicleReference && brandPrice === null;
+                                    const priceNote = getBrandPriceNote(brand, isBatteryLike);
+                                    // Only blank/NA are greyed out. Free-text notes look available
+                                    // but toast the note instead of selecting.
+                                    const isUnavailable = isBrandNaUnavailable(brand, isBatteryLike);
                                     return (
                                       <button
                                         key={brand}
                                         type="button"
-                                        disabled={isUnavailable}
-                                        onClick={() => setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }))}
+                                        onClick={() => {
+                                          if (priceNote) {
+                                            toast.message(priceNote, { duration: 10000 });
+                                            return;
+                                          }
+                                          if (isUnavailable) {
+                                            toast.message(
+                                              `${brand} is not available for this vehicle.`,
+                                              { duration: 6000 },
+                                            );
+                                            return;
+                                          }
+                                          setSelectedTireBrands(prev => ({ ...prev, [service._id]: brand }));
+                                        }}
                                         className={`flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all ${
                                           isUnavailable
                                             ? 'border-border bg-muted/10 text-muted-foreground cursor-not-allowed opacity-75'

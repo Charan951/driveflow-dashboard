@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn, formatLocalYmd, startOfLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
+import { cn, formatLocalYmd, startOfLocalDay, earliestBookableLocalDay, isSlotStartInPast, isSameLocalCalendarDay } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { isValidDate } from '@/lib/formValidation';
 import { toast } from 'sonner';
@@ -72,7 +72,7 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
           <div className="relative group rounded-2xl border border-border/80 bg-muted/20 p-2 min-w-0 max-w-full overflow-hidden">
             <input
               type="date"
-              min={formatLocalYmd(startOfLocalDay())}
+              min={formatLocalYmd(earliestBookableLocalDay())}
               max="2100-12-31"
               maxLength={10}
               value={selectedDateValue}
@@ -85,10 +85,9 @@ export const SlotPicker: React.FC<SlotPickerProps> = ({
                 }
                 const [y, mo, d] = v.split('-').map(Number);
                 if (!y || !mo || !d) return;
-                const date = new Date(y, mo - 1, d);
-                if (!isNaN(date.getTime())) {
-                  onDateChange(startOfLocalDay(date));
-                }
+                const date = startOfLocalDay(new Date(y, mo - 1, d));
+                if (isNaN(date.getTime())) return;
+                onDateChange(date);
               }}
               onBlur={(e) => {
                 const val = e.target.value;

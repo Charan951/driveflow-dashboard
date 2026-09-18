@@ -20,6 +20,18 @@ export function startOfLocalDay(d: Date = new Date()): Date {
   return x;
 }
 
+/** Add calendar days in local time (avoids DST / UTC shift issues). */
+export function addLocalDays(d: Date = new Date(), days: number): Date {
+  const x = startOfLocalDay(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+/** Customer bookings cannot start today — earliest selectable day is tomorrow. */
+export function earliestBookableLocalDay(from: Date = new Date()): Date {
+  return addLocalDays(from, 1);
+}
+
 /** Parse labels like "8:00 AM", "12:30 PM" to minutes from midnight (local). */
 export function parseSlotTimeLabelToMinutes(label: string): number | null {
   const m = String(label).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
