@@ -199,4 +199,53 @@ class VehicleService {
       return null;
     }
   }
+
+  List<Map<String, dynamic>> _asMapList(dynamic res) {
+    if (res is! List) return const [];
+    return res
+        .map((e) {
+          if (e is Map<String, dynamic>) return e;
+          if (e is Map) return Map<String, dynamic>.from(e);
+          return null;
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  /// Admin-added price columns from Vehicle Reference Data (e.g. a brand
+  /// beyond the built-in Bridgestone/Yokohama/... or Amaron/Exide list),
+  /// filtered to [category] ('tyre' or 'battery'). Mirrors
+  /// getVehicleReferenceColumns() in the web frontend. Best-effort: an
+  /// empty list on failure just means brand selection falls back to the
+  /// built-in list only.
+  Future<List<String>> getReferenceColumnLabels(String category) async {
+    try {
+      final res = await _api.getAny(ApiEndpoints.vehicleReferenceColumns);
+      return _asMapList(res)
+          .where((c) => c['category'] == category)
+          .map((c) => c['label']?.toString() ?? '')
+          .where((label) => label.isNotEmpty)
+          .toList();
+    } catch (e) {
+      return const [];
+    }
+  }
+
+  /// Built-in brand columns (of [category]) an admin has hidden in Vehicle
+  /// Reference Data — these shouldn't be offered here either. Mirrors
+  /// getVehicleReferenceBuiltinColumns() in the web frontend.
+  Future<Set<String>> getHiddenBuiltinColumnLabels(String category) async {
+    try {
+      final res = await _api.getAny(
+        ApiEndpoints.vehicleReferenceBuiltinColumns,
+      );
+      return _asMapList(res)
+          .where((c) => c['category'] == category && c['hidden'] == true)
+          .map((c) => c['label']?.toString() ?? '')
+          .where((label) => label.isNotEmpty)
+          .toSet();
+    } catch (e) {
+      return const {};
+    }
+  }
 }

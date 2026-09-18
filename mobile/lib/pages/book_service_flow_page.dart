@@ -91,6 +91,14 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   final Map<String, String> _selectedTireBrands = {};
   final Map<String, int> _serviceQuantities = {};
   Map<String, dynamic>? _selectedVehicleReference;
+  // Admin-added tyre/battery brand columns from Vehicle Reference Data,
+  // and any built-in brands an admin has hidden there — combined with
+  // commonTireBrands/commonBatteryBrands below into the brand chips shown.
+  // Mirrors dynamicTireBrands/hiddenBuiltinTireBrands in the web frontend.
+  List<String> _dynamicTireBrands = const [];
+  List<String> _dynamicBatteryBrands = const [];
+  Set<String> _hiddenBuiltinTireBrands = const {};
+  Set<String> _hiddenBuiltinBatteryBrands = const {};
   final Map<String, bool> _isManualSize = {};
   final Map<String, TextEditingController> _tireSizeControllers = {};
   DateTime _selectedDate = DateTime.now();
@@ -542,6 +550,38 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
 
   static const List<String> commonBatteryBrands = ['Amaron', 'Exide'];
 
+  /// Tyre brand chips actually offered: built-ins minus any an admin has
+  /// hidden in Vehicle Reference Data, plus any admin-added tyre columns.
+  /// Matches tireBrandOptions in the web frontend.
+  List<String> get _tireBrandOptions => [
+    ...commonTireBrands.where((b) => !_hiddenBuiltinTireBrands.contains(b)),
+    ..._dynamicTireBrands,
+  ];
+
+  /// Same as _tireBrandOptions, for battery brands.
+  List<String> get _batteryBrandOptions => [
+    ...commonBatteryBrands.where(
+      (b) => !_hiddenBuiltinBatteryBrands.contains(b),
+    ),
+    ..._dynamicBatteryBrands,
+  ];
+
+  Future<void> _fetchBrandColumns() async {
+    final results = await Future.wait([
+      _vehicleService.getReferenceColumnLabels('tyre'),
+      _vehicleService.getReferenceColumnLabels('battery'),
+      _vehicleService.getHiddenBuiltinColumnLabels('tyre'),
+      _vehicleService.getHiddenBuiltinColumnLabels('battery'),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _dynamicTireBrands = results[0] as List<String>;
+      _dynamicBatteryBrands = results[1] as List<String>;
+      _hiddenBuiltinTireBrands = results[2] as Set<String>;
+      _hiddenBuiltinBatteryBrands = results[3] as Set<String>;
+    });
+  }
+
   /// Returns a user-facing reason the given brand can't be selected for this
   /// vehicle (its reference price is missing/non-numeric, e.g. "Not
   /// Available"), or null if the brand's price is valid.
@@ -967,6 +1007,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     }
 
     _fetchInitialData();
+    _fetchBrandColumns();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _socketService.init(context.read<AuthProvider>().user);
@@ -2358,10 +2399,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                         service.category?.toLowerCase().contains('battery') ==
                         true;
 
+                    // Any tyre-category service gets size selection
+                    // (matches the web frontend's `category === 'Tyres'`
+                    // fallback) — previously this required "change" or
+                    // "size" literally in the service name, which missed
+                    // services like "Car Tyre Replacement".
                     final showSizeSelection =
                         selected &&
-                        isTireService &&
-                        (service.name.toLowerCase().contains('change') ||
+                        (isTireService ||
+                            service.name.toLowerCase().contains('change') ||
                             service.name.toLowerCase().contains('size'));
 
                     final showBrandSelection =
@@ -2591,8 +2637,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     runSpacing: 4,
                                     children:
                                         (isBatteryService
-                                                ? commonBatteryBrands
-                                                : commonTireBrands)
+                                                ? _batteryBrandOptions
+                                                : _tireBrandOptions)
                                             .map((brand) {
                                               final isSelected =
                                                   _selectedTireBrands[service
@@ -2755,10 +2801,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                       service.category?.toLowerCase().contains('battery') ==
                       true;
 
+                  // Any tyre-category service gets size selection (matches
+                  // the web frontend's `category === 'Tyres'` fallback).
                   final showSizeSelection =
                       selected &&
-                      isTireService &&
-                      (service.name.toLowerCase().contains('change') ||
+                      (isTireService ||
+                          service.name.toLowerCase().contains('change') ||
                           service.name.toLowerCase().contains('size'));
 
                   final showBrandSelection =
@@ -2980,8 +3028,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   runSpacing: 4,
                                   children:
                                       (isBatteryService
-                                              ? commonBatteryBrands
-                                              : commonTireBrands)
+                                              ? _batteryBrandOptions
+                                              : _tireBrandOptions)
                                           .map((brand) {
                                             final isSelected =
                                                 _selectedTireBrands[service
