@@ -2659,7 +2659,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                   : null;
                                               return Opacity(
                                                 opacity: isUnavailable
-                                                    ? 0.4
+                                                    ? 0.75
                                                     : 1,
                                                 child: ChoiceChip(
                                                   label: Column(
@@ -2668,13 +2668,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                     children: [
                                                       Text(
                                                         brand,
-                                                        style: TextStyle(
+                                                        style: const TextStyle(
                                                           fontSize: 10,
-                                                          decoration:
-                                                              isUnavailable
-                                                              ? TextDecoration
-                                                                    .lineThrough
-                                                              : null,
                                                         ),
                                                       ),
                                                       if (isUnavailable)
@@ -3067,7 +3062,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                 : null;
                                             return Opacity(
                                               opacity: isUnavailable
-                                                  ? 0.4
+                                                  ? 0.75
                                                   : 1,
                                               child: ChoiceChip(
                                                 label: Column(
@@ -3076,13 +3071,8 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                   children: [
                                                     Text(
                                                       brand,
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                         fontSize: 10,
-                                                        decoration:
-                                                            isUnavailable
-                                                            ? TextDecoration
-                                                                  .lineThrough
-                                                            : null,
                                                       ),
                                                     ),
                                                     if (isUnavailable)
