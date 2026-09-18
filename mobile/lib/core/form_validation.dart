@@ -3,7 +3,7 @@ class FormValidation {
   FormValidation._();
 
   static const maxPasswordLength = 15;
-  static const maxNameLength = 30;
+  static const maxNameLength = 50;
   static const maxDescriptionLength = 500;
   static const maxSubjectLength = 100;
   static const minSubjectLength = 3;

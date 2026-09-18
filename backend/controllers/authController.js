@@ -363,7 +363,7 @@ export const applyAsMerchant = async (req, res) => {
       return res.status(400).json({ message: 'Business/garage name is required' });
     }
     if (!isValidName(name)) {
-      return res.status(400).json({ message: 'Business/garage name must be 1-20 characters, letters and spaces only' });
+      return res.status(400).json({ message: 'Business/garage name must be 1-50 characters, letters and spaces only' });
     }
     const emailValidation = isValidEmail(email);
     if (!emailValidation.valid) {

@@ -183,8 +183,8 @@ export const applyForCareer = async (req, res) => {
     }
 
     // Validate name
-    if (name.length > 10) {
-      return res.status(400).json({ message: 'Name cannot exceed 10 characters' });
+    if (name.length > 50) {
+      return res.status(400).json({ message: 'Name cannot exceed 50 characters' });
     }
 
     // Validate email

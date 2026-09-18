@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { isValidEmail, isValidPhone10, isValidName, hasExcessiveRepeatedChars } from "@/lib/formValidation";
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
-const CAREER_MAX_NAME_LENGTH = 10;
+const CAREER_MAX_NAME_LENGTH = 50;
 
 const CareerDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();

@@ -11,10 +11,9 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatLocalYmd } from '@/lib/utils';
-import { 
-  isValidName, 
-  isNameTooLong, 
-  isDescriptionTooLong, 
+import {
+  isValidName,
+  isDescriptionTooLong,
   isPriceTooLong, 
   isDurationTooLong, 
   isEstimationTimeTooLong, 
@@ -27,6 +26,11 @@ import {
   isValidDescription,
   isValidEstimationTime
 } from '@/lib/formValidation';
+
+// Service name has its own limit, separate from MAX_NAME_LENGTH in
+// formValidation.ts (which is for a person's name) — kept in sync with
+// backend/models/Service.js's own maxlength.
+const SERVICE_MAX_NAME_LENGTH = 30;
 
 const AdminServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -611,9 +615,9 @@ const ServiceModal = ({ service, onClose, onSave }) => {
         } else if (!isValidName(value)) {
           isValid = false;
           errorMessage = 'Name contains invalid characters. Only letters, numbers, spaces, \', &, and - are allowed.';
-        } else if (isNameTooLong(value)) {
+        } else if (value.trim().length > SERVICE_MAX_NAME_LENGTH) {
           isValid = false;
-          errorMessage = 'Too long data: Please enter a maximum of 30 characters';
+          errorMessage = `Too long data: Please enter a maximum of ${SERVICE_MAX_NAME_LENGTH} characters`;
         }
       }
     }
@@ -735,8 +739,8 @@ const ServiceModal = ({ service, onClose, onSave }) => {
       toast.error('Name contains invalid characters. Only letters, numbers, spaces, \', &, and - are allowed.');
       return;
     }
-    if (isNameTooLong(formData.name)) {
-      toast.error('Too long data: Please enter a maximum of 30 characters');
+    if (formData.name.trim().length > SERVICE_MAX_NAME_LENGTH) {
+      toast.error(`Too long data: Please enter a maximum of ${SERVICE_MAX_NAME_LENGTH} characters`);
       return;
     }
     if (hasExcessiveRepeatedChars(formData.name)) {

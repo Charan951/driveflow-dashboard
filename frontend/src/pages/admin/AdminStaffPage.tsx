@@ -314,13 +314,13 @@ const AdminStaffPage: React.FC = () => {
             <h2 className="text-xl font-bold mb-4">Add New Staff Member</h2>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Full Name (max 20 characters)</label>
+                <label className="block text-sm font-medium mb-1">Full Name (max 50 characters)</label>
                 <input
                   type="text"
                   required
                   value={newStaff.name}
                   onChange={e => setNewStaff({...newStaff, name: e.target.value})}
-                  maxLength={20}
+                  maxLength={50}
                   className="w-full p-2 rounded-lg border border-border bg-background"
                 />
               </div>

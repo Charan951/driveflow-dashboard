@@ -1,7 +1,7 @@
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}$/;
 export const MAX_EMAIL_LENGTH = 254;
 export const MAX_PASSWORD_LENGTH = 15;
-export const MAX_NAME_LENGTH = 30;
+export const MAX_NAME_LENGTH = 50;
 export const MAX_DESCRIPTION_LENGTH = 500;
 export const MAX_SUBJECT_LENGTH = 100;
 export const MIN_SUBJECT_LENGTH = 3;

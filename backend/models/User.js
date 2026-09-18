@@ -13,11 +13,11 @@ const nameValidator = {
   validator: function(value) {
     const trimmed = value.trim();
     if (trimmed.length === 0) return false;
-    if (trimmed.length > 20) return false;
+    if (trimmed.length > 50) return false;
     if (hasExcessiveRepeatedChars(trimmed)) return false;
     return /^[a-zA-Z\s]+$/.test(trimmed);
   },
-  message: 'Name is invalid. Must be 1-20 characters, only letters and spaces allowed'
+  message: 'Name is invalid. Must be 1-50 characters, only letters and spaces allowed'
 };
 
 const userSchema = new mongoose.Schema({
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Name is required'],
     trim: true,
     validate: nameValidator,
-    maxlength: [20, 'Name cannot exceed 20 characters'],
+    maxlength: [50, 'Name cannot exceed 50 characters'],
   },
   email: {
     type: String,

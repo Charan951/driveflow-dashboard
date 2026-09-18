@@ -12,11 +12,11 @@ const nameValidator = {
   validator: function(value) {
     const trimmed = value.trim();
     if (trimmed.length === 0) return false;
-    if (trimmed.length > 10) return false;
+    if (trimmed.length > 50) return false;
     if (hasExcessiveRepeatedChars(trimmed)) return false;
     return /^[a-zA-Z0-9][a-zA-Z0-9\s'-]*$/.test(trimmed);
   },
-  message: 'Name is invalid. Must be 1-10 characters, no excessive repeated characters'
+  message: 'Name is invalid. Must be 1-50 characters, no excessive repeated characters'
 };
 
 const emailValidator = {
@@ -39,7 +39,7 @@ const careerApplicationSchema = mongoose.Schema(
       required: true,
       trim: true,
       validate: nameValidator,
-      maxlength: [10, 'Name cannot exceed 10 characters'],
+      maxlength: [50, 'Name cannot exceed 50 characters'],
     },
     email: {
       type: String,
