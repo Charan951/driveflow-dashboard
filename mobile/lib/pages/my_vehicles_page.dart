@@ -139,6 +139,11 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(3);
+                if (mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -150,6 +155,11 @@ class _MyVehiclesPageState extends State<MyVehiclesPage> {
               onTap: () {
                 Navigator.pop(context);
                 nav.setTab(4);
+                if (mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/customer', (route) => false);
+                }
               },
             ),
           ],
