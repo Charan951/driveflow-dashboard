@@ -17,15 +17,21 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      // TODO: Add your web configuration here
+      // This app doesn't actually build for web (the separate frontend/
+      // React project covers web) — this branch is unreachable in
+      // practice, but kept pointed at the real client project
+      // (carzzi-a8bf4, same as android/ios below) rather than the old
+      // "speshway-3d072" project, and reuses the android app's
+      // credentials as a placeholder since no distinct web app has been
+      // registered under carzzi-a8bf4.
       return const FirebaseOptions(
-        apiKey: 'AIzaSyD5FIodSb7ZNqUTfjLHJzPGt_aknxJUtpQ',
+        apiKey: 'AIzaSyA09SBVbovG5LbRqP77Tg7pf4bzWYXRP3g',
         appId:
-            '1:879267203995:web:8f4d521df251253536ef3e', // Using android one for now as placeholder
-        messagingSenderId: '879267203995',
-        projectId: 'speshway-3d072',
-        authDomain: 'speshway-3d072.firebaseapp.com',
-        storageBucket: 'speshway-3d072.firebasestorage.app',
+            '1:295776629143:android:6648b48402b49c839914d2', // Using android one for now as placeholder
+        messagingSenderId: '295776629143',
+        projectId: 'carzzi-a8bf4',
+        authDomain: 'carzzi-a8bf4.firebaseapp.com',
+        storageBucket: 'carzzi-a8bf4.firebasestorage.app',
       );
     }
     switch (defaultTargetPlatform) {
