@@ -362,9 +362,12 @@ class MyApp extends StatelessWidget {
         builder: (context) {
           final mode = context.watch<ThemeProvider>().mode;
           final isAuthenticated = context.watch<AuthProvider>().isAuthenticated;
-          // Guest browse stays on the Carzzi dark theme so it matches
-          // onboarding/login. Signed-in users keep their saved preference.
-          final themeMode = isAuthenticated ? mode : ThemeMode.dark;
+          // Guest browse (no login) always uses light mode, regardless of
+          // device setting. Onboarding/login screens keep their own
+          // hardcoded dark visual design either way — this only affects
+          // Material-themed pages a guest can reach (e.g. browsing
+          // services). Signed-in users keep their saved preference.
+          final themeMode = isAuthenticated ? mode : ThemeMode.light;
 
           return MaterialApp(
             navigatorKey: rootNavigatorKey,
