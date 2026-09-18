@@ -2644,65 +2644,82 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                   _selectedTireBrands[service
                                                       .id] ==
                                                   brand;
+                                              final unavailableReason =
+                                                  _brandUnavailableReason(
+                                                    isBatteryService,
+                                                    brand,
+                                                  );
+                                              final isUnavailable =
+                                                  unavailableReason != null;
                                               final brandPrice = isSelected
                                                   ? _getBrandPrice(
                                                       isBatteryService,
                                                       brand,
                                                     )
                                                   : null;
-                                              return ChoiceChip(
-                                                label: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      brand,
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                      ),
-                                                    ),
-                                                    if (brandPrice != null)
+                                              return Opacity(
+                                                opacity: isUnavailable
+                                                    ? 0.4
+                                                    : 1,
+                                                child: ChoiceChip(
+                                                  label: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
                                                       Text(
-                                                        '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
-                                                        style: const TextStyle(
-                                                          fontSize: 9,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: AppColors
-                                                              .primaryBlue,
+                                                        brand,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          decoration:
+                                                              isUnavailable
+                                                              ? TextDecoration
+                                                                    .lineThrough
+                                                              : null,
                                                         ),
                                                       ),
-                                                  ],
+                                                      if (isUnavailable)
+                                                        const Text(
+                                                          'Not available',
+                                                          style: TextStyle(
+                                                            fontSize: 9,
+                                                          ),
+                                                        )
+                                                      else if (brandPrice !=
+                                                          null)
+                                                        Text(
+                                                          '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
+                                                          style: const TextStyle(
+                                                            fontSize: 9,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w700,
+                                                            color: AppColors
+                                                                .primaryBlue,
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  selected: isSelected,
+                                                  onSelected: isUnavailable
+                                                      ? null
+                                                      : (val) {
+                                                          setState(() {
+                                                            if (val) {
+                                                              _selectedTireBrands[service
+                                                                      .id] =
+                                                                  brand;
+                                                            } else {
+                                                              _selectedTireBrands
+                                                                  .remove(
+                                                                    service.id,
+                                                                  );
+                                                            }
+                                                          });
+                                                        },
+                                                  selectedColor: const Color(
+                                                    0xFF2563EB,
+                                                  ).withAlpha(50),
                                                 ),
-                                                selected: isSelected,
-                                                onSelected: (val) {
-                                                  if (val) {
-                                                    final reason =
-                                                        _brandUnavailableReason(
-                                                          isBatteryService,
-                                                          brand,
-                                                        );
-                                                    if (reason != null) {
-                                                      _showErrorSnackBar(
-                                                        reason,
-                                                      );
-                                                      return;
-                                                    }
-                                                  }
-                                                  setState(() {
-                                                    if (val) {
-                                                      _selectedTireBrands[service
-                                                              .id] =
-                                                          brand;
-                                                    } else {
-                                                      _selectedTireBrands
-                                                          .remove(service.id);
-                                                    }
-                                                  });
-                                                },
-                                                selectedColor: const Color(
-                                                  0xFF2563EB,
-                                                ).withAlpha(50),
                                               );
                                             })
                                             .toList(),
@@ -3035,64 +3052,81 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                                 _selectedTireBrands[service
                                                     .id] ==
                                                 brand;
+                                            final unavailableReason =
+                                                _brandUnavailableReason(
+                                                  isBatteryService,
+                                                  brand,
+                                                );
+                                            final isUnavailable =
+                                                unavailableReason != null;
                                             final brandPrice = isSelected
                                                 ? _getBrandPrice(
                                                     isBatteryService,
                                                     brand,
                                                   )
                                                 : null;
-                                            return ChoiceChip(
-                                              label: Column(
-                                                mainAxisSize:
-                                                    MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    brand,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                  if (brandPrice != null)
+                                            return Opacity(
+                                              opacity: isUnavailable
+                                                  ? 0.4
+                                                  : 1,
+                                              child: ChoiceChip(
+                                                label: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
                                                     Text(
-                                                      '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
-                                                      style: const TextStyle(
-                                                        fontSize: 9,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: AppColors
-                                                            .primaryBlue,
+                                                      brand,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        decoration:
+                                                            isUnavailable
+                                                            ? TextDecoration
+                                                                  .lineThrough
+                                                            : null,
                                                       ),
                                                     ),
-                                                ],
+                                                    if (isUnavailable)
+                                                      const Text(
+                                                        'Not available',
+                                                        style: TextStyle(
+                                                          fontSize: 9,
+                                                        ),
+                                                      )
+                                                    else if (brandPrice !=
+                                                        null)
+                                                      Text(
+                                                        '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}',
+                                                        style: const TextStyle(
+                                                          fontSize: 9,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: AppColors
+                                                              .primaryBlue,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                                selected: isSelected,
+                                                onSelected: isUnavailable
+                                                    ? null
+                                                    : (val) {
+                                                        setState(() {
+                                                          if (val) {
+                                                            _selectedTireBrands[service
+                                                                    .id] =
+                                                                brand;
+                                                          } else {
+                                                            _selectedTireBrands
+                                                                .remove(
+                                                                  service.id,
+                                                                );
+                                                          }
+                                                        });
+                                                      },
+                                                selectedColor: const Color(
+                                                  0xFF2563EB,
+                                                ).withAlpha(50),
                                               ),
-                                              selected: isSelected,
-                                              onSelected: (val) {
-                                                if (val) {
-                                                  final reason =
-                                                      _brandUnavailableReason(
-                                                        isBatteryService,
-                                                        brand,
-                                                      );
-                                                  if (reason != null) {
-                                                    _showErrorSnackBar(reason);
-                                                    return;
-                                                  }
-                                                }
-                                                setState(() {
-                                                  if (val) {
-                                                    _selectedTireBrands[service
-                                                            .id] =
-                                                        brand;
-                                                  } else {
-                                                    _selectedTireBrands.remove(
-                                                      service.id,
-                                                    );
-                                                  }
-                                                });
-                                              },
-                                              selectedColor: const Color(
-                                                0xFF2563EB,
-                                              ).withAlpha(50),
                                             );
                                           })
                                           .toList(),
