@@ -566,6 +566,24 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     ..._dynamicBatteryBrands,
   ];
 
+  /// Brand chips for [isBatteryService], with brands available for the
+  /// selected vehicle listed first (stable within each group — original
+  /// order preserved), so a customer isn't scrolling past a wall of
+  /// disabled brands to find one they can actually pick.
+  List<String> _sortedBrandOptions(bool isBatteryService) {
+    final options = isBatteryService
+        ? _batteryBrandOptions
+        : _tireBrandOptions;
+    final available = <String>[];
+    final unavailable = <String>[];
+    for (final brand in options) {
+      final isAvailable =
+          _brandUnavailableReason(isBatteryService, brand) == null;
+      (isAvailable ? available : unavailable).add(brand);
+    }
+    return [...available, ...unavailable];
+  }
+
   Future<void> _fetchBrandColumns() async {
     final results = await Future.wait([
       _vehicleService.getReferenceColumnLabels('tyre'),
@@ -2636,9 +2654,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                     spacing: 8,
                                     runSpacing: 4,
                                     children:
-                                        (isBatteryService
-                                                ? _batteryBrandOptions
-                                                : _tireBrandOptions)
+                                        _sortedBrandOptions(isBatteryService)
                                             .map((brand) {
                                               final isSelected =
                                                   _selectedTireBrands[service
@@ -3039,9 +3055,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                                   spacing: 8,
                                   runSpacing: 4,
                                   children:
-                                      (isBatteryService
-                                              ? _batteryBrandOptions
-                                              : _tireBrandOptions)
+                                      _sortedBrandOptions(isBatteryService)
                                           .map((brand) {
                                             final isSelected =
                                                 _selectedTireBrands[service
