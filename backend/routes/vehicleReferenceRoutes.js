@@ -151,68 +151,77 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
         )
         .join(' ');
 
-    const knownFieldNames = new Set([
-      ...BUILTIN_COLUMNS.map((c) => c.fieldName),
-      ...dynamicColumns.map((c) => c.fieldName),
-    ]);
+    // Every existing dynamic column is a tyre/battery brand column (that's
+    // all this list is ever used for — see the category check in POST
+    // /columns above), so each import fully resyncs it from the uploaded
+    // sheet: brand columns found in the sheet are kept (preserving any
+    // admin-customized label) or added, and any dynamic column from a
+    // previous upload that this sheet no longer has is dropped, rather
+    // than accumulating stale brand columns across re-uploads.
+    const existingByFieldName = new Map(dynamicColumns.map((c) => [c.fieldName, c]));
+    const builtinFieldNames = new Set(BUILTIN_COLUMNS.map((c) => c.fieldName));
     // original header text -> canonical fieldName, for headers whose
     // punctuation (dots, hyphens, "+") makes plain fuzzy matching unreliable.
     const headerFieldMap = new Map();
-    const newlyDetectedColumns = [];
+    const sheetColumns = [];
+    const seenFieldNames = new Set();
 
     for (const header of headers) {
       if (!header) continue;
+
+      let fieldName;
+      let freshColumn;
 
       const brandPrefix = KNOWN_TYRE_BRAND_PREFIXES.find((b) =>
         header.toLowerCase().startsWith(`${b.toLowerCase()}_`)
       );
       if (brandPrefix) {
         const variantRaw = header.slice(brandPrefix.length + 1);
-        const fieldName = `tyre_price_${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`;
-        headerFieldMap.set(header, fieldName);
-        if (!knownFieldNames.has(fieldName)) {
-          knownFieldNames.add(fieldName);
-          newlyDetectedColumns.push({
-            key: `${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`,
-            label: `${brandPrefix} [${titleCaseVariant(variantRaw)}]`,
-            category: 'tyre',
-            fieldName,
-            createdAt: new Date().toISOString(),
-          });
-        }
-        continue;
-      }
-
-      const batteryMatch = /^battery[_\s]?price[_\s](.+)$/i.exec(header);
-      if (batteryMatch) {
-        const brandRaw = batteryMatch[1];
-        const fieldName = `battery_price_${slugAlnum(brandRaw)}`;
-        headerFieldMap.set(header, fieldName);
-        if (!knownFieldNames.has(fieldName)) {
-          knownFieldNames.add(fieldName);
-          newlyDetectedColumns.push({
+        fieldName = `tyre_price_${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`;
+        freshColumn = {
+          key: `${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`,
+          label: `${brandPrefix} [${titleCaseVariant(variantRaw)}]`,
+          category: 'tyre',
+          fieldName,
+          createdAt: new Date().toISOString(),
+        };
+      } else {
+        const batteryMatch = /^battery[_\s]?price[_\s](.+)$/i.exec(header);
+        if (batteryMatch) {
+          const brandRaw = batteryMatch[1];
+          fieldName = `battery_price_${slugAlnum(brandRaw)}`;
+          freshColumn = {
             key: slugAlnum(brandRaw),
             label: titleCaseVariant(brandRaw),
             category: 'battery',
             fieldName,
             createdAt: new Date().toISOString(),
-          });
+          };
         }
       }
+
+      if (!fieldName || builtinFieldNames.has(fieldName)) continue;
+
+      headerFieldMap.set(header, fieldName);
+      if (seenFieldNames.has(fieldName)) continue;
+      seenFieldNames.add(fieldName);
+      // Keep the existing entry (and its possibly admin-renamed label) if
+      // this column was already registered; otherwise register it fresh.
+      sheetColumns.push(existingByFieldName.get(fieldName) || freshColumn);
     }
 
-    let allDynamicColumns = dynamicColumns;
-    if (newlyDetectedColumns.length > 0) {
-      allDynamicColumns = [...dynamicColumns, ...newlyDetectedColumns];
-      await saveVehicleReferenceColumnsToS3(allDynamicColumns);
-      newlyDetectedColumns.forEach((col) =>
-        emitEntitySync('vehicle_reference_column', 'created', col)
-      );
-      console.log(
-        `Auto-registered ${newlyDetectedColumns.length} new brand column(s) from sheet:`,
-        newlyDetectedColumns.map((c) => c.fieldName)
-      );
-    }
+    const removedColumns = dynamicColumns.filter((c) => !seenFieldNames.has(c.fieldName));
+    const addedColumns = sheetColumns.filter((c) => !existingByFieldName.has(c.fieldName));
+
+    const allDynamicColumns = sheetColumns;
+    await saveVehicleReferenceColumnsToS3(allDynamicColumns);
+    addedColumns.forEach((col) => emitEntitySync('vehicle_reference_column', 'created', col));
+    removedColumns.forEach((col) =>
+      emitEntitySync('vehicle_reference_column', 'deleted', { category: col.category, key: col.key })
+    );
+    console.log(
+      `Resynced brand columns from sheet: ${addedColumns.length} added, ${removedColumns.length} removed, ${allDynamicColumns.length} total.`
+    );
 
     const fieldNameToHeader = new Map(
       [...headerFieldMap.entries()].map(([header, fieldName]) => [fieldName, header])
