@@ -774,7 +774,7 @@ const HomePage: React.FC = () => {
                 {[
                   "Book a service in under a minute",
                   "Live tracking of your vehicle",
-                  "service history",
+                  "Service history",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-white">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/15 shrink-0">
