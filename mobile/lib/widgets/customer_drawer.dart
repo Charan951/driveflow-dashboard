@@ -69,6 +69,11 @@ class _CustomerDrawerState extends State<CustomerDrawer> {
     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
     await context.read<AuthProvider>().logout();
     if (!context.mounted) return;
+    // Remove (not just hide) any in-flight SnackBar before navigating —
+    // a still-animating-out SnackBar and this route change can otherwise
+    // race, tripping Flutter's "multiple heroes share the same tag" bug
+    // for SnackBar's own internal content Hero.
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil('/', (route) => false);

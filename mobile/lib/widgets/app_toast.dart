@@ -39,7 +39,16 @@ class AppToast {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
 
-    messenger.hideCurrentSnackBar();
+    // Every AppToast SnackBar has the same-shaped content (Row of icon +
+    // text), and Flutter's SnackBar wraps content in a Hero tagged from
+    // content.toString() — which for a Row doesn't include the Text
+    // inside, so all AppToast snackbars share one Hero tag. hideCurrentSnackBar()
+    // only starts a closing *animation*, so a still-animating-out toast and a
+    // freshly shown one can briefly coexist with that same tag — especially
+    // right before a route change (e.g. logout) — which crashes with
+    // "multiple heroes share the same tag". removeCurrentSnackBar() removes
+    // it instantly instead, so there's never more than one in the tree.
+    messenger.removeCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
         content: Row(
