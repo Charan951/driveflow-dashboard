@@ -182,7 +182,7 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
         fieldName = `tyre_price_${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`;
         freshColumn = {
           key: `${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`,
-          label: `${brandPrefix} [${titleCaseVariant(variantRaw)}]`,
+          label: `${brandPrefix} ${titleCaseVariant(variantRaw)}`,
           category: 'tyre',
           fieldName,
           createdAt: new Date().toISOString(),
