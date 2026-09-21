@@ -176,21 +176,6 @@ class _OnboardingPageState extends State<OnboardingPage>
                             height: 22,
                             fit: BoxFit.contain,
                           ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: _finish,
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white54,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            child: const Text(
-                              'Skip',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),

@@ -647,6 +647,13 @@ class Booking {
   /// battery). Pass null while it hasn't loaded yet — this falls back to
   /// the pre-toggle defaults (general/tyres/battery blocked, everything
   /// else allowed) rather than assuming a category is enabled.
+  bool get isEssentialsBooking {
+    return services.any((s) {
+      final cat = (s.category ?? '').toLowerCase();
+      return cat.contains('essentials');
+    });
+  }
+
   bool canShowInvoiceDownload([Map<String, dynamic>? invoiceSettings]) {
     bool flag(String key, bool fallback) {
       final v = invoiceSettings?[key];
@@ -655,6 +662,16 @@ class Booking {
 
     if (isTireBooking) return flag('tyres', false);
     if (isBatteryBooking) return flag('battery', false);
+    if (isEssentialsBooking) {
+      return (paymentStatus ?? '').toLowerCase() == 'paid';
+    }
+
+    // For every other category, the invoice must actually have been
+    // generated (invoiceUrl present) before the download icon appears —
+    // payment/delivery status alone isn't enough.
+    final hasInvoice = invoiceUrl != null && invoiceUrl!.trim().isNotEmpty;
+    if (!hasInvoice) return false;
+
     final st = status.toUpperCase();
     if (isGeneralWorkshopService) {
       return st == 'DELIVERED' && flag('general', true);
