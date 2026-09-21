@@ -726,13 +726,6 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return _isBlankOrNaPrice(_brandRaw(isBattery, brand));
   }
 
-  /// Returns a user-facing reason the given brand can't be selected for this
-  /// vehicle (blank/NA), or null if the brand has a valid price.
-  String? _brandUnavailableReason(bool isBattery, String brand) {
-    if (!_isBrandNaUnavailable(isBattery, brand)) return null;
-    return '$brand is not available for this vehicle. Please choose another brand.';
-  }
-
   /// Non-numeric Vehicle Data cell for this service's price column, if any.
   String? _servicePriceNote(ServiceItem service) {
     final ref = _selectedVehicleReference;
@@ -2470,47 +2463,34 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                   final brandPrice = isSelected
                       ? _getBrandPrice(isBatteryService, brand)
                       : null;
+                  // A brand can only ever be selected once it resolves to a
+                  // real price — blank/NA and non-numeric-note brands (e.g.
+                  // "Contact Carzzi Team…") are shown but not selectable,
+                  // with the reason shown inline in the tile itself rather
+                  // than a toast.
+                  final isSelectable = !isNaUnavailable && priceNote == null;
                   return _buildSelectionTile(
                     label: brand,
                     subtitle: isNaUnavailable
                         ? 'Not available'
+                        : priceNote != null
+                        ? priceNote
                         : brandPrice != null
                         ? '₹${brandPrice.toStringAsFixed(0)} /${isBatteryService ? 'battery' : 'tyre'}'
                         : null,
                     selected: isSelected,
-                    enabled: !isNaUnavailable,
-                    onTap: () {
-                      if (priceNote != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(priceNote),
-                            duration: const Duration(seconds: 8),
-                          ),
-                        );
-                        return;
-                      }
-                      if (isNaUnavailable) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              _brandUnavailableReason(
-                                    isBatteryService,
-                                    brand,
-                                  ) ??
-                                  '$brand is not available for this vehicle.',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        if (isSelected) {
-                          _selectedTireBrands.remove(service.id);
-                        } else {
-                          _selectedTireBrands[service.id] = brand;
-                        }
-                      });
-                    },
+                    enabled: isSelectable,
+                    onTap: !isSelectable
+                        ? null
+                        : () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedTireBrands.remove(service.id);
+                              } else {
+                                _selectedTireBrands[service.id] = brand;
+                              }
+                            });
+                          },
                   );
                 }).toList(),
               ),
@@ -2699,16 +2679,24 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             cat.contains('tyre') ||
             cat.contains('tire') ||
             service.vehiclePricingColumn == 'tyre_brand';
-        if ((isTire || isBattery) &&
-            !_selectedTireBrands.containsKey(service.id)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Please select a ${isBattery ? 'battery' : 'tyre'} brand',
+        if (isTire || isBattery) {
+          final selectedBrand = _selectedTireBrands[service.id];
+          // A brand only counts as selected once it resolves to a real
+          // price — the brand grid already blocks tapping blank/NA/
+          // note-only brands, but this guards against a stale selection
+          // (e.g. the reference data changed after the brand was picked).
+          final hasPrice = selectedBrand != null &&
+              (_getBrandPrice(isBattery, selectedBrand) ?? 0) > 0;
+          if (!hasPrice) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Please select a ${isBattery ? 'battery' : 'tyre'} brand',
+                ),
               ),
-            ),
-          );
-          return;
+            );
+            return;
+          }
         }
       }
     }
