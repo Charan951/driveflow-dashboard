@@ -258,7 +258,7 @@ const Contact = () => {
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
                 border: "border-blue-200 dark:border-blue-900",
-                href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactDetails.address)}`
+                href: undefined
               },
               {
                 icon: Phone,
@@ -306,8 +306,6 @@ const Contact = () => {
                 <motion.a
                   key={index}
                   href={item.href}
-                  target={item.title === "Visit Us" ? "_blank" : undefined}
-                  rel={item.title === "Visit Us" ? "noopener noreferrer" : undefined}
                   whileHover={{ scale: 1.02, x: 5 }}
                   className={`${className} cursor-pointer`}
                 >
