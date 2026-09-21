@@ -229,6 +229,44 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
       `Resynced brand columns from sheet: ${addedColumns.length} added, ${removedColumns.length} removed, ${allDynamicColumns.length} total.`
     );
 
+    // Built-in columns (Bridgestone, Yokohama, Apollo, Michelin, Dummy,
+    // Dummy 2, Amaron, Exide) can't be removed by an import — they're
+    // hardcoded — but if this sheet has no column for one at all, auto-hide
+    // it so the admin table doesn't show empty built-in columns alongside
+    // the sheet's real (renamed/variant) brand columns.
+    const BUILTIN_HEADER_ALIASES = {
+      bridgestone: ['tyrepricebridgestone', 'tyre_price_bridgestone', 'bridgestone'],
+      yokohama: ['tyrepriceyokohama', 'tyre_price_yokohama', 'yokohama', 'yokohoma', 'tyrepriceyokohoma'],
+      apollo: ['tyrepriceapollo', 'tyre_price_apollo', 'apollo'],
+      michelin: ['tyrepricemichellin', 'tyre_price_michellin', 'michelin', 'michellin'],
+      dummy2: ['tyrepricedummy2', 'tyre_price_dummy2', 'dummy2'],
+      dummy: ['tyrepricedummy', 'tyre_price_dummy', 'dummy'],
+      amaron: ['batterypriceamaron', 'battery_price_amaron', 'amaron'],
+      exide: ['batterypriceexide', 'battery_price_exide', 'exide'],
+    };
+    const normalizeHeader = (s) => String(s || '').toLowerCase().replace(/[\s_\-()+.]/g, '');
+    const normalizedHeaderSet = new Set(headers.filter(Boolean).map(normalizeHeader));
+    const missingBuiltinKeys = Object.entries(BUILTIN_HEADER_ALIASES)
+      .filter(([, aliases]) => !aliases.some((a) => normalizedHeaderSet.has(a)))
+      .map(([key]) => key);
+
+    if (missingBuiltinKeys.length > 0) {
+      const currentHidden = await getHiddenBuiltinColumnsFromS3();
+      const hiddenSet = new Set(currentHidden);
+      let hiddenChanged = false;
+      for (const key of missingBuiltinKeys) {
+        if (!hiddenSet.has(key)) {
+          hiddenSet.add(key);
+          hiddenChanged = true;
+        }
+      }
+      if (hiddenChanged) {
+        await saveHiddenBuiltinColumnsToS3([...hiddenSet]);
+        emitEntitySync('vehicle_reference_column', 'updated', { hiddenBuiltins: [...hiddenSet] });
+        console.log(`Auto-hid built-in columns with no data in this sheet: ${missingBuiltinKeys.join(', ')}`);
+      }
+    }
+
     const fieldNameToHeader = new Map(
       [...headerFieldMap.entries()].map(([header, fieldName]) => [fieldName, header])
     );
