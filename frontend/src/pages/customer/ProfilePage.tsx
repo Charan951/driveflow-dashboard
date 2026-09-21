@@ -160,9 +160,17 @@ const ProfilePage: React.FC = () => {
       return;
     }
 
+    const currentAddresses = user?.addresses || [];
+    const duplicateLabel = currentAddresses.some(
+      (a) => a.label.trim().toLowerCase() === trimmedLabel.toLowerCase()
+    );
+    if (duplicateLabel) {
+      toast.error(`A "${trimmedLabel}" address already exists. Please edit or delete it first, or choose a different label.`);
+      return;
+    }
+
     try {
-      const currentAddresses = user?.addresses || [];
-      const updatedAddresses = [...currentAddresses, { 
+      const updatedAddresses = [...currentAddresses, {
         ...newAddress, 
         label: trimmedLabel, 
         address: trimmedAddress,

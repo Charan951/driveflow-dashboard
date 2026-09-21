@@ -180,6 +180,16 @@ export const updateUserProfile = async (req, res) => {
         }
       }
       if (req.body.addresses) {
+        const seenLabels = new Set();
+        for (const addr of req.body.addresses) {
+          const normalizedLabel = (addr?.label || '').trim().toLowerCase();
+          if (normalizedLabel && seenLabels.has(normalizedLabel)) {
+            return res.status(400).json({
+              message: `Duplicate address label "${addr.label}". Only one address per label is allowed.`,
+            });
+          }
+          seenLabels.add(normalizedLabel);
+        }
         user.addresses = req.body.addresses;
       }
       if (req.body.paymentMethods) {

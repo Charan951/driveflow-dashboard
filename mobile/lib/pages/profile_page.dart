@@ -1263,6 +1263,20 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   }
 
   Future<void> _submit() async {
+    final duplicateLabel = widget.user.addresses.any(
+      (a) => a.label.trim().toLowerCase() == _label.trim().toLowerCase(),
+    );
+    if (duplicateLabel) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A "$_label" address already exists. Please edit or delete it first, or choose a different label.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final newList = List<SavedAddress>.from(widget.user.addresses);
     newList.add(
       SavedAddress(
