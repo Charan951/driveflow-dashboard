@@ -318,8 +318,8 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
           body: TabBarView(
             controller: _tabController,
             children: [
-              _buildNestedServiceHistoryTab(context, isDark),
               _buildNestedHealthTab(context, isDark),
+              _buildNestedServiceHistoryTab(context, isDark),
             ],
           ),
         ),
@@ -1293,8 +1293,8 @@ class _VehicleDetailTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
                   fontSize: 13,
                 ),
                 tabs: const [
-                  Tab(text: 'Service history'),
                   Tab(text: 'Vehicle health'),
+                  Tab(text: 'Service history'),
                 ],
               ),
             ),
