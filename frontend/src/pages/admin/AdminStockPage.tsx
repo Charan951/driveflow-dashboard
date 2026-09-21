@@ -60,6 +60,7 @@ const AdminVehicleDataPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<VehicleData | null>(null);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -302,14 +303,14 @@ const AdminVehicleDataPage = () => {
   const handleDeleteAll = async () => {
     if (window.confirm('Are you sure you want to delete ALL vehicle reference data? This action cannot be undone.')) {
       try {
-        setLoading(true);
+        setDeletingAll(true);
         await deleteAllVehicleReference();
         toast.success('All vehicle data deleted successfully');
-        fetchVehicleData();
+        await fetchVehicleData();
       } catch (error: any) {
         toast.error(error.response?.data?.message || 'Failed to delete all vehicle data');
       } finally {
-        setLoading(false);
+        setDeletingAll(false);
       }
     }
   };
@@ -554,11 +555,15 @@ const AdminVehicleDataPage = () => {
           </button>
           <button
             onClick={handleDeleteAll}
-            disabled={loading || uploading || vehicleData.length === 0}
+            disabled={loading || uploading || deletingAll || vehicleData.length === 0}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
-            <Trash2 size={18} />
-            Delete All
+            {deletingAll ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <Trash2 size={18} />
+            )}
+            {deletingAll ? 'Deleting...' : 'Delete All'}
           </button>
           <button
             onClick={handleExportExcel}
