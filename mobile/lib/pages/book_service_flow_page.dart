@@ -2819,9 +2819,12 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
   void _handleBack() {
     if (_currentStep > 0) {
       setState(() {
-        if (widget.initialCategory == 'Tyres' ||
-            widget.initialCategory == 'Battery' ||
-            widget.initialCategory == 'Tyre & Battery') {
+        // Only the combined "Tyre & Battery" entry point has a chooser to
+        // re-pick Tires/Battery after going back — dedicated "Book a Tyre"
+        // / "Book a Battery" flows have no such control, so clearing
+        // _activeSubCategory there would strand the service list filter
+        // with nothing to match, showing "No services found".
+        if (widget.initialCategory == 'Tyre & Battery') {
           _activeSubCategory = null;
           _selectedServiceIds = [];
         }
