@@ -9,7 +9,12 @@ import '../core/app_colors.dart';
 class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const OnboardingPage({super.key, required this.onComplete});
+  /// Called when "Skip" is tapped, to go straight to guest browsing
+  /// instead of finishing the slides normally. Defaults to [onComplete]
+  /// when not provided.
+  final VoidCallback? onSkip;
+
+  const OnboardingPage({super.key, required this.onComplete, this.onSkip});
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
@@ -143,6 +148,15 @@ class _OnboardingPageState extends State<OnboardingPage>
     _finish();
   }
 
+  Future<void> _skip() async {
+    if (_completing) return;
+    _completing = true;
+    _autoplayTimer?.cancel();
+    HapticFeedback.selectionClick();
+    if (!mounted) return;
+    (widget.onSkip ?? widget.onComplete)();
+  }
+
   @override
   Widget build(BuildContext context) {
     final reduce = MediaQuery.of(context).disableAnimations;
@@ -175,6 +189,21 @@ class _OnboardingPageState extends State<OnboardingPage>
                             'assets/carzzilogo.png',
                             height: 22,
                             fit: BoxFit.contain,
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: _skip,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white54,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: const Text(
+                              'Skip',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
                           ),
                         ],
                       ),

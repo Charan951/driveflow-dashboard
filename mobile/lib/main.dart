@@ -553,6 +553,15 @@ class MyApp extends StatelessWidget {
                     rootNavigatorKey.currentState?.pushNamed('/login');
                   });
                 },
+                // Skip goes straight to guest browsing (RootGate resolves
+                // to the guest MainNavigationPage once onboarding is
+                // marked seen) instead of pushing the login screen.
+                onSkip: () {
+                  rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+                    '/',
+                    (route) => false,
+                  );
+                },
               ),
               '/login': (_) => const LoginPage(),
               '/register': (context) {
