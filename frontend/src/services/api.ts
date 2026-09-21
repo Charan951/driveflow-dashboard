@@ -29,9 +29,16 @@ const showGlobalErrorToast = (error: unknown) => {
   if (now - lastNetworkToastAt < NETWORK_TOAST_COOLDOWN_MS) return;
   lastNetworkToastAt = now;
 
-  const message = isNetworkFailure
-    ? 'No internet connection. Please check your network and try again.'
-    : 'Something went wrong on our end. Please try again shortly.';
+  let message: string;
+  if (isServerError) {
+    message = 'Something went wrong on our end. Please try again shortly.';
+  } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    message = 'No internet connection. Please check your network and try again.';
+  } else if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+    message = 'The request timed out. Please try again.';
+  } else {
+    message = 'Unable to reach the server. Please try again shortly.';
+  }
 
   toast.error(message);
 };
