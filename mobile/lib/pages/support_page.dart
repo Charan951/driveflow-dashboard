@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/form_validation.dart';
@@ -210,6 +211,16 @@ class _SupportPageState extends State<SupportPage> {
       }
     } finally {
       if (mounted) setState(() => _isReplying = false);
+    }
+  }
+
+  Future<void> _launchExternalUri(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open ${uri.scheme}')));
     }
   }
 
@@ -532,6 +543,21 @@ class _SupportPageState extends State<SupportPage> {
                                                   true
                                               ? _contactDetails!.mobileNumber
                                               : '+91 8143404488',
+                                          onTap: () => _launchExternalUri(
+                                            Uri(
+                                              scheme: 'tel',
+                                              path:
+                                                  (_contactDetails
+                                                                  ?.mobileNumber
+                                                                  .trim()
+                                                                  .isNotEmpty ==
+                                                              true
+                                                          ? _contactDetails!
+                                                                .mobileNumber
+                                                          : '+91 8143404488')
+                                                      .replaceAll(' ', ''),
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(height: 10),
                                         _SupportCardRow(
@@ -544,6 +570,18 @@ class _SupportPageState extends State<SupportPage> {
                                                   true
                                               ? _contactDetails!.email
                                               : 'support@carzzi.com',
+                                          onTap: () => _launchExternalUri(
+                                            Uri(
+                                              scheme: 'mailto',
+                                              path:
+                                                  _contactDetails?.email
+                                                          .trim()
+                                                          .isNotEmpty ==
+                                                      true
+                                                  ? _contactDetails!.email
+                                                  : 'support@carzzi.com',
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1014,18 +1052,23 @@ class _SupportCardRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _SupportCardRow({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
@@ -1077,6 +1120,7 @@ class _SupportCardRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

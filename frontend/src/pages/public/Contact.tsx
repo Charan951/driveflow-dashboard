@@ -257,7 +257,8 @@ const Contact = () => {
                 details: [contactDetails.address],
                 color: "text-blue-500",
                 bg: "bg-blue-500/10",
-                border: "border-blue-200 dark:border-blue-900"
+                border: "border-blue-200 dark:border-blue-900",
+                href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactDetails.address)}`
               },
               {
                 icon: Phone,
@@ -265,7 +266,8 @@ const Contact = () => {
                 details: [contactDetails.mobileNumber],
                 color: "text-green-500",
                 bg: "bg-green-500/10",
-                border: "border-green-200 dark:border-green-900"
+                border: "border-green-200 dark:border-green-900",
+                href: `tel:${contactDetails.mobileNumber.replace(/\s+/g, '')}`
               },
               {
                 icon: Mail,
@@ -273,7 +275,8 @@ const Contact = () => {
                 details: [contactDetails.email],
                 color: "text-purple-500",
                 bg: "bg-purple-500/10",
-                border: "border-purple-200 dark:border-purple-900"
+                border: "border-purple-200 dark:border-purple-900",
+                href: `mailto:${contactDetails.email}`
               },
               {
                 icon: Clock,
@@ -281,25 +284,45 @@ const Contact = () => {
                 details: ["Mon - Fri: 8:00 AM - 8:00 PM", "Sat - Sun: 9:00 AM - 5:00 PM"],
                 color: "text-orange-500",
                 bg: "bg-orange-500/10",
-                border: "border-orange-200 dark:border-orange-900"
+                border: "border-orange-200 dark:border-orange-900",
+                href: undefined
               }
-            ].map((item, index) => (
-              <motion.div 
-                key={index} 
-                whileHover={{ scale: 1.02, x: 5 }}
-                className={`bg-card p-6 rounded-xl shadow-lg border ${item.border} flex items-start gap-4 transition-all duration-300 hover:shadow-xl`}
-              >
-                <div className={`p-4 rounded-xl ${item.bg} ${item.color}`}>
-                  <item.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">{item.title}</h3>
-                  {item.details.map((line, i) => (
-                    <p key={i} className="text-muted-foreground text-sm font-medium">{line}</p>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
+            ].map((item, index) => {
+              const content = (
+                <>
+                  <div className={`p-4 rounded-xl ${item.bg} ${item.color}`}>
+                    <item.icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg mb-1">{item.title}</h3>
+                    {item.details.map((line, i) => (
+                      <p key={i} className="text-muted-foreground text-sm font-medium">{line}</p>
+                    ))}
+                  </div>
+                </>
+              );
+              const className = `bg-card p-6 rounded-xl shadow-lg border ${item.border} flex items-start gap-4 transition-all duration-300 hover:shadow-xl`;
+              return item.href ? (
+                <motion.a
+                  key={index}
+                  href={item.href}
+                  target={item.title === "Visit Us" ? "_blank" : undefined}
+                  rel={item.title === "Visit Us" ? "noopener noreferrer" : undefined}
+                  whileHover={{ scale: 1.02, x: 5 }}
+                  className={`${className} cursor-pointer`}
+                >
+                  {content}
+                </motion.a>
+              ) : (
+                <motion.div
+                  key={index}
+                  whileHover={{ scale: 1.02, x: 5 }}
+                  className={className}
+                >
+                  {content}
+                </motion.div>
+              );
+            })}
           </motion.div>
 
           {/* Contact Form */}
