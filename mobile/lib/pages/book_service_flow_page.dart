@@ -2689,6 +2689,28 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         );
         return;
       }
+      for (final service in _allServices) {
+        if (!_selectedServiceIds.contains(service.id)) continue;
+        final cat = (service.category ?? '').toLowerCase();
+        final isBattery =
+            cat.contains('battery') ||
+            service.vehiclePricingColumn == 'battery_brand';
+        final isTire =
+            cat.contains('tyre') ||
+            cat.contains('tire') ||
+            service.vehiclePricingColumn == 'tyre_brand';
+        if ((isTire || isBattery) &&
+            !_selectedTireBrands.containsKey(service.id)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Please select a ${isBattery ? 'battery' : 'tyre'} brand',
+              ),
+            ),
+          );
+          return;
+        }
+      }
     }
     if (_currentStep == 2) {
       if (_selectedTimeSlot == null || _selectedAddress == null) {
