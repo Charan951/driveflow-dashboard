@@ -1395,25 +1395,33 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       sizes.add(_formatTireSizeLabel(trimmed));
     }
 
+    // Prefer the live-matched Vehicle Reference Data row for this exact
+    // vehicle/variant — it's the current source of truth. The vehicle's own
+    // saved frontTyres/rearTyres (set once, e.g. at registration time) can
+    // go stale relative to it, so it's only used as a fallback when there's
+    // no reference match at all, rather than always being unioned in —
+    // otherwise a vehicle could show an unrelated variant's stale size
+    // alongside the correct current one (or as the wrongly pre-selected
+    // default).
     final ref = _selectedVehicleReference;
     if (ref != null) {
       addRaw(ref['front_tyres']?.toString());
       addRaw(ref['rear_tyres']?.toString());
-    }
-
-    Vehicle? vehicle;
-    final selectedId = _selectedVehicleId;
-    if (selectedId != null) {
-      for (final v in _vehicles) {
-        if (v.id == selectedId) {
-          vehicle = v;
-          break;
+    } else {
+      Vehicle? vehicle;
+      final selectedId = _selectedVehicleId;
+      if (selectedId != null) {
+        for (final v in _vehicles) {
+          if (v.id == selectedId) {
+            vehicle = v;
+            break;
+          }
         }
       }
-    }
-    if (vehicle != null) {
-      addRaw(vehicle.frontTyres);
-      addRaw(vehicle.rearTyres);
+      if (vehicle != null) {
+        addRaw(vehicle.frontTyres);
+        addRaw(vehicle.rearTyres);
+      }
     }
 
     addRaw(_selectedVehicleOEMTire);
