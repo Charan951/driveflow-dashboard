@@ -154,10 +154,12 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
     // Every existing dynamic column is a tyre/battery brand column (that's
     // all this list is ever used for — see the category check in POST
     // /columns above), so each import fully resyncs it from the uploaded
-    // sheet: brand columns found in the sheet are kept (preserving any
-    // admin-customized label) or added, and any dynamic column from a
-    // previous upload that this sheet no longer has is dropped, rather
-    // than accumulating stale brand columns across re-uploads.
+    // sheet: the label/key/fieldName always come fresh from the sheet's
+    // own header text (never preserved from a prior stored entry — that
+    // would let a stale or wrong label from an earlier import linger
+    // forever), and any dynamic column from a previous upload that this
+    // sheet no longer has is dropped, rather than accumulating stale brand
+    // columns across re-uploads.
     const existingByFieldName = new Map(dynamicColumns.map((c) => [c.fieldName, c]));
     const builtinFieldNames = new Set(BUILTIN_COLUMNS.map((c) => c.fieldName));
     // original header text -> canonical fieldName, for headers whose
@@ -205,9 +207,13 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
       headerFieldMap.set(header, fieldName);
       if (seenFieldNames.has(fieldName)) continue;
       seenFieldNames.add(fieldName);
-      // Keep the existing entry (and its possibly admin-renamed label) if
-      // this column was already registered; otherwise register it fresh.
-      sheetColumns.push(existingByFieldName.get(fieldName) || freshColumn);
+      // Always use the freshly-derived label/key from this sheet's header
+      // text, only carrying over the original createdAt if this column
+      // already existed.
+      const existing = existingByFieldName.get(fieldName);
+      sheetColumns.push(
+        existing ? { ...freshColumn, createdAt: existing.createdAt } : freshColumn
+      );
     }
 
     const removedColumns = dynamicColumns.filter((c) => !seenFieldNames.has(c.fieldName));
