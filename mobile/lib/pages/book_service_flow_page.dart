@@ -840,14 +840,9 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
         _selectedTireBrands.containsKey(service.id) &&
         _selectedVehicleReference != null) {
       final brand = _selectedTireBrands[service.id]!;
-      final prefix = isBattery ? 'battery_price' : 'tyre_price';
-      final brandKey = '${prefix}_${brand.toLowerCase().replaceAll(' ', '')}';
-      final price = _selectedVehicleReference![brandKey];
-      if (price != null) {
-        final priceNum = double.tryParse(price.toString());
-        if (priceNum != null && priceNum > 0) {
-          return priceNum;
-        }
+      final brandPrice = _getBrandPrice(isBattery, brand);
+      if (brandPrice != null && brandPrice > 0) {
+        return brandPrice;
       }
     }
 
