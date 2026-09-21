@@ -130,6 +130,94 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
     // built-in columns below.
     const dynamicColumns = await getVehicleReferenceColumnsFromS3();
 
+    // Sheets name each tyre brand's variants as "Brand_Variant" columns
+    // (e.g. "Bridgestone_Turanza", "Yokohama_Blue Earth-GT") and battery
+    // brands as "battery_price_Brand" (e.g. "battery_price_Bosch") — any
+    // such column not already a built-in or a previously-registered
+    // dynamic column would otherwise be silently dropped on import. Detect
+    // and auto-register them here so their price data is captured too.
+    const KNOWN_TYRE_BRAND_PREFIXES = ['Bridgestone', 'Yokohama', 'Apollo'];
+    const slugAlnum = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const titleCaseVariant = (raw) =>
+      String(raw || '')
+        .replace(/[_\-.]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .map((word) =>
+          // Leave words that already have their own capitalization/digits
+          // (e.g. "XP", "4G", "GT") alone — only capitalize plain lowercase ones.
+          /^[a-z]+$/.test(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word
+        )
+        .join(' ');
+
+    const knownFieldNames = new Set([
+      ...BUILTIN_COLUMNS.map((c) => c.fieldName),
+      ...dynamicColumns.map((c) => c.fieldName),
+    ]);
+    // original header text -> canonical fieldName, for headers whose
+    // punctuation (dots, hyphens, "+") makes plain fuzzy matching unreliable.
+    const headerFieldMap = new Map();
+    const newlyDetectedColumns = [];
+
+    for (const header of headers) {
+      if (!header) continue;
+
+      const brandPrefix = KNOWN_TYRE_BRAND_PREFIXES.find((b) =>
+        header.toLowerCase().startsWith(`${b.toLowerCase()}_`)
+      );
+      if (brandPrefix) {
+        const variantRaw = header.slice(brandPrefix.length + 1);
+        const fieldName = `tyre_price_${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`;
+        headerFieldMap.set(header, fieldName);
+        if (!knownFieldNames.has(fieldName)) {
+          knownFieldNames.add(fieldName);
+          newlyDetectedColumns.push({
+            key: `${slugAlnum(brandPrefix)}${slugAlnum(variantRaw)}`,
+            label: `${brandPrefix} [${titleCaseVariant(variantRaw)}]`,
+            category: 'tyre',
+            fieldName,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        continue;
+      }
+
+      const batteryMatch = /^battery[_\s]?price[_\s](.+)$/i.exec(header);
+      if (batteryMatch) {
+        const brandRaw = batteryMatch[1];
+        const fieldName = `battery_price_${slugAlnum(brandRaw)}`;
+        headerFieldMap.set(header, fieldName);
+        if (!knownFieldNames.has(fieldName)) {
+          knownFieldNames.add(fieldName);
+          newlyDetectedColumns.push({
+            key: slugAlnum(brandRaw),
+            label: titleCaseVariant(brandRaw),
+            category: 'battery',
+            fieldName,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    let allDynamicColumns = dynamicColumns;
+    if (newlyDetectedColumns.length > 0) {
+      allDynamicColumns = [...dynamicColumns, ...newlyDetectedColumns];
+      await saveVehicleReferenceColumnsToS3(allDynamicColumns);
+      newlyDetectedColumns.forEach((col) =>
+        emitEntitySync('vehicle_reference_column', 'created', col)
+      );
+      console.log(
+        `Auto-registered ${newlyDetectedColumns.length} new brand column(s) from sheet:`,
+        newlyDetectedColumns.map((c) => c.fieldName)
+      );
+    }
+
+    const fieldNameToHeader = new Map(
+      [...headerFieldMap.entries()].map(([header, fieldName]) => [fieldName, header])
+    );
+
     const vehicleData = dataRows
       .map((row, idx) => {
         const item = {};
@@ -144,9 +232,9 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
         const fuzzyMatch = (obj, keys) => {
           const objectKeys = Object.keys(obj);
           const foundKey = objectKeys.find(k => {
-            const normalizedK = k.toLowerCase().replace(/[\s_-]/g, '');
+            const normalizedK = k.toLowerCase().replace(/[\s_\-()+.]/g, '');
             return keys.some(key => {
-              const normalizedKey = key.toLowerCase().replace(/[\s_-]/g, '');
+              const normalizedKey = key.toLowerCase().replace(/[\s_\-()+.]/g, '');
               return normalizedK === normalizedKey;
             });
           });
@@ -155,8 +243,8 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
 
         const brand = fuzzyMatch(item, ['brandname', 'brand_name', 'brand']);
         const model = fuzzyMatch(item, ['model']);
-        const brandModel = fuzzyMatch(item, ['brandmodel', 'brand_model', 'brand_model_name']);
-        
+        const brandModel = fuzzyMatch(item, ['brandmodel', 'brand_model', 'brand_model_name', 'variant']);
+
         const isValid = brand && model && brandModel;
         if (!isValid && idx < 5) {
           console.log(`Row ${idx + headerRowIndex + 2} is invalid:`, { brand, model, brandModel, item });
@@ -167,9 +255,9 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
         const fuzzyMatch = (obj, keys) => {
           const objectKeys = Object.keys(obj);
           const foundKey = objectKeys.find(k => {
-            const normalizedK = k.toLowerCase().replace(/[\s_-]/g, '');
+            const normalizedK = k.toLowerCase().replace(/[\s_\-()+.]/g, '');
             return keys.some(key => {
-              const normalizedKey = key.toLowerCase().replace(/[\s_-]/g, '');
+              const normalizedKey = key.toLowerCase().replace(/[\s_\-()+.]/g, '');
               return normalizedK === normalizedKey;
             });
           });
@@ -179,7 +267,7 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
         return {
           brand_name: String(fuzzyMatch(item, ['brandname', 'brand_name', 'brand']) || '').trim(),
           model: String(fuzzyMatch(item, ['model']) || '').trim(),
-          brand_model: String(fuzzyMatch(item, ['brandmodel', 'brand_model', 'brand_model_name']) || '').trim(),
+          brand_model: String(fuzzyMatch(item, ['brandmodel', 'brand_model', 'brand_model_name', 'variant']) || '').trim(),
           front_tyres: String(fuzzyMatch(item, ['fronttyres', 'fronttyre', 'front_tyres', 'front_tyre', 'front_tyre_size']) || '').trim(),
           rear_tyres: String(fuzzyMatch(item, ['reartyres', 'reartyre', 'rear_tyres', 'rear_tyre', 'rear_tyre_size']) || '').trim(),
           battery_details: String(fuzzyMatch(item, ['batterydetails', 'battery', 'battery_info']) || '').trim(),
@@ -193,21 +281,25 @@ router.post('/import', protect, admin, upload.single('file'), asyncHandler(async
           battery_price_amaron: fuzzyMatch(item, ['batterypriceamaron', 'battery_price_amaron', 'amaron']) || '',
           battery_price_exide: fuzzyMatch(item, ['batterypriceexide', 'battery_price_exide', 'exide']) || '',
           car_wash_price: fuzzyMatch(item, ['carwashprice', 'car_wash_price', 'carwash']) || '',
-          car_wash_exterior_price: fuzzyMatch(item, ['car_wash_exterior_wash', 'exterior_wash', 'car_wash_exterior_price', 'carwash-exteriorwash']) || '',
-          car_wash_interior_exterior_price: fuzzyMatch(item, ['car_wash_interior_exterior', 'interior_exterior', 'car_wash_interior_exterior_price', 'carwash-interior+exterior']) || '',
-          car_wash_interior_exterior_underbody_price: fuzzyMatch(item, ['car_wash_interior_exterior_underbody_wash', 'underbody_wash', 'car_wash_interior_exterior_underbody_price', 'carwash-interior+exterior+underbodywash']) || '',
+          car_wash_exterior_price: fuzzyMatch(item, ['car_wash_exterior_wash', 'exterior_wash', 'car_wash_exterior_price', 'carwash-exteriorwash', 'washext', 'wash(ext)']) || '',
+          car_wash_interior_exterior_price: fuzzyMatch(item, ['car_wash_interior_exterior', 'interior_exterior', 'car_wash_interior_exterior_price', 'carwash-interior+exterior', 'washintext', 'wash(int+ext)']) || '',
+          car_wash_interior_exterior_underbody_price: fuzzyMatch(item, ['car_wash_interior_exterior_underbody_wash', 'underbody_wash', 'car_wash_interior_exterior_underbody_price', 'carwash-interior+exterior+underbodywash', 'washfull', 'wash(full)']) || '',
           general_service_price: fuzzyMatch(item, [
             'generalprice',
             'general_price',
             'general service price',
             'generalserviceprice',
+            'generalsvc',
           ]) || '',
           fuel_type: normalizeFuelType(fuzzyMatch(item, ['fueltype', 'fuel_type', 'fuel'])),
           ...Object.fromEntries(
-            dynamicColumns.map((col) => [
-              col.fieldName,
-              fuzzyMatch(item, [col.fieldName, col.label]) || '',
-            ])
+            allDynamicColumns.map((col) => {
+              const originalHeader = fieldNameToHeader.get(col.fieldName);
+              const raw = originalHeader !== undefined
+                ? item[originalHeader]
+                : fuzzyMatch(item, [col.fieldName, col.label]);
+              return [col.fieldName, raw ?? ''];
+            })
           ),
         };
       });
