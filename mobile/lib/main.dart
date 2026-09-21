@@ -702,6 +702,12 @@ class _RootGateState extends State<RootGate> {
     });
   }
 
+  // Skip goes straight to guest browsing — unlike "Get Started", it must
+  // NOT also push '/login' afterwards.
+  void _onOnboardingSkip() {
+    setState(() => _hasSeenOnboarding = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -724,6 +730,7 @@ class _RootGateState extends State<RootGate> {
       child = OnboardingPage(
         key: const ValueKey('onboarding'),
         onComplete: _onOnboardingComplete,
+        onSkip: _onOnboardingSkip,
       );
     } else {
       child = const MainNavigationPage(key: ValueKey('main'));
