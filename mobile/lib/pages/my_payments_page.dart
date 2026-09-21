@@ -44,9 +44,18 @@ class _MyPaymentsPageState extends State<MyPaymentsPage> {
 
     try {
       final items = await _service.listMyBookings();
-      // Filter for bookings that have payment info or are paid
+      // Filter for bookings that have payment info or are paid. A cancelled
+      // booking that was never actually paid is excluded — otherwise it
+      // would still show up here as "Pending" with a "Pay Now" button.
+      // A cancelled booking that *was* paid (e.g. later refunded) still
+      // belongs in the payment history, so it's kept.
       final paidItems = items
-          .where((b) => b.paymentStatus != 'pending' || b.totalAmount > 0)
+          .where(
+            (b) =>
+                b.paymentStatus == 'paid' ||
+                (b.status.toUpperCase() != 'CANCELLED' &&
+                    (b.paymentStatus != 'pending' || b.totalAmount > 0)),
+          )
           .toList();
       paidItems.sort((a, b) => b.date.compareTo(a.date));
       if (mounted) setState(() => _payments = paidItems);
@@ -254,8 +263,13 @@ class _PaymentCardState extends State<_PaymentCard> {
     final b = widget.booking;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPaid = b.paymentStatus == 'paid';
-    final statusText = (b.paymentStatus ?? 'pending').toUpperCase();
-    final accent = isPaid ? const Color(0xFF22C55E) : const Color(0xFFF59E0B);
+    final isCancelled = b.status.toUpperCase() == 'CANCELLED';
+    final statusText = isCancelled && !isPaid
+        ? 'CANCELLED'
+        : (b.paymentStatus ?? 'pending').toUpperCase();
+    final accent = isPaid
+        ? const Color(0xFF22C55E)
+        : (isCancelled ? const Color(0xFF9CA3AF) : const Color(0xFFF59E0B));
     final primaryService = b.services.isNotEmpty ? b.services.first : null;
     final title = primaryService?.name ?? 'Service';
     final category = primaryService?.category;
@@ -434,7 +448,9 @@ class _PaymentCardState extends State<_PaymentCard> {
                   ),
                 ),
                 const Spacer(),
-                if (b.paymentStatus != 'paid' && b.totalAmount > 0)
+                if (b.paymentStatus != 'paid' &&
+                    b.totalAmount > 0 &&
+                    !isCancelled)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: Container(

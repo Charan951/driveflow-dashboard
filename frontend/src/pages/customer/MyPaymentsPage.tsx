@@ -35,7 +35,14 @@ const MyPaymentsPage = () => {
   const fetchPayments = async () => {
     try {
       const bookings = await bookingService.getMyBookings();
-      const paidBookings = bookings.filter(b => b.paymentStatus !== 'pending' || b.totalAmount > 0);
+      // A cancelled booking that was never actually paid shouldn't show up
+      // here as "pending" — but keep it if it was paid (e.g. later
+      // refunded), since that's still a real payment record.
+      const paidBookings = bookings.filter(
+        (b) =>
+          b.paymentStatus === 'paid' ||
+          (b.status !== 'CANCELLED' && (b.paymentStatus !== 'pending' || b.totalAmount > 0))
+      );
       setPayments(paidBookings);
     } catch (error) {
       toast.error('Failed to fetch payments');
@@ -53,6 +60,20 @@ const MyPaymentsPage = () => {
     booking.discountAmount && booking.finalAmount !== undefined && booking.finalAmount !== null
       ? booking.finalAmount
       : (booking.billing?.total || booking.finalAmount || booking.totalAmount);
+
+  const getPaymentStatusDisplay = (booking: Booking) => {
+    if (booking.status === 'CANCELLED' && booking.paymentStatus !== 'paid') {
+      return { label: 'cancelled', variant: 'outline' as const };
+    }
+    return {
+      label: booking.paymentStatus,
+      variant: (booking.paymentStatus === 'paid'
+        ? 'success'
+        : booking.paymentStatus === 'failed'
+        ? 'destructive'
+        : 'outline') as any,
+    };
+  };
 
   if (loading) {
     return (
@@ -89,10 +110,10 @@ const MyPaymentsPage = () => {
                         </p>
                       </div>
                       <Badge
-                        variant={booking.paymentStatus === 'paid' ? 'success' : booking.paymentStatus === 'failed' ? 'destructive' : 'outline' as any}
+                        variant={getPaymentStatusDisplay(booking).variant}
                         className="text-xs shrink-0"
                       >
-                        {booking.paymentStatus}
+                        {getPaymentStatusDisplay(booking).label}
                       </Badge>
                     </div>
                     <p className="text-sm text-foreground break-words">
@@ -125,8 +146,8 @@ const MyPaymentsPage = () => {
                         </TableCell>
                         <TableCell className="text-sm font-medium">₹{getAmount(booking)}</TableCell>
                         <TableCell>
-                          <Badge variant={booking.paymentStatus === 'paid' ? 'success' : booking.paymentStatus === 'failed' ? 'destructive' : 'outline' as any} className="text-xs">
-                            {booking.paymentStatus}
+                          <Badge variant={getPaymentStatusDisplay(booking).variant} className="text-xs">
+                            {getPaymentStatusDisplay(booking).label}
                           </Badge>
                         </TableCell>
                       </TableRow>
