@@ -448,86 +448,92 @@ class _BookingCardState extends State<_BookingCard> {
                     ),
                     AppSpacing.horizontalMedium,
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Booking #${widget.orderNumber ?? widget.id}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: isDark
-                                      ? AppColors.textPrimary
-                                      : Colors.black,
-                                ),
-                          ),
-                          if (widget.categoryLabel != null &&
-                              widget.categoryLabel!.trim().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.small,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  color: neutralChipColor,
-                                ),
-                                child: Text(
-                                  widget.categoryLabel!.toUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: isDark
-                                            ? AppColors.textSecondary
-                                            : AppColors.textSecondaryLight,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.6,
-                                      ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: isDark ? null : widget.statusColor,
-                        gradient: isDark
-                            ? LinearGradient(
-                                colors: [
-                                  widget.statusColor.withValues(alpha: 0.25),
-                                  Color.lerp(
-                                    widget.statusColor,
-                                    Colors.white,
-                                    0.18,
-                                  )!.withValues(alpha: 0.32),
-                                ],
-                                begin: const Alignment(-1, 0),
-                                end: const Alignment(1, 0),
-                              )
-                            : null,
-                      ),
                       child: Text(
-                        widget.statusLabel,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+                        'Booking #${widget.orderNumber ?? widget.id}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: isDark
+                                  ? AppColors.textPrimary
+                                  : Colors.black,
+                            ),
                       ),
                     ),
                   ],
                 ),
+                if ((widget.categoryLabel != null &&
+                        widget.categoryLabel!.trim().isNotEmpty) ||
+                    widget.statusLabel.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 52), // aligns under the title
+                        if (widget.categoryLabel != null &&
+                            widget.categoryLabel!.trim().isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.small,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              color: neutralChipColor,
+                            ),
+                            child: Text(
+                              widget.categoryLabel!.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: isDark
+                                        ? AppColors.textSecondary
+                                        : AppColors.textSecondaryLight,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                            ),
+                          ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: isDark ? null : widget.statusColor,
+                            gradient: isDark
+                                ? LinearGradient(
+                                    colors: [
+                                      widget.statusColor.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                      Color.lerp(
+                                        widget.statusColor,
+                                        Colors.white,
+                                        0.18,
+                                      )!.withValues(alpha: 0.32),
+                                    ],
+                                    begin: const Alignment(-1, 0),
+                                    end: const Alignment(1, 0),
+                                  )
+                                : null,
+                          ),
+                          child: Text(
+                            widget.statusLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 AppSpacing.verticalSmall,
                 Row(
                   children: [
