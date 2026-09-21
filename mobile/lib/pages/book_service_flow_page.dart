@@ -1583,18 +1583,22 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             ),
           );
         } else {
-          Navigator.of(context).pushReplacementNamed(
+          // Any other status (e.g. "pending" — no payment attempt was ever
+          // recorded, which is exactly what happens when the checkout is
+          // cancelled before reaching Cashfree) is NOT a success. Showing
+          // "Payment received" here regardless of what actually happened
+          // was the bug — a cancelled payment displayed as received.
+          Navigator.of(context).pushNamed(
             '/payment-status',
             arguments: PaymentStatusPage(
-              success: true,
-              title: 'Payment received',
+              success: false,
+              title: 'Payment not confirmed',
               message:
-                  'Cashfree reported success. We are confirming your booking status in the background.',
-              primaryButtonLabel: 'Go to home',
-              primaryRoute: '/customer',
-              clearStackOnPrimary: true,
-              secondaryButtonLabel: 'View bookings',
-              secondaryRoute: '/bookings',
+                  'We could not confirm this payment (status: $paymentStatus). If you completed the payment, it will be confirmed shortly — check My Bookings. Otherwise, please try again.',
+              primaryButtonLabel: 'Try again',
+              onPrimaryPressed: _restoreCheckoutAfterPaymentFailure,
+              secondaryButtonLabel: 'Go to home',
+              secondaryRoute: '/customer',
               clearStackOnSecondary: true,
             ),
           );
