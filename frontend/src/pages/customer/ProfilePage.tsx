@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Save, Plus, Trash2, Home, Car, LogOut } from 'lucide-react';
@@ -44,6 +44,11 @@ const ProfilePage: React.FC = () => {
 
   // Address Form State
   const [newAddress, setNewAddress] = useState({ label: 'Home', address: '', lat: 12.9716, lng: 77.5946 });
+
+  const availableAddressLabels = useMemo(() => {
+    const usedLabels = new Set((user?.addresses || []).map((a) => a.label.trim().toLowerCase()));
+    return ['Home', 'Work', 'Other'].filter((l) => l === 'Other' || !usedLabels.has(l.toLowerCase()));
+  }, [user?.addresses]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -256,7 +261,18 @@ const ProfilePage: React.FC = () => {
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary" /> Saved Addresses
           </h3>
-          <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
+          <Dialog
+            open={isAddressModalOpen}
+            onOpenChange={(open) => {
+              setIsAddressModalOpen(open);
+              if (open) {
+                setNewAddress((prev) => ({
+                  ...prev,
+                  label: availableAddressLabels[0] || 'Other',
+                }));
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <Plus className="w-4 h-4" /> Add Address
@@ -269,14 +285,14 @@ const ProfilePage: React.FC = () => {
               <div className="space-y-4 py-2 min-w-0">
                 <div className="space-y-2">
                   <Label>Label</Label>
-                  <select 
+                  <select
                     className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     value={newAddress.label}
                     onChange={(e) => setNewAddress({ ...newAddress, label: e.target.value })}
                   >
-                    <option value="Home">Home</option>
-                    <option value="Work">Work</option>
-                    <option value="Other">Other</option>
+                    {availableAddressLabels.map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">

@@ -1095,9 +1095,22 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
   List<PlacePrediction> _searchResults = [];
   String _placesSessionToken = PlacesService.newSessionToken();
 
+  List<String> get _availableLabels {
+    final usedLabels = widget.user.addresses
+        .map((a) => a.label.trim().toLowerCase())
+        .toSet();
+    return ['Home', 'Work', 'Other']
+        .where((l) => l == 'Other' || !usedLabels.contains(l.toLowerCase()))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
+    final available = _availableLabels;
+    if (!available.contains(_label)) {
+      _label = available.isNotEmpty ? available.first : 'Other';
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _useCurrentLocation(silent: true);
     });
@@ -1334,7 +1347,7 @@ class _AddAddressSheetState extends State<_AddAddressSheet> {
                 labelText: 'Label',
                 border: OutlineInputBorder(),
               ),
-              items: ['Home', 'Work', 'Other']
+              items: _availableLabels
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (v) => setState(() => _label = v!),
