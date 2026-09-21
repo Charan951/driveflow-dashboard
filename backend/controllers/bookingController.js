@@ -178,11 +178,27 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
   try {
     const Service = (await import('../models/Service.js')).default;
     const Vehicle = (await import('../models/Vehicle.js')).default;
-    const { getVehicleDataFromS3 } = await import('../utils/s3Storage.js');
+    const { getVehicleDataFromS3, getVehicleReferenceColumnsFromS3 } = await import('../utils/s3Storage.js');
 
     const services = await Service.find({ _id: { $in: serviceIds } });
     const vehicle = await Vehicle.findById(vehicleId);
     const allRefData = await getVehicleDataFromS3();
+    // Admin-added brand columns keep the field name they were created with
+    // even after their display label is renamed (e.g. "Yokohama Blue Earth
+    // GT" -> "Yokohama [Blue Earth GT]" for clarity) — re-deriving the
+    // field name from the *current* label would silently miss the price.
+    // Resolve by matching the current label back to its real field name
+    // first; only fall back to naive slugification for built-in brands
+    // (Bridgestone, Amaron, ...) whose key has always just been the
+    // lowercased, space-stripped name.
+    const dynamicColumns = await getVehicleReferenceColumnsFromS3().catch(() => []);
+    const resolveBrandFieldNames = (category, brand) => {
+      const naiveFieldName = `${category}_price_${String(brand).toLowerCase().replace(/\s+/g, '')}`;
+      const byLabel = dynamicColumns.find(
+        (c) => c.category === category && String(c.label || '').trim().toLowerCase() === String(brand).trim().toLowerCase()
+      );
+      return [byLabel?.fieldName, naiveFieldName].filter(Boolean);
+    };
 
     let refMatch = null;
     if (vehicle) {
@@ -313,10 +329,19 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
         }
         console.log('Battery price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands: normalizedBrands });
         if (selectedBrand) {
-          const brandKey = `battery_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
-          const brandPrice = refMatch[brandKey];
-          const priceNum = Number(brandPrice);
-          console.log('Resolved battery brand price:', { brandKey, brandPrice, priceNum });
+          const candidateFieldNames = resolveBrandFieldNames('battery', selectedBrand);
+          let brandPrice = null;
+          let priceNum = NaN;
+          for (const fieldName of candidateFieldNames) {
+            const candidate = refMatch[fieldName];
+            const candidateNum = Number(candidate);
+            if (candidate && !isNaN(candidateNum) && candidateNum > 0) {
+              brandPrice = candidate;
+              priceNum = candidateNum;
+              break;
+            }
+          }
+          console.log('Resolved battery brand price:', { candidateFieldNames, brandPrice, priceNum });
           if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
             servicePrice = priceNum;
           } else {
@@ -330,10 +355,19 @@ export const calculateServicesTotal = async (serviceIds, vehicleId, selectedBran
         const selectedBrand = normalizedBrands[service._id.toString()] || normalizedBrands[service._id];
         console.log('Tyre price matching:', { serviceId: service._id, name: service.name, selectedBrand, selectedBrands: normalizedBrands });
         if (selectedBrand) {
-          const brandKey = `tyre_price_${selectedBrand.toLowerCase().replace(/\s+/g, '')}`;
-          const brandPrice = refMatch[brandKey];
-          const priceNum = Number(brandPrice);
-          console.log('Resolved brand price:', { brandKey, brandPrice, priceNum });
+          const candidateFieldNames = resolveBrandFieldNames('tyre', selectedBrand);
+          let brandPrice = null;
+          let priceNum = NaN;
+          for (const fieldName of candidateFieldNames) {
+            const candidate = refMatch[fieldName];
+            const candidateNum = Number(candidate);
+            if (candidate && !isNaN(candidateNum) && candidateNum > 0) {
+              brandPrice = candidate;
+              priceNum = candidateNum;
+              break;
+            }
+          }
+          console.log('Resolved brand price:', { candidateFieldNames, brandPrice, priceNum });
           if (brandPrice && !isNaN(priceNum) && priceNum > 0) {
             servicePrice = priceNum;
           } else {
