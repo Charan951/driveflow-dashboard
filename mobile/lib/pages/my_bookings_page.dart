@@ -519,10 +519,10 @@ class _BookingCardState extends State<_BookingCard> {
                       ),
                       child: Text(
                         widget.statusLabel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : Colors.black87,
+                          color: Colors.white,
                         ),
                       ),
                     ),
