@@ -842,6 +842,65 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
     return service.price.toDouble();
   }
 
+  /// True when this service is expected to have a vehicle-specific price
+  /// (General Service, Car Wash, or any category with an admin-set
+  /// vehiclePricingColumn — includes Essentials when configured that way)
+  /// but the matched Vehicle Reference Data row has no valid positive
+  /// number for it (blank, "NA", or a non-numeric note). Used to show "NA"
+  /// instead of silently falling back to the generic catalog price, and to
+  /// block selecting the service until an admin fills the price in.
+  bool _hasMissingVehiclePrice(ServiceItem service) {
+    final ref = _selectedVehicleReference;
+    if (ref == null) return false;
+
+    double? parsePositive(dynamic raw) {
+      if (raw == null) return null;
+      final trimmed = raw.toString().trim();
+      if (trimmed.isEmpty) return null;
+      final n = double.tryParse(trimmed);
+      return (n != null && n > 0) ? n : null;
+    }
+
+    final cat = (service.category ?? '').toLowerCase();
+    final nameLower = service.name.toLowerCase();
+    final isGeneral =
+        cat == 'periodic' ||
+        cat == 'services' ||
+        nameLower.contains('general service');
+    final isWash = cat == 'car wash' || cat == 'wash' || cat == 'detailing';
+    final column = service.vehiclePricingColumn;
+    final hasDirectColumn =
+        column != null && column != 'tyre_brand' && column != 'battery_brand';
+
+    if (hasDirectColumn) {
+      return parsePositive(ref[column]) == null;
+    }
+    if (isGeneral) {
+      return parsePositive(ref['general_service_price']) == null;
+    }
+    if (isWash) {
+      dynamic raw;
+      if ((nameLower.contains('exterior wash') ||
+              nameLower.contains('exterior only')) &&
+          !nameLower.contains('interior')) {
+        raw = ref['car_wash_exterior_price'];
+      } else if (nameLower.contains('interior + exterior') &&
+          !nameLower.contains('underbody')) {
+        raw = ref['car_wash_interior_exterior_price'];
+      } else if (nameLower.contains('underbody wash') ||
+          (nameLower.contains('interior') &&
+              nameLower.contains('exterior') &&
+              nameLower.contains('underbody'))) {
+        raw = ref['car_wash_interior_exterior_underbody_price'];
+      }
+      if (parsePositive(raw) != null) return false;
+      return parsePositive(ref['car_wash_price']) == null;
+    }
+    // No configured pricing column and not general/wash — nothing to
+    // validate (e.g. an Essentials service always priced from the catalog).
+    return false;
+  }
+
   Widget _buildSelectedServicePrice(ServiceItem service) {
     // Step-2 cards show vehicle-matched price for Services, Car Wash, and Essentials.
     // Tyres/Battery stay brand-driven (price appears on brand chips instead).
@@ -866,6 +925,20 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (!isGeneralServiceItem(service) && !isWash && !isEssentials) {
         return const SizedBox.shrink();
       }
+    }
+
+    if (_hasMissingVehiclePrice(service)) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 4),
+        child: Text(
+          'NA',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.error,
+          ),
+        ),
+      );
     }
 
     final qty = _serviceQuantities[service.id] ?? 1;
@@ -900,6 +973,16 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       if (note != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(note)),
+        );
+        return;
+      }
+      if (_hasMissingVehiclePrice(service)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Price not available for this vehicle yet. Please check back once it has been added.',
+            ),
+          ),
         );
         return;
       }
@@ -2715,6 +2798,19 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             );
             return;
           }
+        } else if (_hasMissingVehiclePrice(service)) {
+          // Defense in depth: the service card already blocks selecting a
+          // service with no vehicle-specific price, but a selection made
+          // before the reference data finished loading could still slip
+          // through — never let checkout proceed with one.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Price not available for this vehicle yet. Please check back once it has been added.',
+              ),
+            ),
+          );
+          return;
         }
       }
     }
