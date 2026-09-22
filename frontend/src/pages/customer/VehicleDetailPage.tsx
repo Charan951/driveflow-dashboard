@@ -490,7 +490,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
       </Dialog>
 
       {/* Edit Vehicle Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen} modal={false}>
         <DialogContent
           className="sm:max-w-lg rounded-2xl max-h-[90dvh] overflow-y-auto"
           onPointerDownOutside={(e) => {
