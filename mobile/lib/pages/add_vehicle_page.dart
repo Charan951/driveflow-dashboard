@@ -117,6 +117,29 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     return set.toList()..sort();
   }
 
+  /// Fuel types actually offered for the selected brand/model(/variant) in
+  /// the catalog — e.g. an Elite i20 2018 Asta(O) only has Petrol/Diesel
+  /// rows, so EV shouldn't be selectable for it. Falls back to the full
+  /// static list until a brand/model is picked, or if no row has a
+  /// recognized fuel type.
+  List<String> get _fuelOptions {
+    if (_selectedBrand == null || _selectedModel == null) {
+      return _fuelTypeOptions;
+    }
+    final set = <String>{};
+    for (final r in _allReferences) {
+      if ((r['brand_name'] ?? '').toString() == _selectedBrand &&
+          (r['model'] ?? '').toString() == _selectedModel &&
+          (_selectedVariant == null ||
+              (r['brand_model'] ?? '').toString() == _selectedVariant)) {
+        final fuel = _normalizeFuelType((r['fuel_type'] ?? '').toString());
+        if (fuel != null) set.add(fuel);
+      }
+    }
+    if (set.isEmpty) return _fuelTypeOptions;
+    return _fuelTypeOptions.where(set.contains).toList();
+  }
+
   Map<String, dynamic>? get _matchedReference {
     if (_selectedBrand == null || _selectedModel == null) return null;
     for (final r in _allReferences) {
@@ -132,11 +155,21 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     return null;
   }
 
+  /// Clears _fuelType if it's no longer one of the options offered for the
+  /// current brand/model/variant selection, rather than leaving a stale
+  /// value (e.g. EV picked, then brand changed to one with no EV rows).
+  void _resetFuelTypeIfInvalid() {
+    if (_fuelType != null && !_fuelOptions.contains(_fuelType)) {
+      _fuelType = null;
+    }
+  }
+
   void _onBrandChanged(String? value) {
     setState(() {
       _selectedBrand = value;
       _selectedModel = null;
       _selectedVariant = null;
+      _resetFuelTypeIfInvalid();
     });
   }
 
@@ -144,12 +177,16 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     setState(() {
       _selectedModel = value;
       _selectedVariant = null;
+      _resetFuelTypeIfInvalid();
     });
     _applyReferenceAutofill();
   }
 
   void _onVariantChanged(String? value) {
-    setState(() => _selectedVariant = value);
+    setState(() {
+      _selectedVariant = value;
+      _resetFuelTypeIfInvalid();
+    });
     _applyReferenceAutofill();
   }
 
@@ -372,8 +409,12 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
           const SizedBox(height: 16),
           _buildDropdownField(
             'Fuel Type',
-            _fuelType,
-            _fuelTypeOptions,
+            // Guard against a DropdownButton assertion error if _fuelType
+            // was set before _fuelOptions had narrowed (e.g. while the
+            // catalog is still loading, or when editing a vehicle whose
+            // saved fuel type is no longer offered for its variant).
+            _fuelOptions.contains(_fuelType) ? _fuelType : null,
+            _fuelOptions,
             (v) => setState(() => _fuelType = v),
             hint: 'Select fuel type',
             required: true,

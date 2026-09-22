@@ -95,6 +95,24 @@ const CustomerVehicleDetailPage: React.FC = () => {
     return Array.from(set).sort();
   }, [catalog, editForm.make, editForm.model]);
 
+  // Fuel types actually offered for the selected brand/model(/variant) in
+  // the catalog — same behavior as AddVehiclePage.
+  const fuelOptions = useMemo(() => {
+    if (!editForm.make || !editForm.model) return FUEL_TYPE_OPTIONS;
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if (
+        (r.brand_name || '') === editForm.make &&
+        (r.model || '') === editForm.model &&
+        (!editForm.variant || (r.brand_model || '') === editForm.variant)
+      ) {
+        const f = (r.fuel_type || '').trim();
+        if (FUEL_TYPE_OPTIONS.includes(f)) set.add(f);
+      }
+    });
+    return set.size > 0 ? FUEL_TYPE_OPTIONS.filter((f) => set.has(f)) : FUEL_TYPE_OPTIONS;
+  }, [catalog, editForm.make, editForm.model, editForm.variant]);
+
   // Auto-fill tyre sizes + fuel type once brand/model/variant resolve to a
   // specific catalog record — same behavior as AddVehiclePage.
   useEffect(() => {
@@ -116,6 +134,14 @@ const CustomerVehicleDetailPage: React.FC = () => {
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, editForm.make, editForm.model, editForm.variant]);
+
+  // If the vehicle selection narrows and the currently picked fuel type is
+  // no longer offered for it, clear it rather than leave a stale value.
+  useEffect(() => {
+    if (editForm.fuel && !fuelOptions.includes(editForm.fuel)) {
+      setEditForm((prev) => ({ ...prev, fuel: '' }));
+    }
+  }, [fuelOptions, editForm.fuel]);
 
   const openEditDialog = () => {
     if (!vehicle) return;
@@ -465,7 +491,19 @@ const CustomerVehicleDetailPage: React.FC = () => {
 
       {/* Edit Vehicle Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-lg rounded-2xl max-h-[90dvh] overflow-y-auto">
+        <DialogContent
+          className="sm:max-w-lg rounded-2xl max-h-[90dvh] overflow-y-auto"
+          onPointerDownOutside={(e) => {
+            // The Brand/Model/Variant suggestion dropdowns portal to
+            // document.body (so they aren't clipped by this dialog's own
+            // overflow-y-auto) — Radix treats that as an "outside" click
+            // and would otherwise close the whole dialog when picking a
+            // suggestion.
+            if ((e.target as HTMLElement)?.closest('[data-autocomplete-menu]')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Edit Vehicle</DialogTitle>
             <DialogDescription>
@@ -527,7 +565,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
                   className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Select fuel type</option>
-                  {FUEL_TYPE_OPTIONS.map((f) => (
+                  {fuelOptions.map((f) => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>

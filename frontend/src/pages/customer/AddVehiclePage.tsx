@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ChevronDown } from 'lucide-react';
@@ -40,21 +41,54 @@ export const AutocompleteField: React.FC<{
 }> = ({ label, value, options, onSelect, placeholder, required, disabled, matchMode = 'startsWith' }) => {
   const [query, setQuery] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setQuery(value);
   }, [value]);
 
   useEffect(() => {
+    // The suggestion menu is portaled to document.body (see below), so a
+    // click inside it isn't inside containerRef's DOM subtree — check
+    // menuRef too, or a menu-item click would look like an "outside" click
+    // and close the menu before its own onClick fires.
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        !(menuRef.current && menuRef.current.contains(target))
+      ) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Suggestions render via a portal to document.body (position: fixed),
+  // rather than as a normal absolutely-positioned child — otherwise a
+  // scrollable ancestor (e.g. a Dialog's overflow-y-auto content) clips
+  // the dropdown instead of letting it float above everything.
+  useEffect(() => {
+    if (!isOpen) return;
+    const updateRect = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setMenuRect({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [isOpen]);
 
   // Empty query shows the full list (e.g. right after focusing); once the
   // user types, narrow it down to matching options.
@@ -73,6 +107,7 @@ export const AutocompleteField: React.FC<{
       </label>
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           value={query}
           disabled={disabled}
@@ -94,24 +129,31 @@ export const AutocompleteField: React.FC<{
           }`}
         />
       </div>
-      {isOpen && !disabled && filtered.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-popover border border-border rounded-xl shadow-lg">
-          {filtered.map((option) => (
-            <button
-              type="button"
-              key={option}
-              onClick={() => {
-                setQuery(option);
-                onSelect(option);
-                setIsOpen(false);
-              }}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors"
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      )}
+      {isOpen && !disabled && filtered.length > 0 && menuRect &&
+        createPortal(
+          <div
+            ref={menuRef}
+            data-autocomplete-menu
+            style={{ position: 'fixed', top: menuRect.top, left: menuRect.left, width: menuRect.width }}
+            className="z-[100] max-h-56 overflow-y-auto bg-popover border border-border rounded-xl shadow-lg"
+          >
+            {filtered.map((option) => (
+              <button
+                type="button"
+                key={option}
+                onClick={() => {
+                  setQuery(option);
+                  onSelect(option);
+                  setIsOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+              >
+                {option}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
@@ -189,6 +231,25 @@ const AddVehiclePage: React.FC = () => {
     return Array.from(set).sort();
   }, [catalog, formData.make, formData.model]);
 
+  // Fuel types actually offered for the selected brand/model(/variant) in
+  // the catalog — e.g. an Elite i20 2018 Asta(O) only has Petrol/Diesel
+  // rows, so EV shouldn't be selectable for it.
+  const fuelOptions = useMemo(() => {
+    if (!formData.make || !formData.model) return FUEL_TYPE_OPTIONS;
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if (
+        (r.brand_name || '') === formData.make &&
+        (r.model || '') === formData.model &&
+        (!formData.variant || (r.brand_model || '') === formData.variant)
+      ) {
+        const f = (r.fuel_type || '').trim();
+        if (FUEL_TYPE_OPTIONS.includes(f)) set.add(f);
+      }
+    });
+    return set.size > 0 ? FUEL_TYPE_OPTIONS.filter((f) => set.has(f)) : FUEL_TYPE_OPTIONS;
+  }, [catalog, formData.make, formData.model, formData.variant]);
+
   // Auto-fill tyre sizes + fuel type once brand/model (and variant, if
   // picked) resolve to a specific catalog record.
   useEffect(() => {
@@ -209,6 +270,15 @@ const AddVehiclePage: React.FC = () => {
         : prev.fuel,
     }));
   }, [catalog, formData.make, formData.model, formData.variant]);
+
+  // If the vehicle selection narrows and the currently picked fuel type is
+  // no longer one of the options offered for it, clear it rather than
+  // leave a now-invalid selection in place.
+  useEffect(() => {
+    if (formData.fuel && !fuelOptions.includes(formData.fuel)) {
+      setFormData((prev) => ({ ...prev, fuel: '' }));
+    }
+  }, [fuelOptions, formData.fuel]);
 
   const fetchVehicles = async () => {
     try {
@@ -357,7 +427,7 @@ const AddVehiclePage: React.FC = () => {
                   className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Select fuel type</option>
-                  {FUEL_TYPE_OPTIONS.map((f) => (
+                  {fuelOptions.map((f) => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>
