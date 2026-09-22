@@ -2311,7 +2311,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  maxLines: 1,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -2472,7 +2472,7 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
             else
               _buildOptionGrid(
                 crossAxisCount: 2,
-                childAspectRatio: 2.0,
+                childAspectRatio: 1.5,
                 children: brandsToShow.map((brand) {
                   final isSelected = _selectedTireBrands[service.id] == brand;
                   final isNaUnavailable =
