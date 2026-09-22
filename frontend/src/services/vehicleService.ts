@@ -54,6 +54,10 @@ export const vehicleService = {
         const response = await api.post('/vehicles', data);
         return response.data;
     },
+    updateVehicle: async (id: string, data: Partial<Omit<Vehicle, '_id'>>) => {
+        const response = await api.put(`/vehicles/${id}`, data);
+        return response.data;
+    },
     deleteVehicle: async (id: string) => {
         const response = await api.delete(`/vehicles/${id}`);
         return response.data;

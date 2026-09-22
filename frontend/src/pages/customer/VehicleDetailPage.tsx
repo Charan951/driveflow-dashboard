@@ -4,20 +4,23 @@ import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
 import { toast } from 'sonner';
-import { 
-  Car, 
-  Calendar, 
-  FileText, 
+import {
+  Car,
+  Calendar,
+  FileText,
   ArrowLeft,
   Clock,
   Activity,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleHealthIndicators from '@/components/VehicleHealthIndicators';
 import ServiceCategoryDialog from '@/components/ServiceCategoryDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +36,31 @@ const CustomerVehicleDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editLicensePlate, setEditLicensePlate] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    const trimmed = editLicensePlate.trim().toUpperCase();
+    if (!trimmed) {
+      toast.error('Registration number is required');
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      await vehicleService.updateVehicle(id, { licensePlate: trimmed });
+      toast.success('Vehicle updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['vehicle', id] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to update vehicle:', error);
+      toast.error('Failed to update vehicle');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const handleDeleteVehicle = async () => {
     if (!id) return;
@@ -122,7 +150,19 @@ const CustomerVehicleDetailPage: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-mono uppercase tracking-wider">{vehicle.licensePlate}</p>
         </div>
-        <Button 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditLicensePlate(vehicle.licensePlate || '');
+            setEditDialogOpen(true);
+          }}
+          className="flex items-center gap-2"
+        >
+          <Pencil className="w-4 h-4" />
+          Edit
+        </Button>
+        <Button
           variant="destructive"
           size="sm"
           onClick={() => setDeleteDialogOpen(true)}
@@ -314,6 +354,45 @@ const CustomerVehicleDetailPage: React.FC = () => {
               className="rounded-xl min-w-[100px]"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Vehicle Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Vehicle</DialogTitle>
+            <DialogDescription>
+              Update your vehicle's registration number.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="editLicensePlate">Registration Number</Label>
+            <Input
+              id="editLicensePlate"
+              value={editLicensePlate}
+              onChange={(e) => setEditLicensePlate(e.target.value)}
+              placeholder="TS08GH1234"
+              className="uppercase"
+            />
+          </div>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={isSavingEdit}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSavingEdit}
+              className="rounded-xl min-w-[100px]"
+            >
+              {isSavingEdit ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

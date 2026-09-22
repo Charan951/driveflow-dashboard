@@ -68,6 +68,94 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
     super.dispose();
   }
 
+  Future<void> _showEditDialog() async {
+    final controller = TextEditingController(text: _vehicle.licensePlate);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Vehicle'),
+        content: TextField(
+          controller: controller,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Registration Number',
+            hintText: 'TS08GH1234',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true || !mounted) return;
+
+    final trimmed = controller.text.trim().toUpperCase();
+    if (trimmed.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration number is required')),
+      );
+      return;
+    }
+    try {
+      final updated = await _vehicleService.updateVehicle(
+        _vehicle.id,
+        licensePlate: trimmed,
+      );
+      if (!mounted) return;
+      setState(() => _vehicle = updated);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vehicle updated')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update vehicle: $e')));
+    }
+  }
+
+  Future<void> _showDeleteConfirmation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Vehicle'),
+        content: const Text(
+          'Are you sure you want to delete this vehicle? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _vehicleService.deleteVehicle(_vehicle.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete vehicle: $e')));
+    }
+  }
+
   Future<void> _load() async {
     if (!mounted) return;
     setState(() {
@@ -277,7 +365,18 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
               color: isDark ? Colors.white : Colors.black,
             ),
           ),
-          actions: const [],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit vehicle',
+              onPressed: _showEditDialog,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete vehicle',
+              onPressed: _showDeleteConfirmation,
+            ),
+          ],
         ),
         body: NestedScrollView(
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {

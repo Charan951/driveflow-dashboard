@@ -152,6 +152,29 @@ class VehicleService {
     throw ApiException(statusCode: 500, message: 'Unexpected response type');
   }
 
+  Future<Vehicle> updateVehicle(
+    String id, {
+    String? licensePlate,
+    String? color,
+  }) async {
+    final res = await _api.putAny(
+      ApiEndpoints.vehicleById(id),
+      body: {
+        'licensePlate': licensePlate,
+        'color': color,
+      }..removeWhere((k, v) => v == null),
+    );
+    clearCache();
+    if (res is Map<String, dynamic>) return Vehicle.fromJson(res);
+    if (res is Map) return Vehicle.fromJson(Map<String, dynamic>.from(res));
+    throw ApiException(statusCode: 500, message: 'Unexpected response type');
+  }
+
+  Future<void> deleteVehicle(String id) async {
+    await _api.deleteAny(ApiEndpoints.vehicleById(id));
+    clearCache();
+  }
+
   Future<Map<String, dynamic>?> searchReference({
     required String make,
     required String model,

@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getVehicles,
   addVehicle,
+  updateVehicle,
   deleteVehicle,
   getAllVehicles,
   fetchVehicleDetails,
@@ -28,6 +29,7 @@ router.route('/user/:userId').get(protect, getUserVehicles);
 
 router.route('/:id')
   .get(protect, getVehicleById)
+  .put(protect, updateVehicle)
   .delete(protect, deleteVehicle);
 
 export default router;

@@ -317,6 +317,60 @@ export const addVehicle = async (req, res) => {
   }
 };
 
+// @desc    Update vehicle
+// @route   PUT /api/vehicles/:id
+// @access  Private (owner or admin)
+export const updateVehicle = async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) {
+      return res.status(404).json({ message: 'Vehicle not found' });
+    }
+
+    const isOwner = vehicle.user.toString() === req.user._id.toString();
+    const isAdmin = req.user.role?.toLowerCase() === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    const {
+      licensePlate, make, model, variant, year, fuelType, type, color,
+      image, vin, frontTyres, rearTyres, batteryDetails, pickupDropPrice,
+    } = req.body;
+
+    if (licensePlate !== undefined) vehicle.licensePlate = licensePlate;
+    if (make !== undefined) vehicle.make = make;
+    if (model !== undefined) vehicle.model = model;
+    if (variant !== undefined) vehicle.variant = variant;
+    if (year !== undefined) vehicle.year = year;
+    if (fuelType !== undefined) vehicle.fuelType = fuelType;
+    if (type !== undefined) vehicle.type = type;
+    if (color !== undefined) vehicle.color = color;
+    if (image !== undefined) vehicle.image = image;
+    if (vin !== undefined) vehicle.vin = vin;
+    if (frontTyres !== undefined) vehicle.frontTyres = frontTyres;
+    if (rearTyres !== undefined) vehicle.rearTyres = rearTyres;
+    if (batteryDetails !== undefined) vehicle.batteryDetails = batteryDetails;
+    if (pickupDropPrice !== undefined) vehicle.pickupDropPrice = pickupDropPrice;
+
+    const updatedVehicle = await vehicle.save();
+
+    try {
+      const io = (await import('../socket.js')).getIO();
+      const payload = { vehicleId: updatedVehicle._id, userId: updatedVehicle.user };
+      io.to('admin').emit('vehicleUpdated', payload);
+      io.to(`user_${updatedVehicle.user}`).emit('vehicleUpdated', payload);
+      emitEntitySync('vehicle', 'updated', updatedVehicle);
+    } catch (err) {
+      // Non-fatal — the update itself succeeded.
+    }
+
+    res.json(updatedVehicle);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 // @desc    Delete vehicle
 // @route   DELETE /api/vehicles/:id
 // @access  Private
