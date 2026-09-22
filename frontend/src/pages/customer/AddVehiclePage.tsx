@@ -33,7 +33,11 @@ export const AutocompleteField: React.FC<{
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
-}> = ({ label, value, options, onSelect, placeholder, required, disabled }) => {
+  /** 'startsWith' (default, e.g. Brand) or 'contains' (e.g. Model/Variant —
+   * lets "i20" match "Elite i20" or "asta" match any variant with "Asta"
+   * anywhere in it). */
+  matchMode?: 'startsWith' | 'contains';
+}> = ({ label, value, options, onSelect, placeholder, required, disabled, matchMode = 'startsWith' }) => {
   const [query, setQuery] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,8 +61,10 @@ export const AutocompleteField: React.FC<{
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
-    return options.filter((o) => o.toLowerCase().startsWith(q));
-  }, [query, options]);
+    return options.filter((o) =>
+      matchMode === 'contains' ? o.toLowerCase().includes(q) : o.toLowerCase().startsWith(q)
+    );
+  }, [query, options, matchMode]);
 
   return (
     <div ref={containerRef} className="relative">
@@ -327,6 +333,7 @@ const AddVehiclePage: React.FC = () => {
                 disabled={!formData.make}
                 placeholder={formData.make ? 'Type to search model' : 'Select brand first'}
                 onSelect={(v) => setFormData((prev) => ({ ...prev, model: v, variant: '' }))}
+                matchMode="contains"
               />
               <AutocompleteField
                 label="Variant/Class"
@@ -336,6 +343,7 @@ const AddVehiclePage: React.FC = () => {
                 disabled={!formData.model}
                 placeholder={formData.model ? 'Type to search variant' : 'Select model first'}
                 onSelect={(v) => setFormData((prev) => ({ ...prev, variant: v }))}
+                matchMode="contains"
               />
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">

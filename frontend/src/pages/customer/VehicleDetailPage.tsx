@@ -505,6 +505,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
                 disabled={!editForm.make}
                 placeholder={editForm.make ? 'Type to search model' : 'Select brand first'}
                 onSelect={(v) => setEditForm((prev) => ({ ...prev, model: v, variant: '' }))}
+                matchMode="contains"
               />
               <AutocompleteField
                 label="Variant/Class"
@@ -514,6 +515,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
                 disabled={!editForm.model}
                 placeholder={editForm.model ? 'Type to search variant' : 'Select model first'}
                 onSelect={(v) => setEditForm((prev) => ({ ...prev, variant: v }))}
+                matchMode="contains"
               />
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">

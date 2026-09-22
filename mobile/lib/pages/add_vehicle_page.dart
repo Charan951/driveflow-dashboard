@@ -352,6 +352,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                   : 'Type to search model',
               enabled: _selectedBrand != null,
               required: true,
+              matchAnywhere: true,
             ),
             const SizedBox(height: 16),
             _buildAutocompleteField(
@@ -365,6 +366,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                   : 'Type to search variant',
               enabled: _selectedModel != null,
               required: true,
+              matchAnywhere: true,
             ),
           ],
           const SizedBox(height: 16),
@@ -576,6 +578,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
     String? hint,
     bool required = false,
     bool enabled = true,
+    bool matchAnywhere = false,
   }) {
     return _SearchableDropdownField(
       key: key,
@@ -587,6 +590,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
       required: required,
       enabled: enabled,
       matchOption: _matchOption,
+      matchAnywhere: matchAnywhere,
     );
   }
 }
@@ -606,6 +610,11 @@ class _SearchableDropdownField extends StatefulWidget {
   final bool required;
   final bool enabled;
   final String? Function(String? raw, List<String> options) matchOption;
+  /// false (default, e.g. Brand): only options starting with the typed
+  /// text match. true (e.g. Model/Variant): the typed text can match
+  /// anywhere in the option, so "i20" finds "Elite i20" and "asta" finds
+  /// every variant with "Asta" in it.
+  final bool matchAnywhere;
 
   const _SearchableDropdownField({
     super.key,
@@ -617,6 +626,7 @@ class _SearchableDropdownField extends StatefulWidget {
     this.hint,
     this.required = false,
     this.enabled = true,
+    this.matchAnywhere = false,
   });
 
   @override
@@ -662,7 +672,13 @@ class _SearchableDropdownFieldState extends State<_SearchableDropdownField> {
     final q = query.trim().toLowerCase();
     _filtered = q.isEmpty
         ? widget.options
-        : widget.options.where((o) => o.toLowerCase().startsWith(q)).toList();
+        : widget.options
+              .where(
+                (o) => widget.matchAnywhere
+                    ? o.toLowerCase().contains(q)
+                    : o.toLowerCase().startsWith(q),
+              )
+              .toList();
     if (_filtered.isEmpty) {
       _removeOverlay();
       return;
