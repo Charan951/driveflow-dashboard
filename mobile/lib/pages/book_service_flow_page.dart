@@ -1010,8 +1010,15 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final ref = await _vehicleService.searchReference(
         make: clean(vehicle.make),
         model: clean(vehicle.model),
+        // Not bracket-stripped: the backend matches variant against the
+        // full brand_model value verbatim (e.g. "2023 [ X-Line ]"), which
+        // is exactly what's saved on the vehicle. Stripping the bracket
+        // here (as `clean` does for make/model noise) throws away the
+        // actual trim, so the exact-variant match always misses and this
+        // silently falls back to matching any row for the model/year —
+        // showing a different trim's tyre size entirely.
         variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
-            ? clean(vehicle.variant)
+            ? vehicle.variant!.trim()
             : null,
         fuelType: vehicle.fuelType,
       );
@@ -1087,8 +1094,11 @@ class _BookServiceFlowPageState extends State<BookServiceFlowPage> {
       final ref = await _vehicleService.searchReference(
         make: clean(vehicle.make),
         model: clean(vehicle.model),
+        // See the comment on the same call in _autoFillTireSize: the
+        // backend matches variant against the full brand_model value
+        // verbatim, so it must not be bracket-stripped here.
         variant: vehicle.variant != null && vehicle.variant!.trim().isNotEmpty
-            ? clean(vehicle.variant)
+            ? vehicle.variant!.trim()
             : null,
         fuelType: vehicle.fuelType,
       );
