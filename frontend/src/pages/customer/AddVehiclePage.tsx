@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { getVehicleReference } from '@/services/vehicleReferenceService';
 import { isValidLicensePlate } from '@/lib/formValidation';
 
-interface ReferenceRecord {
+export interface ReferenceRecord {
   brand_name?: string;
   model?: string;
   brand_model?: string;
@@ -25,7 +25,7 @@ interface ReferenceRecord {
  * <select>. Only a value from `options` (or empty) is treated as "selected"
  * — typed text that doesn't match anything just doesn't fire onSelect until
  * the user picks a suggestion. */
-const AutocompleteField: React.FC<{
+export const AutocompleteField: React.FC<{
   label: string;
   value: string;
   options: string[];
@@ -110,7 +110,7 @@ const AutocompleteField: React.FC<{
   );
 };
 
-const FUEL_TYPE_OPTIONS = ['Petrol', 'Diesel', 'EV'];
+export const FUEL_TYPE_OPTIONS = ['Petrol', 'Diesel', 'EV'];
 
 const AddVehiclePage: React.FC = () => {
   const navigate = useNavigate();

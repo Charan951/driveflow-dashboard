@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { vehicleService, Vehicle } from '@/services/vehicleService';
 import { bookingService, Booking } from '@/services/bookingService';
 import { serviceService, Service } from '@/services/serviceService';
+import { getVehicleReference } from '@/services/vehicleReferenceService';
+import { AutocompleteField, FUEL_TYPE_OPTIONS, ReferenceRecord } from './AddVehiclePage';
+import { isValidLicensePlate } from '@/lib/formValidation';
 import { toast } from 'sonner';
 import {
   Car,
@@ -37,19 +40,123 @@ const CustomerVehicleDetailPage: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editLicensePlate, setEditLicensePlate] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    licensePlate: '',
+    make: '',
+    model: '',
+    variant: '',
+    fuel: '',
+    frontTyres: '',
+    rearTyres: '',
+  });
+
+  // Brand → Model → Variant catalog, same source AddVehiclePage uses.
+  const [catalog, setCatalog] = useState<ReferenceRecord[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+
+  useEffect(() => {
+    getVehicleReference()
+      .then((data) => setCatalog(Array.isArray(data) ? data : []))
+      .catch(() => setCatalog([]))
+      .finally(() => setIsLoadingCatalog(false));
+  }, []);
+
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      const b = (r.brand_name || '').trim();
+      if (b) set.add(b);
+    });
+    return Array.from(set).sort();
+  }, [catalog]);
+
+  const modelOptions = useMemo(() => {
+    if (!editForm.make) return [];
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if ((r.brand_name || '') === editForm.make) {
+        const m = (r.model || '').trim();
+        if (m) set.add(m);
+      }
+    });
+    return Array.from(set).sort();
+  }, [catalog, editForm.make]);
+
+  const variantOptions = useMemo(() => {
+    if (!editForm.make || !editForm.model) return [];
+    const set = new Set<string>();
+    catalog.forEach((r) => {
+      if ((r.brand_name || '') === editForm.make && (r.model || '') === editForm.model) {
+        const v = (r.brand_model || '').trim();
+        if (v) set.add(v);
+      }
+    });
+    return Array.from(set).sort();
+  }, [catalog, editForm.make, editForm.model]);
+
+  // Auto-fill tyre sizes + fuel type once brand/model/variant resolve to a
+  // specific catalog record — same behavior as AddVehiclePage.
+  useEffect(() => {
+    if (!editForm.make || !editForm.model) return;
+    const match = catalog.find(
+      (r) =>
+        (r.brand_name || '') === editForm.make &&
+        (r.model || '') === editForm.model &&
+        (!editForm.variant || (r.brand_model || '') === editForm.variant)
+    );
+    if (!match) return;
+    setEditForm((prev) => ({
+      ...prev,
+      frontTyres: (match.front_tyres as string) || prev.frontTyres,
+      rearTyres: (match.rear_tyres as string) || prev.rearTyres,
+      fuel: FUEL_TYPE_OPTIONS.includes((match.fuel_type as string) || '')
+        ? (match.fuel_type as string)
+        : prev.fuel,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, editForm.make, editForm.model, editForm.variant]);
+
+  const openEditDialog = () => {
+    if (!vehicle) return;
+    setEditForm({
+      licensePlate: vehicle.licensePlate || '',
+      make: vehicle.make || '',
+      model: vehicle.model || '',
+      variant: vehicle.variant || '',
+      fuel: vehicle.fuelType || '',
+      frontTyres: vehicle.frontTyres || '',
+      rearTyres: vehicle.rearTyres || '',
+    });
+    setEditDialogOpen(true);
+  };
 
   const handleSaveEdit = async () => {
     if (!id) return;
-    const trimmed = editLicensePlate.trim().toUpperCase();
-    if (!trimmed) {
-      toast.error('Registration number is required');
+    const plate = editForm.licensePlate.trim().toUpperCase();
+    if (!isValidLicensePlate(plate)) {
+      toast.error('Please enter a valid registration number (e.g. MH 02 AB 1234)');
+      return;
+    }
+    if (!editForm.make.trim() || !editForm.model.trim() || !editForm.variant.trim()) {
+      toast.error('Please select a brand, model and variant from the suggestions');
+      return;
+    }
+    if (!editForm.fuel.trim()) {
+      toast.error('Please select a fuel type');
       return;
     }
     setIsSavingEdit(true);
     try {
-      await vehicleService.updateVehicle(id, { licensePlate: trimmed });
+      await vehicleService.updateVehicle(id, {
+        licensePlate: plate,
+        make: editForm.make.trim(),
+        model: editForm.model.trim(),
+        variant: editForm.variant.trim(),
+        fuelType: editForm.fuel.trim(),
+        frontTyres: editForm.frontTyres,
+        rearTyres: editForm.rearTyres,
+      });
       toast.success('Vehicle updated successfully');
       queryClient.invalidateQueries({ queryKey: ['vehicle', id] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
@@ -153,10 +260,7 @@ const CustomerVehicleDetailPage: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {
-            setEditLicensePlate(vehicle.licensePlate || '');
-            setEditDialogOpen(true);
-          }}
+          onClick={openEditDialog}
           className="flex items-center gap-2"
         >
           <Pencil className="w-4 h-4" />
@@ -361,22 +465,72 @@ const CustomerVehicleDetailPage: React.FC = () => {
 
       {/* Edit Vehicle Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+        <DialogContent className="sm:max-w-lg rounded-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Vehicle</DialogTitle>
             <DialogDescription>
-              Update your vehicle's registration number.
+              Update your vehicle's registration, brand, model and variant.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="editLicensePlate">Registration Number</Label>
-            <Input
-              id="editLicensePlate"
-              value={editLicensePlate}
-              onChange={(e) => setEditLicensePlate(e.target.value)}
-              placeholder="TS08GH1234"
-              className="uppercase"
-            />
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="editLicensePlate">Registration Number</Label>
+              <Input
+                id="editLicensePlate"
+                value={editForm.licensePlate}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, licensePlate: e.target.value.toUpperCase() }))
+                }
+                placeholder="e.g. MH 02 AB 1234"
+                className="uppercase"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AutocompleteField
+                label="Brand"
+                value={editForm.make}
+                options={brandOptions}
+                required
+                disabled={isLoadingCatalog}
+                placeholder={isLoadingCatalog ? 'Loading brands...' : 'Type to search brand'}
+                onSelect={(v) =>
+                  setEditForm((prev) => ({ ...prev, make: v, model: '', variant: '' }))
+                }
+              />
+              <AutocompleteField
+                label="Model"
+                value={editForm.model}
+                options={modelOptions}
+                required
+                disabled={!editForm.make}
+                placeholder={editForm.make ? 'Type to search model' : 'Select brand first'}
+                onSelect={(v) => setEditForm((prev) => ({ ...prev, model: v, variant: '' }))}
+              />
+              <AutocompleteField
+                label="Variant/Class"
+                value={editForm.variant}
+                options={variantOptions}
+                required
+                disabled={!editForm.model}
+                placeholder={editForm.model ? 'Type to search variant' : 'Select model first'}
+                onSelect={(v) => setEditForm((prev) => ({ ...prev, variant: v }))}
+              />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Fuel Type <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={editForm.fuel}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, fuel: e.target.value }))}
+                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select fuel type</option>
+                  {FUEL_TYPE_OPTIONS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
           <DialogFooter className="gap-3">
             <Button

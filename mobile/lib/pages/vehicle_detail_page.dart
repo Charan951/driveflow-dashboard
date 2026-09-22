@@ -15,6 +15,7 @@ import '../services/vehicle_service.dart';
 import '../utils/auth_gate.dart';
 import '../utils/vehicle_health.dart';
 import 'book_service_flow_page.dart';
+import 'add_vehicle_page.dart';
 import '../widgets/gradient_button.dart';
 
 /// Order and copy aligned with [frontend/src/components/VehicleHealthIndicators.tsx].
@@ -69,55 +70,13 @@ class _VehicleDetailPageState extends State<VehicleDetailPage>
   }
 
   Future<void> _showEditDialog() async {
-    final controller = TextEditingController(text: _vehicle.licensePlate);
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Vehicle'),
-        content: TextField(
-          controller: controller,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Registration Number',
-            hintText: 'TS08GH1234',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Save'),
-          ),
-        ],
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddVehiclePage(editingVehicle: _vehicle),
       ),
     );
-    if (saved != true || !mounted) return;
-
-    final trimmed = controller.text.trim().toUpperCase();
-    if (trimmed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration number is required')),
-      );
-      return;
-    }
-    try {
-      final updated = await _vehicleService.updateVehicle(
-        _vehicle.id,
-        licensePlate: trimmed,
-      );
-      if (!mounted) return;
-      setState(() => _vehicle = updated);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vehicle updated')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update vehicle: $e')));
+    if (updated == true && mounted) {
+      _load();
     }
   }
 

@@ -3,9 +3,14 @@ import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../core/form_validation.dart';
 import '../../services/vehicle_service.dart';
+import '../models/vehicle.dart';
 
 class AddVehiclePage extends StatefulWidget {
-  const AddVehiclePage({super.key});
+  /// When set, the page edits this vehicle (brand/model/variant/
+  /// registration/fuel type) instead of adding a new one.
+  final Vehicle? editingVehicle;
+
+  const AddVehiclePage({super.key, this.editingVehicle});
 
   @override
   State<AddVehiclePage> createState() => _AddVehiclePageState();
@@ -36,9 +41,23 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
   String? _selectedModel;
   String? _selectedVariant;
 
+  bool get _isEditing => widget.editingVehicle != null;
+
   @override
   void initState() {
     super.initState();
+    final editing = widget.editingVehicle;
+    if (editing != null) {
+      _licensePlateController.text = editing.licensePlate;
+      _frontTyresController.text = editing.frontTyres ?? '';
+      _rearTyresController.text = editing.rearTyres ?? '';
+      _batteryDetailsController.text = editing.batteryDetails ?? '';
+      _pickupDropPriceController.text = editing.pickupDropPrice ?? '';
+      _selectedBrand = editing.make;
+      _selectedModel = editing.model;
+      _selectedVariant = editing.variant;
+      _fuelType = _normalizeFuelType(editing.fuelType) ?? editing.fuelType;
+    }
     _loadReferenceCatalog();
   }
 
@@ -198,30 +217,56 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
 
     setState(() => _isLoading = true);
     try {
-      await _service.addVehicle(
-        licensePlate: _licensePlateController.text.trim().toUpperCase(),
-        make: _selectedBrand!,
-        model: _selectedModel!,
-        variant: _selectedVariant,
-        type: _type,
-        fuelType: _fuelType,
-        frontTyres: _frontTyresController.text.trim(),
-        rearTyres: _rearTyresController.text.trim(),
-        batteryDetails: _batteryDetailsController.text.trim(),
-        pickupDropPrice: _pickupDropPriceController.text.trim(),
-      );
+      final editing = widget.editingVehicle;
+      if (editing != null) {
+        await _service.updateVehicle(
+          editing.id,
+          licensePlate: _licensePlateController.text.trim().toUpperCase(),
+          make: _selectedBrand!,
+          model: _selectedModel!,
+          variant: _selectedVariant,
+          fuelType: _fuelType,
+          frontTyres: _frontTyresController.text.trim(),
+          rearTyres: _rearTyresController.text.trim(),
+        );
+      } else {
+        await _service.addVehicle(
+          licensePlate: _licensePlateController.text.trim().toUpperCase(),
+          make: _selectedBrand!,
+          model: _selectedModel!,
+          variant: _selectedVariant,
+          type: _type,
+          fuelType: _fuelType,
+          frontTyres: _frontTyresController.text.trim(),
+          rearTyres: _rearTyresController.text.trim(),
+          batteryDetails: _batteryDetailsController.text.trim(),
+          pickupDropPrice: _pickupDropPriceController.text.trim(),
+        );
+      }
       _service.clearCache();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vehicle added successfully!')),
+          SnackBar(
+            content: Text(
+              _isEditing
+                  ? 'Vehicle updated successfully!'
+                  : 'Vehicle added successfully!',
+            ),
+          ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add vehicle: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isEditing
+                  ? 'Failed to update vehicle: $e'
+                  : 'Failed to add vehicle: $e',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -238,7 +283,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          'Add Vehicle',
+          _isEditing ? 'Edit Vehicle' : 'Add Vehicle',
           style: TextStyle(
             color: isDark ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
@@ -261,7 +306,7 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Confirm Vehicle Details',
+            _isEditing ? 'Edit Vehicle Details' : 'Confirm Vehicle Details',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 24),
@@ -357,9 +402,9 @@ class _AddVehiclePageState extends State<AddVehiclePage> {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      'Save Vehicle',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                  : Text(
+                      _isEditing ? 'Update Vehicle' : 'Save Vehicle',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),
           ),

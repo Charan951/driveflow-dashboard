@@ -155,13 +155,29 @@ class VehicleService {
   Future<Vehicle> updateVehicle(
     String id, {
     String? licensePlate,
+    String? make,
+    String? model,
+    String? variant,
+    String? fuelType,
     String? color,
+    String? frontTyres,
+    String? rearTyres,
+    String? batteryDetails,
+    String? pickupDropPrice,
   }) async {
     final res = await _api.putAny(
       ApiEndpoints.vehicleById(id),
       body: {
         'licensePlate': licensePlate,
+        'make': make,
+        'model': model,
+        'variant': variant,
+        'fuelType': fuelType,
         'color': color,
+        'frontTyres': frontTyres,
+        'rearTyres': rearTyres,
+        'batteryDetails': batteryDetails,
+        'pickupDropPrice': pickupDropPrice,
       }..removeWhere((k, v) => v == null),
     );
     clearCache();
