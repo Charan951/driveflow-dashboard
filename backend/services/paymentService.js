@@ -8,6 +8,8 @@ import Booking from '../models/Booking.js';
 import Coupon from '../models/Coupon.js';
 import AvailableServicePincode from '../models/AvailableServicePincode.js';
 import { emitBookingUpdate } from '../controllers/bookingController.js';
+import { sendEmail } from '../utils/emailService.js';
+import { getBookingStatusEmail } from '../utils/emailTemplates.js';
 import {
   calculateOrderTotals,
   shouldApplyCheckoutGst,
@@ -347,6 +349,26 @@ class PaymentService {
           emitBookingUpdate(populated);
         }
       }
+    }
+
+    if (mappedStatus === 'paid' && booking) {
+      try {
+        const emailBooking = await Booking.findById(booking._id)
+          .populate('user', 'id name email phone')
+          .populate('vehicle');
+        if (emailBooking?.user?.email) {
+          const orderRef =
+            emailBooking.orderNumber || String(emailBooking._id).slice(-8).toUpperCase();
+          const paidEmail = getBookingStatusEmail('PAYMENT_RECEIVED', {
+            customerName: emailBooking.user.name,
+            bookingId: orderRef,
+            vehicleNumber: emailBooking.vehicle?.licensePlate,
+            amount: gatewayAmount ?? expectedAmount,
+            referenceNumber: payment.cashfreePaymentId || payment.transactionId,
+          });
+          void sendEmail(emailBooking.user.email, paidEmail.subject, paidEmail.text, paidEmail.html).catch(() => {});
+        }
+      } catch (_) {}
     }
 
     return { payment, order, booking };

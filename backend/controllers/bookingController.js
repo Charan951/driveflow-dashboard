@@ -8,6 +8,7 @@ import User from '../models/User.js';
 import { getIO, emitChatMessage } from '../socket.js';
 import { emitEntitySync } from '../utils/syncService.js';
 import { sendEmail } from '../utils/emailService.js';
+import { getBookingStatusEmail, BOOKING_STATUS_EMAIL_KEYS } from '../utils/emailTemplates.js';
 import { normalizeStatus, isValidTransition } from '../utils/statusMachine.js';
 import { sendPushToUser, sendPushToRole } from '../utils/pushService.js';
 import {
@@ -906,11 +907,13 @@ export const createBooking = async (req, res) => {
     // Send confirmation email (asynchronously)
     if (req.user.email) {
       const serviceNames = services.map(s => s.name).join(', ');
-      sendEmail(
-        req.user.email,
-        'Booking Confirmation - Carzzi',
-        `Dear User,\n\nYour booking for ${serviceNames} has been successfully created.\nDate: ${new Date(date).toLocaleDateString()}\nTotal Amount: ₹${totalAmount}\n\nThank you for choosing Carzzi!`
-      ).catch(() => {});
+      const emailTemplate = getBookingStatusEmail('BOOKING_CONFIRMED', {
+        customerName: req.user.name,
+        bookingId: createdBooking.orderNumber || String(createdBooking._id).slice(-8).toUpperCase(),
+        service: serviceNames,
+        dateTime: new Date(date).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+      });
+      sendEmail(req.user.email, emailTemplate.subject, emailTemplate.text, emailTemplate.html).catch(() => {});
     }
 
     const payload = sanitizeBooking(attachHealthPercentToBookingPayload(createdBooking), req.user);
@@ -1999,13 +2002,41 @@ export const updateBookingStatus = async (req, res) => {
         }
       }
 
-      // Send status update email
+      // Send status update email — a branded template for the statuses
+      // customers care about, falling back to a generic notice for the
+      // rest (ASSIGNED, REACHED_CUSTOMER, MERCHANT_INSPECTION, etc.).
       if (updatedBooking.user && updatedBooking.user.email) {
-        sendEmail(
-          updatedBooking.user.email,
-          'Booking Status Update - Carzzi',
-          `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
-        ).catch(() => {});
+        const orderRefForEmail =
+          updatedBooking.orderNumber ||
+          String(updatedBooking._id).slice(-8).toUpperCase();
+        const vehicleNumberForEmail = updatedBooking.vehicle?.licensePlate;
+        const serviceNamesForEmail = Array.isArray(updatedBooking.services)
+          ? updatedBooking.services.map((s) => s.name).filter(Boolean).join(', ')
+          : undefined;
+        const vehicleLabelForEmail = updatedBooking.vehicle
+          ? [updatedBooking.vehicle.make, updatedBooking.vehicle.model].filter(Boolean).join(' ')
+          : undefined;
+
+        const templateKey = BOOKING_STATUS_EMAIL_KEYS[canonTo];
+        const statusEmail = templateKey
+          ? getBookingStatusEmail(templateKey, {
+              customerName: updatedBooking.user.name,
+              bookingId: orderRefForEmail,
+              service: serviceNamesForEmail,
+              vehicle: vehicleLabelForEmail,
+              vehicleNumber: vehicleNumberForEmail,
+            })
+          : null;
+
+        if (statusEmail) {
+          sendEmail(updatedBooking.user.email, statusEmail.subject, statusEmail.text, statusEmail.html).catch(() => {});
+        } else {
+          sendEmail(
+            updatedBooking.user.email,
+            'Booking Status Update - Carzzi',
+            `Dear ${updatedBooking.user.name},\n\nYour booking status has been updated to: ${canonTo}.\n\nCheck your dashboard for more details.`
+          ).catch(() => {});
+        }
       }
       const paymentStatus = (updatedBooking.paymentStatus || '').toLowerCase();
       const isAlreadyPaid =
@@ -2036,6 +2067,20 @@ export const updateBookingStatus = async (req, res) => {
           'service_completed_payment_pending',
           { dataOnly: true }
         ).catch(() => {});
+        if (updatedBooking.user.email) {
+          const paymentPendingEmail = getBookingStatusEmail('PAYMENT_PENDING', {
+            customerName: updatedBooking.user.name,
+            bookingId: orderRef,
+            vehicleNumber: updatedBooking.vehicle?.licensePlate,
+            amount: amountDue,
+          });
+          void sendEmail(
+            updatedBooking.user.email,
+            paymentPendingEmail.subject,
+            paymentPendingEmail.text,
+            paymentPendingEmail.html
+          ).catch(() => {});
+        }
       } else if (
         canonTo === 'SERVICE_STARTED' &&
         req.user.role === 'merchant' &&

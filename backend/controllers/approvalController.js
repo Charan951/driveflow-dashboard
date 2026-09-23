@@ -6,6 +6,8 @@ import { emitBookingUpdate, calculateServicesTotal } from './bookingController.j
 import { emitEntitySync } from '../utils/syncService.js';
 
 import { sendPushToUser } from '../utils/pushService.js';
+import { sendEmail } from '../utils/emailService.js';
+import { getBookingStatusEmail } from '../utils/emailTemplates.js';
 
 import Message from '../models/Message.js';
 
@@ -205,7 +207,24 @@ export const createApproval = async (req, res) => {
           'order',
           { dataOnly: true }
         );
-        
+
+        if (booking.user.email) {
+          const orderRef =
+            booking.orderNumber || relatedId.toString().slice(-8).toUpperCase();
+          const estimateEmail = getBookingStatusEmail('ESTIMATE_APPROVAL_REQUIRED', {
+            customerName: booking.user.name,
+            bookingId: orderRef,
+            vehicleNumber: booking.vehicle?.licensePlate,
+            amount: totalAmount,
+          });
+          void sendEmail(
+            booking.user.email,
+            estimateEmail.subject,
+            estimateEmail.text,
+            estimateEmail.html
+          ).catch(() => {});
+        }
+
         // Global Real-time Sync
         emitEntitySync('approval', 'created', createdApproval);
       }
@@ -517,10 +536,34 @@ export const updateApprovalStatus = async (req, res) => {
     }
 
     const updatedApproval = await approval.save();
-    
+
+    if (status === 'Approved' && approval.relatedModel === 'Booking') {
+      try {
+        const emailBooking = await Booking.findById(approval.relatedId)
+          .populate('user', 'id name email phone')
+          .populate('vehicle');
+        if (emailBooking?.user?.email) {
+          const orderRef =
+            emailBooking.orderNumber || String(emailBooking._id).slice(-8).toUpperCase();
+          const approvedEmail = getBookingStatusEmail('ESTIMATE_APPROVED', {
+            customerName: emailBooking.user.name,
+            bookingId: orderRef,
+            vehicleNumber: emailBooking.vehicle?.licensePlate,
+            amount: emailBooking.finalAmount ?? emailBooking.totalAmount,
+          });
+          void sendEmail(
+            emailBooking.user.email,
+            approvedEmail.subject,
+            approvedEmail.text,
+            approvedEmail.html
+          ).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
     // Global Real-time Sync
     emitEntitySync('approval', 'updated', updatedApproval);
-    
+
     res.json(updatedApproval);
   } catch (error) {
     res.status(500).json({ message: error.message });
